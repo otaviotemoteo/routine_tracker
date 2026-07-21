@@ -8,14 +8,17 @@ import {
   createAuthCookieValue,
   passwordsMatch,
 } from "@/lib/auth";
+import type { LoginErrorCode } from "@/lib/i18n";
 import {
   clearLoginFailures,
   isLoginBlocked,
   registerLoginFailure,
 } from "@/lib/rate-limit";
 
+// Errors travel as codes; LoginForm renders them in the selected language.
 export interface LoginState {
-  error: string | null;
+  error: LoginErrorCode | null;
+  retryMinutes?: number;
 }
 
 export async function login(
@@ -27,10 +30,10 @@ export async function login(
   const secret = process.env.AUTH_SECRET;
 
   if (!expected || !secret) {
-    return { error: "Servidor sem APP_PASSWORD ou AUTH_SECRET configurados." };
+    return { error: "server" };
   }
   if (typeof password !== "string" || password.length === 0) {
-    return { error: "Digite a senha." };
+    return { error: "missing" };
   }
 
   // Brute-force guard: 5 wrong passwords per IP per 15 min.
@@ -39,14 +42,12 @@ export async function login(
     .trim();
   const limit = isLoginBlocked(ip);
   if (limit.blocked) {
-    return {
-      error: `Muitas tentativas. Tente de novo em ${limit.retryAfterMinutes} min.`,
-    };
+    return { error: "rate_limited", retryMinutes: limit.retryAfterMinutes };
   }
 
   if (!(await passwordsMatch(password, expected, secret))) {
     registerLoginFailure(ip);
-    return { error: "Senha incorreta. Tente de novo." };
+    return { error: "wrong" };
   }
   clearLoginFailures(ip);
 
