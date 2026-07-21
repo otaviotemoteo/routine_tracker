@@ -56,14 +56,16 @@ Identity: cream paper, deep-green ink, offset hard shadows, thick-bordered cards
 
 ### Palette
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `--papel` | `#F7F3E8` | Overall background |
-| `--mata` | `#17281C` | Text, borders, hard shadows |
-| `--trevo` | `#3D9B4F` | Accent: primary buttons, completed checks, 🟩 cells |
-| `--broto` | `#E3EFE0` | Soft fills: hover, marked card, section tint |
-| `--palha` | `#D9A03F` | Exclusive to streaks 🔥 and achievement highlights |
-| `--cinza-palha` | `#DCD9CC` | Empty cells ⬜, unfilled bars, muted text together with `--mata` opacity |
+In code (tailwind.config.ts) the tokens use English color names; the mapping is fixed:
+
+| Token | Tailwind name | Hex | Use |
+|-------|---------------|-----|-----|
+| `--papel` | `cream` | `#F7F3E8` | Overall background |
+| `--mata` | `forest` | `#17281C` | Text, borders, hard shadows |
+| `--trevo` | `clover` | `#3D9B4F` | Accent: primary buttons, completed checks, done cells |
+| `--broto` | `mint` | `#E3EFE0` | Soft fills: hover, marked card, section tint |
+| `--palha` | `straw` | `#D9A03F` | Exclusive to streaks and achievement highlights |
+| `--cinza-palha` | `sand` | `#DCD9CC` | Empty cells, unfilled bars, muted text together with `forest` opacity |
 
 ### Typography
 
@@ -80,7 +82,7 @@ Identity: cream paper, deep-green ink, offset hard shadows, thick-bordered cards
 - **Week grid:** square cells with 4px radius; done in `--trevo`, empty in `--cinza-palha`, both with a thin border of `--mata` at 15% opacity.
 - **Eyebrow:** small caps label with a left dash (like the reference's "— RESERVATIONS"), in `--trevo`.
 
-Full preview in `identidade-visual.html` (at the root, gitignored).
+Full preview in `docs/identidade-visual.html` (historical reference, gitignored). The UI never renders emoji: habit icons are lucide-react SVGs mapped by slug in `src/lib/icons.ts` (the emoji in the database `icon` column is legacy seed data, unused by the interface).
 
 ---
 
@@ -153,7 +155,9 @@ tracker/
 ├── src/
 │   ├── app/
 │   │   ├── page.tsx              # "Today" screen
-│   │   ├── login/page.tsx        # Password form
+│   │   ├── login/
+│   │   │   ├── page.tsx          # Landing + password form
+│   │   │   └── actions.ts        # Login server action
 │   │   ├── semana/page.tsx
 │   │   ├── mes/page.tsx
 │   │   ├── api/checks/
@@ -161,27 +165,42 @@ tracker/
 │   │   │   ├── [id]/route.ts     # PATCH (toggle)
 │   │   │   ├── week/route.ts
 │   │   │   └── month/route.ts
-│   │   └── layout.tsx
+│   │   ├── layout.tsx
+│   │   ├── loading.tsx           # skeleton
+│   │   ├── error.tsx             # error boundary
+│   │   ├── globals.css
+│   │   └── icon.svg
 │   ├── components/
 │   │   ├── HabitCard.tsx         # "use client" — optimistic toggle
+│   │   ├── TodayChecklist.tsx    # owns the day state + progress bar
 │   │   ├── WeekGrid.tsx
 │   │   ├── MonthProgress.tsx
-│   │   └── NavBar.tsx
+│   │   ├── PeriodNav.tsx         # shared prev/next navigation
+│   │   ├── NavBar.tsx
+│   │   └── landing/              # Hero, HowItWorks, LoginForm
 │   ├── db/
 │   │   ├── schema.ts
 │   │   ├── index.ts
 │   │   ├── queries.ts            # All database reads/writes go through here
 │   │   └── seed.ts
-│   ├── lib/utils.ts              # todayInSaoPaulo(), weekStart(), streaks, %
+│   ├── lib/
+│   │   ├── utils.ts              # todayInSaoPaulo(), weekStartMonday(), streaks, %
+│   │   ├── auth.ts               # HMAC cookie signing (Web Crypto)
+│   │   └── icons.ts              # habit slug → lucide icon
 │   ├── middleware.ts             # cookie-based auth
 │   └── types/habit.ts
+├── docs/identidade-visual.html   # (gitignored) design system preview
 ├── drizzle.config.ts
 ├── tailwind.config.ts
+├── eslint.config.mjs
+├── postcss.config.mjs
+├── next.config.ts
 ├── .env.local                    # DATABASE_URL, APP_PASSWORD, AUTH_SECRET
+├── ARCHITECTURE.md               # ships with the repo
 ├── CLAUDE.md                     # (gitignored)
 ├── LEARNING_ROADMAP.md           # (gitignored)
 ├── LINKEDIN_POSTS.md             # (gitignored)
-└── identidade-visual.html        # (gitignored) design system preview
+└── BLOCKED.md                    # (gitignored)
 ```
 
 ---
@@ -214,4 +233,5 @@ npm run dev
 
 - TypeScript strict, no `any`, interfaces for all props.
 - One commit per file. Conventional Commits (`chore:`, `feat:`, `docs:`). No co-authorship, no push until manual review.
-- `.gitignore` includes: `LEARNING_ROADMAP.md`, `LINKEDIN_POSTS.md`, `CLAUDE.md`, `identidade-visual.html`, `.env*`.
+- `.gitignore` includes: `LEARNING_ROADMAP.md`, `LINKEDIN_POSTS.md`, `CLAUDE.md`, `BLOCKED.md`, `identidade-visual.html`, `.env*`. `ARCHITECTURE.md` ships with the repo on purpose.
+- Local development without Neon: `docker` + `local-neon-http-proxy` (set `NEON_LOCAL_PROXY=true` in `.env.local`) lets the same neon-http driver hit a local Postgres.
