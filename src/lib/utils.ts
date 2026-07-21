@@ -6,6 +6,8 @@
 // them at UTC noon, which keeps the calendar day stable regardless of the
 // server's local timezone or DST shifts.
 
+import { locale, type Lang } from "@/lib/i18n";
+
 const SAO_PAULO_TZ = "America/Sao_Paulo";
 
 // Mental test: at 2026-01-16 01:30 UTC it is 22:30 of 2026-01-15 in São Paulo.
@@ -78,11 +80,11 @@ export function daysInMonth(month: string): number {
   return new Date(Date.UTC(y, m, 0, 12)).getUTCDate();
 }
 
-// Formats "2026-07-21" as "segunda-feira, 21 de julho". The string is parsed
-// at UTC noon and formatted in UTC, so the calendar day never shifts no
-// matter what timezone the server or browser is in.
-export function formatDayLongPtBR(dateStr: string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
+// Formats "2026-07-21" as "Tuesday, July 21" (or pt-BR "terça-feira, 21 de
+// julho"). The string is parsed at UTC noon and formatted in UTC, so the
+// calendar day never shifts no matter what timezone the server or browser is in.
+export function formatDayLong(dateStr: string, lang: Lang): string {
+  return new Intl.DateTimeFormat(locale(lang), {
     timeZone: "UTC",
     weekday: "long",
     day: "numeric",
@@ -90,9 +92,9 @@ export function formatDayLongPtBR(dateStr: string): string {
   }).format(toUTCNoon(dateStr));
 }
 
-// Formats "2026-07-21" as "21 de jul." — used in week/month range labels.
-export function formatShortDayMonthPtBR(dateStr: string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
+// Formats "2026-07-21" as "Jul 21" (or pt-BR "21 de jul.") — week/month range labels.
+export function formatShortDayMonth(dateStr: string, lang: Lang): string {
+  return new Intl.DateTimeFormat(locale(lang), {
     timeZone: "UTC",
     day: "numeric",
     month: "short",
@@ -109,9 +111,9 @@ export function addMonths(month: string, months: number): string {
   return `${newYear}-${String(newMonth).padStart(2, "0")}`;
 }
 
-// Formats "2026-07" as "julho de 2026".
-export function formatMonthPtBR(month: string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
+// Formats "2026-07" as "July 2026" (or pt-BR "julho de 2026").
+export function formatMonthLabel(month: string, lang: Lang): string {
+  return new Intl.DateTimeFormat(locale(lang), {
     timeZone: "UTC",
     month: "long",
     year: "numeric",
