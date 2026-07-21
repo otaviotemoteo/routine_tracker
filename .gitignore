@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Drizzle migrations output
+drizzle/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Personal / gitignored project files (ARCHITECTURE.md ships with the repo on purpose)
+CLAUDE.md
+LEARNING_ROADMAP.md
+LINKEDIN_POSTS.md
+BLOCKED.md
+identidade-visual.html
