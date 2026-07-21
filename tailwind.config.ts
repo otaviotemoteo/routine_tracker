@@ -31,6 +31,16 @@ const config: Config = {
       borderRadius: {
         card: "12px",
       },
+      keyframes: {
+        // Countdown fill for the auto-dismissing confirmation dialog.
+        fill: {
+          from: { width: "0%" },
+          to: { width: "100%" },
+        },
+      },
+      animation: {
+        fill: "fill 5s linear forwards",
+      },
     },
   },
   plugins: [],
