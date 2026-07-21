@@ -99,6 +99,25 @@ export function formatShortDayMonthPtBR(dateStr: string): string {
   }).format(toUTCNoon(dateStr));
 }
 
+// Mental test: addMonths("2026-01", -1) = "2025-12";
+// addMonths("2026-12", 1) = "2027-01".
+export function addMonths(month: string, months: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const total = y * 12 + (m - 1) + months;
+  const newYear = Math.floor(total / 12);
+  const newMonth = (total % 12) + 1;
+  return `${newYear}-${String(newMonth).padStart(2, "0")}`;
+}
+
+// Formats "2026-07" as "julho de 2026".
+export function formatMonthPtBR(month: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+  }).format(toUTCNoon(`${month}-15`));
+}
+
 // Adherence rule (README Decision 5): the denominator is the days ELAPSED in
 // the month (1st through today, inclusive) for the current month — past
 // months use the full day count, future months count zero.
