@@ -90,6 +90,15 @@ export function formatDayLongPtBR(dateStr: string): string {
   }).format(toUTCNoon(dateStr));
 }
 
+// Formats "2026-07-21" as "21 de jul." — used in week/month range labels.
+export function formatShortDayMonthPtBR(dateStr: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+  }).format(toUTCNoon(dateStr));
+}
+
 // Adherence rule (README Decision 5): the denominator is the days ELAPSED in
 // the month (1st through today, inclusive) for the current month — past
 // months use the full day count, future months count zero.
