@@ -11,7 +11,8 @@ Personal web app for daily habit check-ins with weekly and monthly visualization
 **In:**
 
 - 7 habits (6 required + 1 optional): 🏋️ Workout, 📖 Reading, 🌙 Sleep, ⏰ Routine, 🌍 Duolingo, ✝️ Spirituality, 🎸 Hobby (optional)
-- **Today** screen (`/`): 7 cards with a did/didn't toggle + progress bar for the required habits
+- **Today** screen (`/`): 7 cards + progress bar for the required habits. Picking the day is a draft; one confirm button saves everything and the screen locks until "edit tasks"
+- Bilingual interface (English default, Portuguese), switchable from any screen
 - **Week** screen (`/semana`): GitHub-contributions-style grid (7 days x 7 habits), navigation between weeks
 - **Month** screen (`/mes`): adherence % per habit + current streak, navigation between months
 - Simple single-user auth (password via env var)
@@ -134,8 +135,11 @@ INSERT INTO habits (name, slug, icon, optional) VALUES
 GET    /api/checks?date=YYYY-MM-DD
        → returns the day's 7 checks (creates them if they don't exist). Without ?date, uses today (São Paulo TZ).
 
+PATCH  /api/checks
+       → body: { updates: [{ id, done }] }. Saves the whole day in one request (used by the "Today" screen).
+
 PATCH  /api/checks/:id
-       → body: { done: boolean }. Toggles a check.
+       → body: { done: boolean }. Toggles a single check.
 
 GET    /api/checks/week?start=YYYY-MM-DD
        → start must be a Monday. Returns 7 days x 7 habits.

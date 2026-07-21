@@ -101,13 +101,14 @@ Encoded in `src/lib/utils.ts` and enforced everywhere:
 2. **Streak doesn't break on an unchecked today.** Streak = consecutive done-days counting backwards from *yesterday*, plus one if today is already done. (Otherwise every streak would read zero each morning.)
 3. **Monthly adherence** = done days ÷ *elapsed* days of the month (day 1 through today, inclusive) for the current month; past months use the full day count. This prevents the depressing 16%-on-day-5 effect.
 4. **Optional habits never penalize.** They show everywhere but count nowhere.
-5. **Optimistic toggling.** The card flips instantly on tap and rolls back if the `PATCH` fails.
+5. **The day is confirmed, not auto-saved.** Tapping cards edits a local draft; one "I made it today" press saves all seven in a single batch `PATCH`, a dialog confirms it (auto-dismissing after 5s with a visible countdown on its button), and the screen becomes read-only until "Edit tasks" is pressed. This replaced per-tap optimistic saving: an explicit confirmation makes the write intentional and gives the user a clear "it's recorded" moment.
 
 ## API Surface
 
 ```
 GET    /api/checks?date=YYYY-MM-DD    today's 7 checks (lazily created)
-PATCH  /api/checks/:id                { done: boolean } toggle
+PATCH  /api/checks                    { updates: [{ id, done }] } — saves the whole day
+PATCH  /api/checks/:id                { done: boolean } single toggle
 GET    /api/checks/week?start=...     7 days × 7 habits (start must be Monday)
 GET    /api/checks/month?month=...    month's checks + adherence % + streak per habit
 ```
@@ -131,6 +132,17 @@ Deliberately minimal for a single user:
 - **No emoji anywhere in the UI.** Habit icons are lucide-react SVGs mapped from the habit slug in `src/lib/icons.ts`; the emoji stored in `habits.icon` is legacy seed data the interface never renders.
 - **Today's state ownership:** `TodayChecklist` (client) owns the day's checks so the progress bar and the optimistic card flips move in the same render; `HabitCard` stays a dumb toggle. Rollback + a `role="alert"` message handle PATCH failures.
 - **Mobile-first.** Primary usage is on the phone; touch targets ≥ 44px, visible focus states, `prefers-reduced-motion` respected.
+
+## Internationalization
+
+English is the default; Portuguese is one tap away from the selector in the top-right of every screen (landing header and `NavBar`).
+
+- All copy lives in `src/lib/i18n.ts` as a single `COPY` record keyed by language, sliced per screen (`landing`, `nav`, `today`, `week`, `month`, `errorPage`).
+- The choice is a non-httpOnly `lang` cookie, read on the server by `getLang()` (`src/lib/get-lang.ts`) and set on the client by `LanguageSelect`, which then calls `router.refresh()` — so translation happens during server rendering, with no client-side i18n bundle and no flash of the wrong language. `<html lang>` and the page metadata follow the same cookie.
+- **Copy must be serializable**: it crosses from Server into Client Components, so values are strings with `{placeholders}` resolved by `format()` / `plural()` — never functions, which React cannot pass over that boundary.
+- Dates are formatted with `Intl` using the selected locale (`formatDayLong`, `formatShortDayMonth`, `formatMonthLabel`), while the *timezone* stays `America/Sao_Paulo` regardless of language.
+- Habit names are seeded in Portuguese and mapped to English by slug in `habitName()`; the database is never translated.
+- The error boundary is the one exception: error boundaries are always Client Components, so it reads the cookie via `readLangCookieClient()`.
 
 ## Quality & UX Process
 
