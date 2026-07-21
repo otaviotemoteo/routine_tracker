@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
 import { PeriodNav } from "@/components/PeriodNav";
 import { MonthProgress } from "@/components/MonthProgress";
@@ -34,6 +35,15 @@ export default async function MesPage({ searchParams }: MesPageProps) {
             nextAriaLabel="Próximo mês"
             todayHref={month !== currentMonth ? "/mes" : undefined}
           />
+          {data.habits.every((h) => h.doneCount === 0) && (
+            <p className="text-sm opacity-75">
+              Nenhum registro neste mês ainda — os hábitos marcados em{" "}
+              <Link href="/" className="font-semibold underline">
+                Hoje
+              </Link>{" "}
+              aparecem aqui.
+            </p>
+          )}
           <MonthProgress habits={data.habits} />
         </div>
       </main>
