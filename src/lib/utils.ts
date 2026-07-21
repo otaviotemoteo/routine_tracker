@@ -78,6 +78,18 @@ export function daysInMonth(month: string): number {
   return new Date(Date.UTC(y, m, 0, 12)).getUTCDate();
 }
 
+// Formats "2026-07-21" as "segunda-feira, 21 de julho". The string is parsed
+// at UTC noon and formatted in UTC, so the calendar day never shifts no
+// matter what timezone the server or browser is in.
+export function formatDayLongPtBR(dateStr: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(toUTCNoon(dateStr));
+}
+
 // Adherence rule (README Decision 5): the denominator is the days ELAPSED in
 // the month (1st through today, inclusive) for the current month — past
 // months use the full day count, future months count zero.
