@@ -3,9 +3,11 @@ import { NavBar } from "@/components/NavBar";
 import { PeriodNav } from "@/components/PeriodNav";
 import { WeekGrid } from "@/components/WeekGrid";
 import { getWeekData } from "@/db/queries";
+import { getLang } from "@/lib/get-lang";
+import { COPY } from "@/lib/i18n";
 import {
   addDays,
-  formatShortDayMonthPtBR,
+  formatShortDayMonth,
   todayInSaoPaulo,
   weekStartMonday,
 } from "@/lib/utils";
@@ -17,6 +19,8 @@ interface SemanaPageProps {
 }
 
 export default async function SemanaPage({ searchParams }: SemanaPageProps) {
+  const lang = await getLang();
+  const copy = COPY[lang];
   const today = todayInSaoPaulo();
   const currentStart = weekStartMonday(today);
 
@@ -29,33 +33,36 @@ export default async function SemanaPage({ searchParams }: SemanaPageProps) {
       : currentStart;
   const week = await getWeekData(start);
 
-  const label = `${formatShortDayMonthPtBR(start)} – ${formatShortDayMonthPtBR(addDays(start, 6))}`;
+  const label = `${formatShortDayMonth(start, lang)} – ${formatShortDayMonth(addDays(start, 6), lang)}`;
 
   return (
     <>
-      <NavBar />
+      <NavBar lang={lang} copy={copy.nav} />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-24">
-        <p className="eyebrow">Consistência dia a dia</p>
-        <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-6">Semana</h1>
+        <p className="eyebrow">{copy.week.eyebrow}</p>
+        <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-6">
+          {copy.week.title}
+        </h1>
         <div className="flex flex-col gap-5">
           <PeriodNav
             label={label}
             prevHref={`/semana?start=${addDays(start, -7)}`}
             nextHref={`/semana?start=${addDays(start, 7)}`}
-            prevAriaLabel="Semana anterior"
-            nextAriaLabel="Próxima semana"
+            prevAriaLabel={copy.week.prevAria}
+            nextAriaLabel={copy.week.nextAria}
+            todayLabel={copy.week.current}
             todayHref={start !== currentStart ? "/semana" : undefined}
           />
           {week.habits.every((h) => h.done.every((d) => !d)) && (
             <p className="text-sm opacity-75">
-              Nenhum registro nesta semana ainda — os hábitos marcados em{" "}
+              {copy.week.emptyPre}{" "}
               <Link href="/" className="font-semibold underline">
-                Hoje
+                {copy.week.emptyLink}
               </Link>{" "}
-              preenchem o grid.
+              {copy.week.emptyPost}
             </p>
           )}
-          <WeekGrid week={week} today={today} />
+          <WeekGrid week={week} today={today} lang={lang} copy={copy.week} />
         </div>
       </main>
     </>

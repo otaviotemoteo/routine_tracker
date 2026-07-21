@@ -7,6 +7,8 @@ interface PeriodNavProps {
   nextHref: string;
   prevAriaLabel: string;
   nextAriaLabel: string;
+  // Label for the "back to current period" button (e.g. "Current"/"Atual").
+  todayLabel: string;
   // Link back to the current period; omitted when already there.
   todayHref?: string;
 }
@@ -21,6 +23,7 @@ export function PeriodNav({
   nextHref,
   prevAriaLabel,
   nextAriaLabel,
+  todayLabel,
   todayHref,
 }: PeriodNavProps) {
   return (
@@ -33,7 +36,7 @@ export function PeriodNav({
         {todayHref && (
           <Link href={todayHref} className={navButtonClasses}>
             <Undo2 aria-hidden className="w-4 h-4" />
-            Atual
+            {todayLabel}
           </Link>
         )}
       </div>
