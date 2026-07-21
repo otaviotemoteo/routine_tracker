@@ -79,7 +79,7 @@ created_at  TIMESTAMPTZ         updated_at  TIMESTAMPTZ
 ```
 
 - `habits` is seeded once with 7 rows (6 required + 1 optional "Hobby") and is effectively static in the MVP.
-- `daily_checks` holds one row per habit per day. Rows are lazily created: the first GET of a given day inserts the 7 checks with `done = false` inside a transaction, relying on the UNIQUE constraint for idempotency.
+- `daily_checks` holds one row per habit per day. Rows are lazily created: the first GET of a given day inserts the 7 checks with `done = false` as a single multi-row `INSERT … ON CONFLICT DO NOTHING` — one atomic statement (the neon-http driver has no interactive transactions), with the UNIQUE constraint guaranteeing idempotency under concurrent first-loads.
 - The `optional` flag drives presentation and scoring: optional habits render with a dashed border and are excluded from the daily progress bar and from best/worst weekly summaries.
 
 ## Timezone Handling (the most important decision)
@@ -126,7 +126,9 @@ Deliberately minimal for a single user:
 
 - **Server Components by default.** Pages fetch data on the server; `"use client"` appears only in `HabitCard` (optimistic toggle) and navigation controls.
 - **Screens:** `/` (Today: 7 cards + progress bar), `/semana` (GitHub-contributions-style 7×7 grid with prev/next week), `/mes` (per-habit adherence bar + streak with prev/next month).
-- **Design system "Canteiro":** cream paper background, near-black forest-green ink, clover-green accent, hard offset shadows (`4px 4px 0`, never blurred), 2px borders, small-caps serif display type. Tokens: `papel #F7F3E8`, `mata #17281C`, `trevo #3D9B4F`, `broto #E3EFE0`, `palha #D9A03F` (streaks only), `cinza-palha #DCD9CC`. Full living reference in `identidade-visual.html` (gitignored).
+- **Design system "Canteiro":** cream paper background, near-black forest-green ink, clover-green accent, hard offset shadows (`4px 4px 0`, never blurred), 2px borders, small-caps serif display type. In code the Tailwind tokens use English names (per Otávio's preference): `cream #F7F3E8` (papel), `forest #17281C` (mata), `clover #3D9B4F` (trevo), `mint #E3EFE0` (broto), `straw #D9A03F` (palha, streaks only), `sand #DCD9CC` (cinza-palha). Shared utilities `.display-title` and `.eyebrow` live in `globals.css`; hard shadows are the `shadow-hard{,-lg,-sm}` scale. Historical reference in `docs/identidade-visual.html` (gitignored).
+- **No emoji anywhere in the UI.** Habit icons are lucide-react SVGs mapped from the habit slug in `src/lib/icons.ts`; the emoji stored in `habits.icon` is legacy seed data the interface never renders.
+- **Today's state ownership:** `TodayChecklist` (client) owns the day's checks so the progress bar and the optimistic card flips move in the same render; `HabitCard` stays a dumb toggle. Rollback + a `role="alert"` message handle PATCH failures.
 - **Mobile-first.** Primary usage is on the phone; touch targets ≥ 44px, visible focus states, `prefers-reduced-motion` respected.
 
 ## Quality & UX Process
@@ -136,6 +138,14 @@ Development runs as an autonomous loop (see `CLAUDE.md`): assess state → build
 Every phase that touches the interface is audited against two skill checklists — `ui-ux-pro-max-skill` (GitHub) and the local `revenue-centric-design` skill — covering visual hierarchy, toggle affordance, empty/loading/error states, mobile legibility, and the first-run experience (login → empty Today → first check). "It works" is not "it's good"; the loop iterates until the checklist passes.
 
 The loop stops only when every phase is complete and audited. What remains is the **human block**: creating the Neon database, filling `.env.local`, running migrations/seed, deploying to Vercel, and end-to-end testing on desktop and mobile.
+
+## Deviations & Notable Choices
+
+- **Tailwind v3 (not v4 like DevTrack)** so the design tokens live in `tailwind.config.ts` exactly as the project contract asks; DevTrack's CSS-first v4 tokens would scatter them into `globals.css`.
+- **Next 15 / React 19** ("14+" per README): async `searchParams`/`params` and `useActionState` are used accordingly.
+- **`src/` root** (README) instead of DevTrack's repo-root `app/` layout.
+- **Local dev without Neon:** `NEON_LOCAL_PROXY=true` routes the neon-http driver through `local-neon-http-proxy` (docker) to a plain local Postgres — the same driver code runs in dev and production. `drizzle-kit push` can't use the proxy; apply generated SQL via `psql` locally.
+- **Auth cookie** is `issuedAt.HMAC-SHA256(issuedAt)` via Web Crypto (works on both the edge middleware and the Node server action), max age 1 year, timing-safe comparisons.
 
 ## Development Conventions
 
