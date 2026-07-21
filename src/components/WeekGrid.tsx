@@ -13,9 +13,9 @@ function GridRow({ habit, days, today }: { habit: WeekHabitRow; days: string[]; 
   const Icon = habitIcon(habit.slug);
   return (
     <tr>
-      <td className="text-sm font-medium text-right pr-2.5 whitespace-nowrap">
-        <span className="inline-flex items-center gap-1.5">
-          <Icon aria-hidden className="w-4 h-4 text-clover shrink-0" />
+      <td className="text-xs sm:text-sm font-medium text-right pr-1.5 sm:pr-2.5 whitespace-nowrap">
+        <span className="inline-flex items-center gap-1 sm:gap-1.5">
+          <Icon aria-hidden className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-clover shrink-0" />
           {habit.name}
         </span>
       </td>
@@ -24,7 +24,7 @@ function GridRow({ habit, days, today }: { habit: WeekHabitRow; days: string[]; 
           <div
             role="img"
             aria-label={`${habit.name}, ${DAY_LABELS[i]} ${days[i].slice(8, 10)}: ${done ? "feito" : days[i] > today ? "ainda sem registro" : "não feito"}`}
-            className={`w-[26px] h-[26px] rounded-md border border-forest/15 ${
+            className={`w-[22px] h-[22px] sm:w-[26px] sm:h-[26px] rounded-md border border-forest/15 ${
               done ? "bg-clover" : days[i] > today ? "bg-transparent" : "bg-sand"
             }`}
           />
@@ -46,8 +46,8 @@ export function WeekGrid({ week, today }: WeekGridProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="bg-white border-2 border-forest rounded-card shadow-hard p-4 sm:p-5 overflow-x-auto">
-        <table className="border-separate border-spacing-1.5 mx-auto">
+      <div className="bg-white border-2 border-forest rounded-card shadow-hard p-3 sm:p-5 overflow-x-auto">
+        <table className="border-separate border-spacing-1 sm:border-spacing-1.5 mx-auto">
           <thead>
             <tr>
               <th aria-label="Hábito" />
@@ -61,7 +61,10 @@ export function WeekGrid({ week, today }: WeekGridProps) {
                       : "text-forest/65"
                   }`}
                 >
-                  {label}
+                  {/* Single letter on phones (S T Q Q S S D, BR calendar
+                      style); cells carry the full day in their aria-label. */}
+                  <span aria-hidden className="sm:hidden">{label[0]}</span>
+                  <span className="hidden sm:inline">{label}</span>
                   <span className="block font-mono text-[0.65rem]">
                     {week.days[i].slice(8, 10)}
                   </span>
