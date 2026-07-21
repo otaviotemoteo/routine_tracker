@@ -1,4 +1,4 @@
-// Idempotent seed of the 7 habits (upsert by slug). Run with: npm run db:seed
+// Idempotent seed of the 7 habits (upsert by slug). Run with: bun run db:seed
 // The emoji in `icon` mirrors the README schema; the UI never renders it —
 // components map slug → lucide-react icon instead.
 import { neon, neonConfig } from "@neondatabase/serverless";
