@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cream text-forest font-sans antialiased;
+  }
+
+  /* Visible focus everywhere, in straw so it stands out on both cream and mint. */
+  :focus-visible {
+    outline: 3px solid theme(colors.straw);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    @apply bg-mint;
+  }
+
+  /* Kill the 300ms mobile tap delay on everything interactive. */
+  a,
+  button,
+  input,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Screen titles: Fraunces small caps with wide tracking (design system). */
+  .display-title {
+    @apply font-display font-black tracking-wide;
+    font-variant-caps: small-caps;
+  }
+
+  /* Eyebrow label with the leading dash, like the reference's "— RESERVATIONS". */
+  .eyebrow {
+    @apply flex items-center gap-2.5 text-clover font-semibold text-xs uppercase;
+    letter-spacing: 0.18em;
+  }
+  .eyebrow::before {
+    content: "";
+    @apply w-9 h-0.5 bg-clover;
+  }
+}
