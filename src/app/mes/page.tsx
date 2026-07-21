@@ -3,7 +3,9 @@ import { NavBar } from "@/components/NavBar";
 import { PeriodNav } from "@/components/PeriodNav";
 import { MonthProgress } from "@/components/MonthProgress";
 import { getMonthData } from "@/db/queries";
-import { addMonths, formatMonthPtBR, todayInSaoPaulo } from "@/lib/utils";
+import { getLang } from "@/lib/get-lang";
+import { COPY } from "@/lib/i18n";
+import { addMonths, formatMonthLabel, todayInSaoPaulo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,8 @@ interface MesPageProps {
 }
 
 export default async function MesPage({ searchParams }: MesPageProps) {
+  const lang = await getLang();
+  const copy = COPY[lang];
   const today = todayInSaoPaulo();
   const currentMonth = today.slice(0, 7);
 
@@ -22,29 +26,32 @@ export default async function MesPage({ searchParams }: MesPageProps) {
 
   return (
     <>
-      <NavBar />
+      <NavBar lang={lang} copy={copy.nav} />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-24">
-        <p className="eyebrow">Adesão e sequência</p>
-        <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-6">Mês</h1>
+        <p className="eyebrow">{copy.month.eyebrow}</p>
+        <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-6">
+          {copy.month.title}
+        </h1>
         <div className="flex flex-col gap-5">
           <PeriodNav
-            label={formatMonthPtBR(month)}
+            label={formatMonthLabel(month, lang)}
             prevHref={`/mes?month=${addMonths(month, -1)}`}
             nextHref={`/mes?month=${addMonths(month, 1)}`}
-            prevAriaLabel="Mês anterior"
-            nextAriaLabel="Próximo mês"
+            prevAriaLabel={copy.month.prevAria}
+            nextAriaLabel={copy.month.nextAria}
+            todayLabel={copy.month.current}
             todayHref={month !== currentMonth ? "/mes" : undefined}
           />
           {data.habits.every((h) => h.doneCount === 0) && (
             <p className="text-sm opacity-75">
-              Nenhum registro neste mês ainda — os hábitos marcados em{" "}
+              {copy.month.emptyPre}{" "}
               <Link href="/" className="font-semibold underline">
-                Hoje
+                {copy.month.emptyLink}
               </Link>{" "}
-              aparecem aqui.
+              {copy.month.emptyPost}
             </p>
           )}
-          <MonthProgress habits={data.habits} />
+          <MonthProgress habits={data.habits} lang={lang} copy={copy.month} />
         </div>
       </main>
     </>
