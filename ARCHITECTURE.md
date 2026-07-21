@@ -120,7 +120,8 @@ Deliberately minimal for a single user:
 
 - `middleware.ts` protects everything except `/login` and static assets by validating an httpOnly cookie signed with `AUTH_SECRET`.
 - `/login` compares the submitted password against `APP_PASSWORD` (env var) and sets the cookie.
-- No Auth.js, no user table, no sessions store. If the app ever goes multi-user, this swaps out for Auth.js without touching the data layer.
+- No Auth.js, no user table, no sessions store — accounts don't exist in the database at all; the env password is the only credential. If the app ever goes multi-user, this swaps out for Auth.js without touching the data layer.
+- **Login rate limiting** (`src/lib/rate-limit.ts`): 5 failed passwords per IP per 15-minute sliding window blocks further attempts (even with the right password) until the window expires; success clears the counter. It's in-memory, so a serverless cold start resets it — acceptable for the only unauthenticated surface of a single-user app; the durable upgrade path is Upstash or Vercel WAF rules.
 
 ## Frontend Architecture
 
