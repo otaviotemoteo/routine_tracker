@@ -1,7 +1,7 @@
 // Single data-access layer: the ONLY file (besides seed.ts) that touches
 // Drizzle. Routes validate input and call these functions; business math is
 // delegated to the pure helpers in src/lib/utils.ts.
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "./index";
 import { dailyChecks, habits } from "./schema";
 import {
@@ -64,6 +64,43 @@ export async function toggleCheck(
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
     .where(eq(dailyChecks.id, updated.id));
   return row ?? null;
+}
+
+// Batch save for the Today screen: the user picks the whole day and confirms
+// once. Grouped into at most two UPDATEs (done true / done false) so the save
+// is a single round trip per group instead of one request per habit.
+export async function setChecksDone(
+  updates: { id: number; done: boolean }[]
+): Promise<CheckWithHabit[]> {
+  if (updates.length === 0) return [];
+  const now = new Date();
+  const doneIds = updates.filter((u) => u.done).map((u) => u.id);
+  const undoneIds = updates.filter((u) => !u.done).map((u) => u.id);
+
+  if (doneIds.length > 0) {
+    await db
+      .update(dailyChecks)
+      .set({ done: true, updatedAt: now })
+      .where(inArray(dailyChecks.id, doneIds));
+  }
+  if (undoneIds.length > 0) {
+    await db
+      .update(dailyChecks)
+      .set({ done: false, updatedAt: now })
+      .where(inArray(dailyChecks.id, undoneIds));
+  }
+
+  return db
+    .select(checkWithHabitColumns)
+    .from(dailyChecks)
+    .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .where(
+      inArray(
+        dailyChecks.id,
+        updates.map((u) => u.id)
+      )
+    )
+    .orderBy(asc(habits.id));
 }
 
 // 7 days × 7 habits starting at a Monday. Days with no row simply count as
