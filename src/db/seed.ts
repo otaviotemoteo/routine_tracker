@@ -1,7 +1,7 @@
 // Idempotent seed of the 7 habits (upsert by slug). Run with: npm run db:seed
 // The emoji in `icon` mirrors the README schema; the UI never renders it —
 // components map slug → lucide-react icon instead.
-import { neon } from "@neondatabase/serverless";
+import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { habits } from "./schema";
 
@@ -9,6 +9,12 @@ try {
   process.loadEnvFile(".env.local");
 } catch {
   // .env.local may not exist (e.g. CI with DATABASE_URL already set)
+}
+
+// Same dev-only local proxy switch as src/db/index.ts (own connection here
+// because env vars must load before the URL is read).
+if (process.env.NEON_LOCAL_PROXY === "true") {
+  neonConfig.fetchEndpoint = (host) => `http://${host}:4444/sql`;
 }
 
 const SEED_HABITS = [
