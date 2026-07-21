@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   AUTH_COOKIE,
@@ -8,6 +8,11 @@ import {
   createAuthCookieValue,
   passwordsMatch,
 } from "@/lib/auth";
+import {
+  clearLoginFailures,
+  isLoginBlocked,
+  registerLoginFailure,
+} from "@/lib/rate-limit";
 
 export interface LoginState {
   error: string | null;
@@ -27,9 +32,23 @@ export async function login(
   if (typeof password !== "string" || password.length === 0) {
     return { error: "Digite a senha." };
   }
+
+  // Brute-force guard: 5 wrong passwords per IP per 15 min.
+  const ip = ((await headers()).get("x-forwarded-for") ?? "unknown")
+    .split(",")[0]
+    .trim();
+  const limit = isLoginBlocked(ip);
+  if (limit.blocked) {
+    return {
+      error: `Muitas tentativas. Tente de novo em ${limit.retryAfterMinutes} min.`,
+    };
+  }
+
   if (!(await passwordsMatch(password, expected, secret))) {
+    registerLoginFailure(ip);
     return { error: "Senha incorreta. Tente de novo." };
   }
+  clearLoginFailures(ip);
 
   (await cookies()).set(AUTH_COOKIE, await createAuthCookieValue(secret), {
     httpOnly: true,
