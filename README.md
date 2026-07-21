@@ -208,11 +208,11 @@ tracker/
 ## Quick Start
 
 ```bash
-npm install
+bun install
 cp .env.example .env.local   # fill in DATABASE_URL (Neon), APP_PASSWORD, AUTH_SECRET
-npm run db:push              # applies the schema to Neon via Drizzle
-npm run db:seed              # populates the 7 habits
-npm run dev
+bun run db:push              # applies the schema to Neon via Drizzle
+bun run db:seed              # populates the 7 habits
+bun run dev
 ```
 
 ---
