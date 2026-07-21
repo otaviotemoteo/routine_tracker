@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
 import { PeriodNav } from "@/components/PeriodNav";
 import { WeekGrid } from "@/components/WeekGrid";
@@ -45,6 +46,15 @@ export default async function SemanaPage({ searchParams }: SemanaPageProps) {
             nextAriaLabel="Próxima semana"
             todayHref={start !== currentStart ? "/semana" : undefined}
           />
+          {week.habits.every((h) => h.done.every((d) => !d)) && (
+            <p className="text-sm opacity-75">
+              Nenhum registro nesta semana ainda — os hábitos marcados em{" "}
+              <Link href="/" className="font-semibold underline">
+                Hoje
+              </Link>{" "}
+              preenchem o grid.
+            </p>
+          )}
           <WeekGrid week={week} today={today} />
         </div>
       </main>
