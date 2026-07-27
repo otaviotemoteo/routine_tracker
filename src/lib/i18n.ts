@@ -134,6 +134,88 @@ export interface Copy {
     emptyPost: string;
   };
   errorPage: { title: string; text: string; retry: string };
+  onboarding: {
+    stepOf: string; // {current} / {total}
+    skip: string;
+    back: string;
+    continue: string;
+    finish: string;
+    save: string;
+    weekdays: string[]; // Mon..Sun, ISO order (7)
+    welcome: { title: string; lead: string; time: string; items: string[]; start: string };
+    workout: {
+      title: string;
+      lead: string;
+      planName: string;
+      weekday: string;
+      focus: string;
+      focusPlaceholder: string;
+      exercises: string;
+      exercisesHint: string;
+      addDay: string;
+      removeDay: string;
+      empty: string;
+    };
+    reading: {
+      title: string;
+      lead: string;
+      goal: string;
+      goalUnit: string;
+      list: string;
+      bookTitle: string;
+      author: string;
+      pages: string;
+      reading: string;
+      addBook: string;
+      removeBook: string;
+      empty: string;
+    };
+    sleep: { title: string; lead: string; bedtime: string; wake: string };
+    routine: {
+      title: string;
+      lead: string;
+      start: string;
+      end: string;
+      activity: string;
+      activityPlaceholder: string;
+      weekdays: string;
+      addBlock: string;
+      removeBlock: string;
+      empty: string;
+    };
+    duolingo: {
+      title: string;
+      lead: string;
+      language: string;
+      languagePlaceholder: string;
+      addLanguage: string;
+      removeLanguage: string;
+      empty: string;
+    };
+    spirituality: {
+      title: string;
+      lead: string;
+      name: string;
+      countable: string;
+      addPractice: string;
+      removePractice: string;
+      empty: string;
+    };
+    review: {
+      title: string;
+      lead: string;
+      notSet: string;
+      sections: {
+        workout: string;
+        reading: string;
+        sleep: string;
+        routine: string;
+        duolingo: string;
+        spirituality: string;
+      };
+    };
+    config: { eyebrow: string; title: string; lead: string; edit: string };
+  };
 }
 
 export const COPY: Record<Lang, Copy> = {
@@ -224,6 +306,109 @@ export const COPY: Record<Lang, Copy> = {
       text: "Couldn't load the data. Check your connection and try again.",
       retry: "Try again",
     },
+    onboarding: {
+      stepOf: "Step {current} of {total}",
+      skip: "Skip",
+      back: "Back",
+      continue: "Continue",
+      finish: "Finish",
+      save: "Save",
+      weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      welcome: {
+        title: "Let's set up your tracker",
+        lead: "A few quick steps so your daily check-in is personalized. About 5 minutes — every step is skippable and editable later.",
+        time: "~5 min",
+        items: [
+          "Your workout plan",
+          "Reading goal and list",
+          "Sleep, routine and languages",
+          "Spiritual practices",
+        ],
+        start: "Start",
+      },
+      workout: {
+        title: "Workout",
+        lead: "Set a focus and exercises for each training day.",
+        planName: "Plan name",
+        weekday: "Weekday",
+        focus: "Focus",
+        focusPlaceholder: "Push, Legs, Rest…",
+        exercises: "Exercises",
+        exercisesHint: "One per line: name; sets; reps",
+        addDay: "Add day",
+        removeDay: "Remove",
+        empty: "No training days yet.",
+      },
+      reading: {
+        title: "Reading",
+        lead: "Set a yearly goal and your reading list.",
+        goal: "Books this year",
+        goalUnit: "books",
+        list: "Reading list",
+        bookTitle: "Title",
+        author: "Author",
+        pages: "Pages",
+        reading: "Reading now",
+        addBook: "Add book",
+        removeBook: "Remove",
+        empty: "No books yet.",
+      },
+      sleep: {
+        title: "Sleep",
+        lead: "Your target bedtime and wake time set the default for the daily sleep log.",
+        bedtime: "Bedtime",
+        wake: "Wake time",
+      },
+      routine: {
+        title: "Routine",
+        lead: "Your planned time blocks — the daily check measures how well you followed them.",
+        start: "Start",
+        end: "End",
+        activity: "Activity",
+        activityPlaceholder: "Deep work, Gym, Lunch…",
+        weekdays: "Days",
+        addBlock: "Add block",
+        removeBlock: "Remove",
+        empty: "No blocks yet.",
+      },
+      duolingo: {
+        title: "Duolingo",
+        lead: "Which languages are you learning?",
+        language: "Language",
+        languagePlaceholder: "English, Italian…",
+        addLanguage: "Add language",
+        removeLanguage: "Remove",
+        empty: "No languages yet.",
+      },
+      spirituality: {
+        title: "Spirituality",
+        lead: "Your practices. Countable ones (like rosaries) get a daily number.",
+        name: "Practice",
+        countable: "Countable",
+        addPractice: "Add practice",
+        removePractice: "Remove",
+        empty: "No practices yet.",
+      },
+      review: {
+        title: "All set",
+        lead: "Here's what you configured. You can change any of it later in settings.",
+        notSet: "Not set",
+        sections: {
+          workout: "Workout",
+          reading: "Reading",
+          sleep: "Sleep",
+          routine: "Routine",
+          duolingo: "Duolingo",
+          spirituality: "Spirituality",
+        },
+      },
+      config: {
+        eyebrow: "Settings",
+        title: "Configuration",
+        lead: "Edit any area you set up during onboarding.",
+        edit: "Edit",
+      },
+    },
   },
   pt: {
     metaTitle: "Tracker — hábitos diários",
@@ -311,6 +496,109 @@ export const COPY: Record<Lang, Copy> = {
       title: "Algo deu errado",
       text: "Não deu para carregar os dados. Confira a conexão e tente de novo.",
       retry: "Tentar de novo",
+    },
+    onboarding: {
+      stepOf: "Passo {current} de {total}",
+      skip: "Pular",
+      back: "Voltar",
+      continue: "Continuar",
+      finish: "Concluir",
+      save: "Salvar",
+      weekdays: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
+      welcome: {
+        title: "Vamos configurar seu tracker",
+        lead: "Alguns passos rápidos para personalizar seu check-in diário. Cerca de 5 minutos — dá para pular qualquer passo e editar depois.",
+        time: "~5 min",
+        items: [
+          "Seu plano de treino",
+          "Meta e lista de leitura",
+          "Sono, rotina e idiomas",
+          "Práticas espirituais",
+        ],
+        start: "Começar",
+      },
+      workout: {
+        title: "Treino",
+        lead: "Defina um foco e exercícios para cada dia de treino.",
+        planName: "Nome do plano",
+        weekday: "Dia",
+        focus: "Foco",
+        focusPlaceholder: "Push, Perna, Descanso…",
+        exercises: "Exercícios",
+        exercisesHint: "Um por linha: nome; séries; reps",
+        addDay: "Adicionar dia",
+        removeDay: "Remover",
+        empty: "Nenhum dia de treino ainda.",
+      },
+      reading: {
+        title: "Leitura",
+        lead: "Defina uma meta anual e sua lista de leitura.",
+        goal: "Livros no ano",
+        goalUnit: "livros",
+        list: "Lista de leitura",
+        bookTitle: "Título",
+        author: "Autor",
+        pages: "Páginas",
+        reading: "Lendo agora",
+        addBook: "Adicionar livro",
+        removeBook: "Remover",
+        empty: "Nenhum livro ainda.",
+      },
+      sleep: {
+        title: "Sono",
+        lead: "O horário-alvo de dormir e acordar define o padrão do registro diário de sono.",
+        bedtime: "Dormir",
+        wake: "Acordar",
+      },
+      routine: {
+        title: "Rotina",
+        lead: "Seus blocos de horário — o check diário mede o quanto você os seguiu.",
+        start: "Início",
+        end: "Fim",
+        activity: "Atividade",
+        activityPlaceholder: "Foco, Academia, Almoço…",
+        weekdays: "Dias",
+        addBlock: "Adicionar bloco",
+        removeBlock: "Remover",
+        empty: "Nenhum bloco ainda.",
+      },
+      duolingo: {
+        title: "Duolingo",
+        lead: "Quais idiomas você está aprendendo?",
+        language: "Idioma",
+        languagePlaceholder: "Inglês, Italiano…",
+        addLanguage: "Adicionar idioma",
+        removeLanguage: "Remover",
+        empty: "Nenhum idioma ainda.",
+      },
+      spirituality: {
+        title: "Espiritualidade",
+        lead: "Suas práticas. As contáveis (como terços) ganham um número diário.",
+        name: "Prática",
+        countable: "Contável",
+        addPractice: "Adicionar prática",
+        removePractice: "Remover",
+        empty: "Nenhuma prática ainda.",
+      },
+      review: {
+        title: "Tudo pronto",
+        lead: "Isto é o que você configurou. Dá para mudar tudo depois nas configurações.",
+        notSet: "Não definido",
+        sections: {
+          workout: "Treino",
+          reading: "Leitura",
+          sleep: "Sono",
+          routine: "Rotina",
+          duolingo: "Duolingo",
+          spirituality: "Espiritualidade",
+        },
+      },
+      config: {
+        eyebrow: "Configurações",
+        title: "Configuração",
+        lead: "Edite qualquer área que você configurou no onboarding.",
+        edit: "Editar",
+      },
     },
   },
 };
