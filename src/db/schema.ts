@@ -127,3 +127,11 @@ export const languages = pgTable("languages", {
   slug: varchar("slug", { length: 50 }).notNull().unique(),
   active: boolean("active").notNull().default(true),
 });
+
+// Sleep targets (single row): the planned bedtime/wake used to derive the
+// default hours for the daily sleep stepper. Not referenced by `details`.
+export const sleepTargets = pgTable("sleep_targets", {
+  id: serial("id").primaryKey(),
+  bedtime: time("bedtime").notNull(),
+  wakeTime: time("wake_time").notNull(),
+});
