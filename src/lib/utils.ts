@@ -143,3 +143,36 @@ export function calcMonthAdherence(
     countedDays === 0 ? 0 : Math.round((doneCount / countedDays) * 100);
   return { doneCount, countedDays, percent };
 }
+
+// ─── v2 derived metrics (computed, never stored) ─────────────────────────────
+
+// Inclusive day count between two YYYY-MM-DD strings (UTC-noon math, DST-proof).
+// Mental test: diffDaysInclusive("2026-12-30","2026-12-31") = 2; same day = 1.
+function diffDaysInclusive(from: string, to: string): number {
+  const ms = toUTCNoon(to).getTime() - toUTCNoon(from).getTime();
+  return Math.round(ms / 86_400_000) + 1;
+}
+
+// Days remaining in the calendar year, inclusive of today.
+// Mental test: daysLeftInYear("2026-12-31") = 1; ("2026-12-30") = 2;
+// ("2026-01-01") = 365 (2026 is not a leap year).
+export function daysLeftInYear(today: string): number {
+  const [y] = today.split("-").map(Number);
+  return diffDaysInclusive(today, `${y}-12-31`);
+}
+
+// Pages/day needed to finish the remaining goal pages by year-end (Reading's
+// personalized pace). Mental test: readingPace(600, 30) = 20;
+// readingPace(0, 30) = 0; readingPace(10, 0) = 10 (guard the last day).
+export function readingPace(remainingPages: number, daysLeft: number): number {
+  if (remainingPages <= 0) return 0;
+  if (daysLeft <= 0) return remainingPages;
+  return Math.ceil(remainingPages / daysLeft);
+}
+
+// Percent of planned items followed — shared by routine and workout-plan
+// adherence. Mental test: adherencePercent(3, 4) = 75;
+// adherencePercent(0, 0) = 0 (nothing planned never penalizes).
+export function adherencePercent(followed: number, planned: number): number {
+  return planned === 0 ? 0 : Math.round((followed / planned) * 100);
+}
