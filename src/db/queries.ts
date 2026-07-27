@@ -10,6 +10,7 @@ import {
   languages,
   readingGoals,
   routineBlocks,
+  sleepTargets,
   spiritualPractices,
   workoutPlanDays,
   workoutPlans,
@@ -259,6 +260,29 @@ export async function createBook(input: {
   return book;
 }
 
+// Replace the not-yet-started books (current_page = 0, still queued/reading)
+// with a fresh list — used by the reading onboarding/config step. Books with
+// real progress or a finished/abandoned status are preserved (and may be
+// referenced by past `details.book_id`, so they're never deleted here).
+export async function replaceUntouchedBooks(
+  rows: {
+    title: string;
+    author: string | null;
+    totalPages: number;
+    status: string;
+    position: number;
+  }[]
+) {
+  await db
+    .delete(books)
+    .where(
+      and(eq(books.currentPage, 0), inArray(books.status, ["queued", "reading"]))
+    );
+  if (rows.length > 0) {
+    await db.insert(books).values(rows);
+  }
+}
+
 export async function updateBook(
   id: number,
   patch: Partial<{
@@ -357,18 +381,37 @@ export async function replaceLanguages(
   }
 }
 
+export async function getSleepTarget() {
+  const [target] = await db.select().from(sleepTargets).limit(1);
+  return target ?? null;
+}
+
+// Single-row upsert: update the existing target or insert the first one.
+export async function upsertSleepTarget(bedtime: string, wakeTime: string) {
+  const existing = await getSleepTarget();
+  if (existing) {
+    await db
+      .update(sleepTargets)
+      .set({ bedtime, wakeTime })
+      .where(eq(sleepTargets.id, existing.id));
+  } else {
+    await db.insert(sleepTargets).values({ bedtime, wakeTime });
+  }
+}
+
 // Onboarding gate: is anything the user must configure present? Seeded
 // spiritual-practice defaults are excluded (they always exist), so the check
 // looks only at tables the user actively fills.
 export async function isConfigured(): Promise<boolean> {
-  const [wp, bk, rb, rg, lg] = await Promise.all([
+  const [wp, bk, rb, rg, lg, st] = await Promise.all([
     db.$count(workoutPlans),
     db.$count(books),
     db.$count(routineBlocks),
     db.$count(readingGoals),
     db.$count(languages),
+    db.$count(sleepTargets),
   ]);
-  return wp + bk + rb + rg + lg > 0;
+  return wp + bk + rb + rg + lg + st > 0;
 }
 
 // 7 days × 7 habits starting at a Monday. Days with no row simply count as
