@@ -80,7 +80,8 @@ export interface Copy {
       rateLimited: string; // {minutes}
     };
   };
-  nav: { label: string; today: string; week: string; month: string };
+  nav: { label: string; today: string; overview: string };
+  overview: { eyebrow: string; title: string; weekTab: string; monthTab: string };
   today: {
     title: string;
     progress: string;
@@ -160,7 +161,13 @@ export const COPY: Record<Lang, Copy> = {
         rateLimited: "Too many attempts. Try again in {minutes} min.",
       },
     },
-    nav: { label: "Main navigation", today: "Today", week: "Week", month: "Month" },
+    nav: { label: "Main navigation", today: "Today", overview: "Overview" },
+    overview: {
+      eyebrow: "Your history",
+      title: "Overview",
+      weekTab: "Week",
+      monthTab: "Month",
+    },
     today: {
       title: "Today",
       progress: "Progress",
@@ -242,7 +249,13 @@ export const COPY: Record<Lang, Copy> = {
         rateLimited: "Muitas tentativas. Tente de novo em {minutes} min.",
       },
     },
-    nav: { label: "Navegação principal", today: "Hoje", week: "Semana", month: "Mês" },
+    nav: { label: "Navegação principal", today: "Hoje", overview: "Visão geral" },
+    overview: {
+      eyebrow: "Seu histórico",
+      title: "Visão geral",
+      weekTab: "Semana",
+      monthTab: "Mês",
+    },
     today: {
       title: "Hoje",
       progress: "Progresso",
