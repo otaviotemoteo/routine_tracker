@@ -12,6 +12,10 @@ export interface CheckWithHabit {
   habitId: number;
   checkedAt: string; // YYYY-MM-DD (São Paulo calendar day)
   done: boolean;
+  // Tier 2 (v2): granular answers validated by details-schemas.ts; null when
+  // the day was quick-toggled or predates v2. `note` is always-optional text.
+  details: unknown;
+  note: string | null;
   name: string;
   slug: string;
   optional: boolean;
