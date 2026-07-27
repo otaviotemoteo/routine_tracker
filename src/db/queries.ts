@@ -1,9 +1,20 @@
 // Single data-access layer: the ONLY file (besides seed.ts) that touches
 // Drizzle. Routes validate input and call these functions; business math is
 // delegated to the pure helpers in src/lib/utils.ts.
-import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "./index";
-import { dailyChecks, habits } from "./schema";
+import {
+  books,
+  dailyChecks,
+  habits,
+  languages,
+  readingGoals,
+  routineBlocks,
+  spiritualPractices,
+  workoutPlanDays,
+  workoutPlans,
+  type PlannedExercise,
+} from "./schema";
 import {
   addDays,
   calcMonthAdherence,
@@ -23,6 +34,8 @@ const checkWithHabitColumns = {
   habitId: dailyChecks.habitId,
   checkedAt: dailyChecks.checkedAt,
   done: dailyChecks.done,
+  details: dailyChecks.details,
+  note: dailyChecks.note,
   name: habits.name,
   slug: habits.slug,
   optional: habits.optional,
@@ -101,6 +114,261 @@ export async function setChecksDone(
       )
     )
     .orderBy(asc(habits.id));
+}
+
+// The habit slug for a check id — the API needs it to pick the Zod schema
+// before validating incoming details.
+export async function getCheckHabitSlug(id: number): Promise<string | null> {
+  const [row] = await db
+    .select({ slug: habits.slug })
+    .from(dailyChecks)
+    .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .where(eq(dailyChecks.id, id));
+  return row?.slug ?? null;
+}
+
+// Per-habit save from the Today sheet: details (already Zod-validated at the
+// API layer) + note + done, in one write.
+export async function saveCheckDetails(
+  id: number,
+  input: { done: boolean; details?: unknown; note?: string | null }
+): Promise<CheckWithHabit | null> {
+  const [updated] = await db
+    .update(dailyChecks)
+    .set({
+      done: input.done,
+      details: input.details ?? null,
+      note: input.note ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(dailyChecks.id, id))
+    .returning({ id: dailyChecks.id });
+  if (!updated) return null;
+  const [row] = await db
+    .select(checkWithHabitColumns)
+    .from(dailyChecks)
+    .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .where(eq(dailyChecks.id, id));
+  return row ?? null;
+}
+
+// ─── Entities (Tier 3) ───────────────────────────────────────────────────────
+
+export interface WorkoutPlanDayInput {
+  weekday: number;
+  focus: string;
+  exercises: PlannedExercise[];
+}
+
+export async function getActiveWorkoutPlan() {
+  const [plan] = await db
+    .select()
+    .from(workoutPlans)
+    .where(eq(workoutPlans.active, true))
+    .orderBy(desc(workoutPlans.version))
+    .limit(1);
+  if (!plan) return null;
+  const days = await db
+    .select()
+    .from(workoutPlanDays)
+    .where(eq(workoutPlanDays.planId, plan.id))
+    .orderBy(asc(workoutPlanDays.weekday));
+  return { ...plan, days };
+}
+
+export function listWorkoutPlanVersions() {
+  return db.select().from(workoutPlans).orderBy(asc(workoutPlans.version));
+}
+
+// Editing a plan = a NEW immutable version (spec): bump version, deactivate the
+// old active one, insert the new plan + its days. History is preserved.
+export async function saveWorkoutPlan(
+  name: string,
+  days: WorkoutPlanDayInput[]
+) {
+  const [{ max }] = await db
+    .select({ max: sql<number>`coalesce(max(${workoutPlans.version}), 0)` })
+    .from(workoutPlans);
+  await db
+    .update(workoutPlans)
+    .set({ active: false })
+    .where(eq(workoutPlans.active, true));
+  const [plan] = await db
+    .insert(workoutPlans)
+    .values({ version: Number(max) + 1, name, active: true })
+    .returning();
+  if (days.length > 0) {
+    await db
+      .insert(workoutPlanDays)
+      .values(days.map((d) => ({ planId: plan.id, ...d })));
+  }
+  return plan;
+}
+
+export async function getReadingGoal(year: number) {
+  const [goal] = await db
+    .select()
+    .from(readingGoals)
+    .where(eq(readingGoals.year, year));
+  return goal ?? null;
+}
+
+export async function upsertReadingGoal(year: number, targetBooks: number) {
+  await db
+    .insert(readingGoals)
+    .values({ year, targetBooks })
+    .onConflictDoUpdate({ target: readingGoals.year, set: { targetBooks } });
+}
+
+export function listBooks() {
+  return db.select().from(books).orderBy(asc(books.position));
+}
+
+export async function getBookById(id: number) {
+  const [book] = await db.select().from(books).where(eq(books.id, id));
+  return book ?? null;
+}
+
+export async function getCurrentBook() {
+  const [book] = await db
+    .select()
+    .from(books)
+    .where(eq(books.status, "reading"))
+    .orderBy(asc(books.position))
+    .limit(1);
+  return book ?? null;
+}
+
+export async function createBook(input: {
+  title: string;
+  author?: string | null;
+  totalPages: number;
+  position: number;
+  status?: string;
+}) {
+  const [book] = await db
+    .insert(books)
+    .values({
+      title: input.title,
+      author: input.author ?? null,
+      totalPages: input.totalPages,
+      position: input.position,
+      status: input.status ?? "queued",
+    })
+    .returning();
+  return book;
+}
+
+export async function updateBook(
+  id: number,
+  patch: Partial<{
+    status: string;
+    currentPage: number;
+    startedAt: string | null;
+    finishedAt: string | null;
+    position: number;
+  }>
+) {
+  await db.update(books).set(patch).where(eq(books.id, id));
+}
+
+export function listRoutineBlocks(activeOnly = true) {
+  const query = db.select().from(routineBlocks);
+  return activeOnly
+    ? query.where(eq(routineBlocks.active, true)).orderBy(asc(routineBlocks.position))
+    : query.orderBy(asc(routineBlocks.position));
+}
+
+// Replace the active routine: deactivate the current blocks (never delete —
+// past `details` reference their ids) and insert the new set.
+export async function replaceRoutineBlocks(
+  blocks: {
+    startTime: string;
+    endTime: string;
+    activity: string;
+    weekdays: number[];
+    position: number;
+  }[]
+) {
+  await db
+    .update(routineBlocks)
+    .set({ active: false })
+    .where(eq(routineBlocks.active, true));
+  if (blocks.length > 0) {
+    await db.insert(routineBlocks).values(blocks);
+  }
+}
+
+export function listSpiritualPractices(activeOnly = true) {
+  const query = db.select().from(spiritualPractices);
+  return activeOnly
+    ? query
+        .where(eq(spiritualPractices.active, true))
+        .orderBy(asc(spiritualPractices.position))
+    : query.orderBy(asc(spiritualPractices.position));
+}
+
+// Upsert practices by slug (stable identifier) and deactivate any not present.
+export async function replaceSpiritualPractices(
+  practices: { name: string; slug: string; countable: boolean; position: number }[]
+) {
+  await db
+    .update(spiritualPractices)
+    .set({ active: false })
+    .where(eq(spiritualPractices.active, true));
+  for (const p of practices) {
+    await db
+      .insert(spiritualPractices)
+      .values({ ...p, active: true })
+      .onConflictDoUpdate({
+        target: spiritualPractices.slug,
+        set: {
+          name: p.name,
+          countable: p.countable,
+          position: p.position,
+          active: true,
+        },
+      });
+  }
+}
+
+export function listLanguages(activeOnly = true) {
+  const query = db.select().from(languages);
+  return activeOnly
+    ? query.where(eq(languages.active, true))
+    : query;
+}
+
+export async function replaceLanguages(
+  items: { name: string; slug: string }[]
+) {
+  await db
+    .update(languages)
+    .set({ active: false })
+    .where(eq(languages.active, true));
+  for (const l of items) {
+    await db
+      .insert(languages)
+      .values({ ...l, active: true })
+      .onConflictDoUpdate({
+        target: languages.slug,
+        set: { name: l.name, active: true },
+      });
+  }
+}
+
+// Onboarding gate: is anything the user must configure present? Seeded
+// spiritual-practice defaults are excluded (they always exist), so the check
+// looks only at tables the user actively fills.
+export async function isConfigured(): Promise<boolean> {
+  const [wp, bk, rb, rg, lg] = await Promise.all([
+    db.$count(workoutPlans),
+    db.$count(books),
+    db.$count(routineBlocks),
+    db.$count(readingGoals),
+    db.$count(languages),
+  ]);
+  return wp + bk + rb + rg + lg > 0;
 }
 
 // 7 days × 7 habits starting at a Monday. Days with no row simply count as
