@@ -3,12 +3,16 @@
 // components map slug → lucide-react icon instead.
 import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { habits } from "./schema";
+import { habits, spiritualPractices } from "./schema";
 
-try {
-  process.loadEnvFile(".env.local");
-} catch {
-  // .env.local may not exist (e.g. CI with DATABASE_URL already set)
+// Only load .env.local when DATABASE_URL isn't already set, so a shell-provided
+// URL (CI, or local-proxy testing) takes precedence over the file.
+if (!process.env.DATABASE_URL) {
+  try {
+    process.loadEnvFile(".env.local");
+  } catch {
+    // .env.local may not exist (e.g. CI with DATABASE_URL already set)
+  }
 }
 
 // Same dev-only local proxy switch as src/db/index.ts (own connection here
@@ -25,6 +29,14 @@ const SEED_HABITS = [
   { name: "Duolingo", slug: "duolingo", icon: "🌍", optional: false },
   { name: "Espiritualidade", slug: "espiritualidade", icon: "✝️", optional: false },
   { name: "Hobby", slug: "hobby", icon: "🎸", optional: true },
+];
+
+// Default spiritual practices (pt-BR — user content, editable in onboarding).
+// countable = has a repetition count (e.g. 2 terços); others are just did/didn't.
+const SEED_PRACTICES = [
+  { name: "Oração", slug: "oracao", countable: false, position: 0 },
+  { name: "Terço", slug: "terco", countable: true, position: 1 },
+  { name: "Leitura bíblica", slug: "leitura-biblica", countable: false, position: 2 },
 ];
 
 async function seed(): Promise<void> {
@@ -44,7 +56,22 @@ async function seed(): Promise<void> {
         set: { name: habit.name, icon: habit.icon, optional: habit.optional },
       });
   }
-  console.log(`Seeded ${SEED_HABITS.length} habits (upsert by slug).`);
+  for (const practice of SEED_PRACTICES) {
+    await db
+      .insert(spiritualPractices)
+      .values({ ...practice, active: true })
+      .onConflictDoUpdate({
+        target: spiritualPractices.slug,
+        set: {
+          name: practice.name,
+          countable: practice.countable,
+          position: practice.position,
+        },
+      });
+  }
+  console.log(
+    `Seeded ${SEED_HABITS.length} habits and ${SEED_PRACTICES.length} spiritual practices (upsert by slug).`
+  );
 }
 
 seed().catch((err) => {
