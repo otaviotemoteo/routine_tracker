@@ -82,6 +82,20 @@ created_at  TIMESTAMPTZ         updated_at  TIMESTAMPTZ
 - `daily_checks` holds one row per habit per day. Rows are lazily created: the first GET of a given day inserts the 7 checks with `done = false` as a single multi-row `INSERT … ON CONFLICT DO NOTHING` — one atomic statement (the neon-http driver has no interactive transactions), with the UNIQUE constraint guaranteeing idempotency under concurrent first-loads.
 - The `optional` flag drives presentation and scoring: optional habits render with a dashed border and are excluded from the daily progress bar and from best/worst weekly summaries.
 
+## v2 — Rich tracking (three tiers)
+
+v2 turns the binary spine into an auditable dataset without disturbing it. Three tiers, additive:
+
+1. **Spine (Tier 1):** `daily_checks.done` — unchanged. The grid, streaks and adherence % read only this and never regress.
+2. **Daily details (Tier 2):** `daily_checks.details JSONB` + `note TEXT`. `details` is habit-specific and **validated by a Zod schema on every write** (`src/lib/details-schemas.ts`, one per slug, `.strict()`). `NULL` details = "done without details" (v1 rows and quick-toggle days) — valid forever.
+3. **Entities (Tier 3):** normalized tables for things with a lifecycle beyond a day — `workout_plans`(+`_days`), `reading_goals`, `books`, `routine_blocks`, `spiritual_practices`, `languages`. `details` references them by id/slug. **Workout plans are immutable & versioned** (edit = insert `version+1`, flip `active`); the change log is `ORDER BY version`, no audit table.
+
+`src/lib/details-schemas.ts` is the single source of truth: it validates writes, generates the TS types (`z.infer`), and feeds `DATA_DICTIONARY.md` via each field's `.describe()`. All Tier-3 access stays in `src/db/queries.ts` like the spine. Derived metrics (reading pace, routine/plan adherence) are pure helpers in `src/lib/utils.ts` — computed, never stored.
+
+## Route groups & persistent shell (v2)
+
+The authenticated app lives in an `app/(app)/` route group whose layout renders the `NavBar` **once** — it persists across navigations instead of remounting per page (the real cause of the old "reload" flash; all navigation was already `next/link`). `/login` and `/onboarding` sit outside the group and get no NavBar. `/semana` and `/mes` are permanent redirects into the `/overview` Week|Month toggle (`next.config.ts`).
+
 ## Timezone Handling (the most important decision)
 
 **The check date never comes from the database.** Neon and Vercel run in UTC, so a `DEFAULT CURRENT_DATE` would roll the day over at 21:00 São Paulo time — checks made at night would land on the wrong day.
