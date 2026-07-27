@@ -96,6 +96,10 @@ v2 turns the binary spine into an auditable dataset without disturbing it. Three
 
 The authenticated app lives in an `app/(app)/` route group whose layout renders the `NavBar` **once** — it persists across navigations instead of remounting per page (the real cause of the old "reload" flash; all navigation was already `next/link`). `/login` and `/onboarding` sit outside the group and get no NavBar. `/semana` and `/mes` are permanent redirects into the `/overview` Week|Month toggle (`next.config.ts`).
 
+## Onboarding (v2)
+
+`/onboarding?step=…` is an 8-step wizard; each step is a form whose **server action upserts its entity table and redirects to the next step** (via a hidden `next` field), so abandoning mid-way loses nothing and every step is skippable. The dynamic steps are client components that serialize their rows into one hidden JSON field. The `(app)` layout **gates** the app: with nothing configured (`isConfigured()`) and no `onboarded` cookie it redirects to the wizard; finishing sets the cookie so an intentional skip isn't nagged (a navigation hint, not a data flag). `/config` reuses the exact same step components with `next="/config"` — same actions, saving in place instead of advancing. Prefill loaders are shared in `src/lib/onboarding-prefill.ts`.
+
 ## Timezone Handling (the most important decision)
 
 **The check date never comes from the database.** Neon and Vercel run in UTC, so a `DEFAULT CURRENT_DATE` would roll the day over at 21:00 São Paulo time — checks made at night would land on the wrong day.
