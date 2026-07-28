@@ -1,7 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import type { Copy } from "@/lib/i18n";
 
 // Shared Tailwind class strings so every step's inputs look identical.
@@ -73,6 +75,32 @@ function useNavGuard(dirty: boolean) {
   return { go, dialogRef, confirmLeave, keepEditing };
 }
 
+// Submit button that reports the enclosing form's pending state — saving is a
+// server round trip, so it needs to be visibly in progress.
+function SubmitButton({
+  label,
+  savingLabel,
+  disabled,
+}: {
+  label: string;
+  savingLabel: string;
+  disabled?: boolean;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={disabled || pending}
+      className={primaryButton}
+    >
+      {pending && (
+        <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden />
+      )}
+      {pending ? savingLabel : label}
+    </button>
+  );
+}
+
 interface FooterProps {
   backHref?: string;
   skipHref?: string;
@@ -123,13 +151,11 @@ export function OnboardingFooter({
             {skipLabel}
           </button>
         )}
-        <button
-          type="submit"
+        <SubmitButton
+          label={submitLabel}
+          savingLabel={copy.saving}
           disabled={requireDirtyToSave && !dirty}
-          className={primaryButton}
-        >
-          {submitLabel}
-        </button>
+        />
       </div>
 
       <dialog
