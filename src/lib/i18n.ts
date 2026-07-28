@@ -96,6 +96,19 @@ export interface Copy {
     };
   };
   dayAudit: { eyebrow: string; notLogged: string; back: string; noneLogged: string };
+  daily: {
+    start: string;
+    eyebrow: string;
+    question: string; // {habit}
+    stepOf: string; // {current} / {total}
+    save: string;
+    saving: string;
+    skip: string;
+    back: string;
+    finish: string;
+    saveError: string;
+    doneToday: string;
+  };
   today: {
     title: string;
     progress: string;
@@ -109,6 +122,11 @@ export interface Copy {
     openDetails: string; // {habit}
     markDone: string; // {habit}
     markNotDone: string; // {habit}
+    pace: string; // {n}
+    activities: string;
+    activitiesLead: string;
+    notSet: string;
+    edit: string;
   };
   sheets: {
     save: string;
@@ -175,7 +193,11 @@ export interface Copy {
       focus: string;
       focusPlaceholder: string;
       exercises: string;
-      exercisesHint: string;
+      exerciseName: string;
+      sets: string;
+      reps: string;
+      addExercise: string;
+      removeExercise: string;
       addDay: string;
       removeDay: string;
       empty: string;
@@ -189,9 +211,14 @@ export interface Copy {
       bookTitle: string;
       author: string;
       pages: string;
+      currentPage: string;
       reading: string;
       addBook: string;
       removeBook: string;
+      moveUp: string;
+      moveDown: string;
+      booksCount: string; // {added}/{goal}
+      booksRemaining: string; // {n} {goal}
       empty: string;
     };
     sleep: { title: string; lead: string; bedtime: string; wake: string };
@@ -288,6 +315,19 @@ export const COPY: Record<Lang, Copy> = {
       back: "Back to overview",
       noneLogged: "Nothing logged this day.",
     },
+    daily: {
+      start: "Complete daily",
+      eyebrow: "Daily check-in",
+      question: "Did you do {habit} today?",
+      stepOf: "Step {current} of {total}",
+      save: "Save and continue",
+      saving: "Saving…",
+      skip: "Skip",
+      back: "Back",
+      finish: "Save and finish",
+      saveError: "Couldn't save. Try again.",
+      doneToday: "Already logged today",
+    },
     today: {
       title: "Today",
       progress: "Progress",
@@ -301,6 +341,11 @@ export const COPY: Record<Lang, Copy> = {
       openDetails: "Log {habit}",
       markDone: "Mark {habit} done",
       markNotDone: "Mark {habit} not done",
+      pace: "Read {n} pages/day to stay on track",
+      activities: "Activities",
+      activitiesLead: "What you're tracking. Edit any of it anytime.",
+      notSet: "Not set",
+      edit: "Edit",
     },
     sheets: {
       save: "Save",
@@ -391,9 +436,13 @@ export const COPY: Record<Lang, Copy> = {
         planName: "Plan name",
         weekday: "Weekday",
         focus: "Focus",
-        focusPlaceholder: "Push, Legs, Rest…",
+        focusPlaceholder: "Chest + triceps, Legs, Rest…",
         exercises: "Exercises",
-        exercisesHint: "One per line: name; sets; reps",
+        exerciseName: "Exercise",
+        sets: "Sets",
+        reps: "Reps",
+        addExercise: "Add exercise",
+        removeExercise: "Remove exercise",
         addDay: "Add day",
         removeDay: "Remove",
         empty: "No training days yet.",
@@ -407,9 +456,14 @@ export const COPY: Record<Lang, Copy> = {
         bookTitle: "Title",
         author: "Author",
         pages: "Pages",
+        currentPage: "Current page",
         reading: "Reading now",
         addBook: "Add book",
         removeBook: "Remove",
+        moveUp: "Move up",
+        moveDown: "Move down",
+        booksCount: "{added} of {goal} books added",
+        booksRemaining: "Add {n} more to reach your goal",
         empty: "No books yet.",
       },
       sleep: {
@@ -514,6 +568,19 @@ export const COPY: Record<Lang, Copy> = {
       back: "Voltar à visão geral",
       noneLogged: "Nada registrado neste dia.",
     },
+    daily: {
+      start: "Preencher o dia",
+      eyebrow: "Check-in diário",
+      question: "Você fez {habit} hoje?",
+      stepOf: "Passo {current} de {total}",
+      save: "Salvar e continuar",
+      saving: "Salvando…",
+      skip: "Pular",
+      back: "Voltar",
+      finish: "Salvar e concluir",
+      saveError: "Não deu para salvar. Tente de novo.",
+      doneToday: "Já registrado hoje",
+    },
     today: {
       title: "Hoje",
       progress: "Progresso",
@@ -527,6 +594,11 @@ export const COPY: Record<Lang, Copy> = {
       openDetails: "Registrar {habit}",
       markDone: "Marcar {habit} como feito",
       markNotDone: "Desmarcar {habit}",
+      pace: "Leia {n} páginas/dia para manter o ritmo",
+      activities: "Atividades",
+      activitiesLead: "O que você acompanha. Dá para editar quando quiser.",
+      notSet: "Não definido",
+      edit: "Editar",
     },
     sheets: {
       save: "Salvar",
@@ -617,9 +689,13 @@ export const COPY: Record<Lang, Copy> = {
         planName: "Nome do plano",
         weekday: "Dia",
         focus: "Foco",
-        focusPlaceholder: "Push, Perna, Descanso…",
+        focusPlaceholder: "Peito + tríceps, Perna, Descanso…",
         exercises: "Exercícios",
-        exercisesHint: "Um por linha: nome; séries; reps",
+        exerciseName: "Exercício",
+        sets: "Séries",
+        reps: "Reps",
+        addExercise: "Adicionar exercício",
+        removeExercise: "Remover exercício",
         addDay: "Adicionar dia",
         removeDay: "Remover",
         empty: "Nenhum dia de treino ainda.",
@@ -633,9 +709,14 @@ export const COPY: Record<Lang, Copy> = {
         bookTitle: "Título",
         author: "Autor",
         pages: "Páginas",
+        currentPage: "Página atual",
         reading: "Lendo agora",
         addBook: "Adicionar livro",
         removeBook: "Remover",
+        moveUp: "Mover para cima",
+        moveDown: "Mover para baixo",
+        booksCount: "{added} de {goal} livros adicionados",
+        booksRemaining: "Adicione mais {n} para alcançar sua meta",
         empty: "Nenhum livro ainda.",
       },
       sleep: {
