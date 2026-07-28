@@ -1,7 +1,7 @@
 // Single data-access layer: the ONLY file (besides seed.ts) that touches
 // Drizzle. Routes validate input and call these functions; business math is
 // delegated to the pure helpers in src/lib/utils.ts.
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { db } from "./index";
 import {
   books,
@@ -451,6 +451,149 @@ export async function isConfigured(): Promise<boolean> {
     db.$count(sleepTargets),
   ]);
   return wp + bk + rb + rg + lg + st > 0;
+}
+
+export interface AuditLookups {
+  books: Record<number, string>;
+  planDays: Record<number, string>;
+  blocks: Record<number, string>;
+  languages: Record<string, string>;
+  practices: Record<string, string>;
+}
+
+// Id/slug → display-name maps so the Day Audit can render details
+// human-readably (book title, plan focus, block activity, language/practice
+// names). Includes inactive rows so historical references still resolve.
+export async function getAuditLookups(): Promise<AuditLookups> {
+  const [bks, planDays, blocks, langs, pracs] = await Promise.all([
+    db.select({ id: books.id, title: books.title }).from(books),
+    db
+      .select({ id: workoutPlanDays.id, focus: workoutPlanDays.focus })
+      .from(workoutPlanDays),
+    db
+      .select({ id: routineBlocks.id, activity: routineBlocks.activity })
+      .from(routineBlocks),
+    db.select({ slug: languages.slug, name: languages.name }).from(languages),
+    db
+      .select({ slug: spiritualPractices.slug, name: spiritualPractices.name })
+      .from(spiritualPractices),
+  ]);
+  return {
+    books: Object.fromEntries(bks.map((b) => [b.id, b.title])),
+    planDays: Object.fromEntries(planDays.map((d) => [d.id, d.focus])),
+    blocks: Object.fromEntries(blocks.map((b) => [b.id, b.activity])),
+    languages: Object.fromEntries(langs.map((l) => [l.slug, l.name])),
+    practices: Object.fromEntries(pracs.map((p) => [p.slug, p.name])),
+  };
+}
+
+// Read-only day fetch for the Day Audit (never lazily creates rows, unlike
+// getDayChecks — a past day being viewed shouldn't materialize empty checks).
+export function getDayChecksReadonly(date: string): Promise<CheckWithHabit[]> {
+  return db
+    .select(checkWithHabitColumns)
+    .from(dailyChecks)
+    .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .where(eq(dailyChecks.checkedAt, date))
+    .orderBy(asc(habits.id));
+}
+
+export interface MonthDetailStats {
+  sleep: { avgHours: number | null; nights: number };
+  reading: { totalPages: number };
+  workout: { percent: number; days: number };
+  duolingo: { total: number; perLanguage: { slug: string; lessons: number }[] };
+  spirituality: { totalCheckins: number };
+}
+
+function rec(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+// Per-area rich summaries for the month view, aggregated from the JSONB details
+// in JS (simpler than JSONB SQL at this scale — ≤ 7 rows/day).
+export async function getMonthDetailStats(
+  month: string
+): Promise<MonthDetailStats> {
+  const first = `${month}-01`;
+  const last = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+  const rows = await db
+    .select({ slug: habits.slug, details: dailyChecks.details })
+    .from(dailyChecks)
+    .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .where(
+      and(
+        gte(dailyChecks.checkedAt, first),
+        lte(dailyChecks.checkedAt, last),
+        isNotNull(dailyChecks.details)
+      )
+    );
+
+  const hours: number[] = [];
+  let totalPages = 0;
+  let exDone = 0;
+  let exTotal = 0;
+  let workoutDays = 0;
+  const lessonsBySlug = new Map<string, number>();
+  let practiceCheckins = 0;
+
+  for (const row of rows) {
+    const d = rec(row.details);
+    if (!d) continue;
+    switch (row.slug) {
+      case "sono":
+        if (typeof d.hours === "number") hours.push(d.hours);
+        break;
+      case "leitura":
+        if (typeof d.pages_read === "number") totalPages += d.pages_read;
+        break;
+      case "treino":
+        if (Array.isArray(d.completed)) {
+          workoutDays += 1;
+          exTotal += d.completed.length;
+          exDone += d.completed.filter((e) => rec(e)?.done === true).length;
+        }
+        break;
+      case "duolingo":
+        if (Array.isArray(d.sessions)) {
+          for (const s of d.sessions) {
+            const sr = rec(s);
+            const slug = typeof sr?.language_slug === "string" ? sr.language_slug : null;
+            const lessons = typeof sr?.lessons === "number" ? sr.lessons : 0;
+            if (slug) lessonsBySlug.set(slug, (lessonsBySlug.get(slug) ?? 0) + lessons);
+          }
+        }
+        break;
+      case "espiritualidade":
+        if (Array.isArray(d.practices)) practiceCheckins += d.practices.length;
+        break;
+    }
+  }
+
+  return {
+    sleep: {
+      avgHours:
+        hours.length > 0
+          ? Math.round((hours.reduce((a, b) => a + b, 0) / hours.length) * 10) / 10
+          : null,
+      nights: hours.length,
+    },
+    reading: { totalPages },
+    workout: {
+      percent: exTotal === 0 ? 0 : Math.round((exDone / exTotal) * 100),
+      days: workoutDays,
+    },
+    duolingo: {
+      total: [...lessonsBySlug.values()].reduce((a, b) => a + b, 0),
+      perLanguage: [...lessonsBySlug.entries()].map(([slug, lessons]) => ({
+        slug,
+        lessons,
+      })),
+    },
+    spirituality: { totalCheckins: practiceCheckins },
+  };
 }
 
 // 7 days × 7 habits starting at a Monday. Days with no row simply count as
