@@ -1,5 +1,5 @@
 import { TodayChecklist } from "@/components/TodayChecklist";
-import { getDayChecks, getTodayContext } from "@/db/queries";
+import { getDayChecks } from "@/db/queries";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { formatDayLong, todayInSaoPaulo } from "@/lib/utils";
@@ -11,21 +11,17 @@ export default async function TodayPage() {
   const lang = await getLang();
   const copy = COPY[lang];
   const today = todayInSaoPaulo();
-  const [checks, context] = await Promise.all([
-    getDayChecks(today),
-    getTodayContext(today),
-  ]);
+  const checks = await getDayChecks(today);
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-24">
       <p className="eyebrow">{formatDayLong(today, lang)}</p>
       <TodayChecklist
         initialChecks={checks}
-        context={context}
         title={copy.today.title}
         lang={lang}
         copy={copy.today}
-        sheetCopy={copy.sheets}
+        dailyCopy={copy.daily}
       />
     </main>
   );
