@@ -10,11 +10,21 @@ export interface Habit {
 
 // Everything the per-habit detail sheets need to render their forms with the
 // user's configured entities. Plain serializable data (crosses to the client).
+export interface PlanDay {
+  id: number;
+  weekday: number;
+  focus: string;
+  exercises: PlannedExercise[];
+}
+
 export interface TodayContext {
   weekday: number; // ISO 1..7
   plan: {
     name: string;
-    day: { id: number; focus: string; exercises: PlannedExercise[] } | null;
+    // Today's planned day (null on a rest day), plus every day of the plan so
+    // the daily flow can log a different training than the one scheduled.
+    day: PlanDay | null;
+    days: PlanDay[];
   } | null;
   book: {
     id: number;
