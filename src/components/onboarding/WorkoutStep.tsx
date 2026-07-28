@@ -26,9 +26,13 @@ interface WorkoutStepProps {
   copy: Copy["onboarding"];
   initialName: string;
   initialDays: WorkoutDayDraft[];
+  requireDirtyToSave?: boolean;
 }
 
 const emptyExercise = (): PlannedExercise => ({ name: "" });
+const defaultDays = (): WorkoutDayDraft[] => [
+  { weekday: 1, focus: "", exercises: [emptyExercise()] },
+];
 
 export function WorkoutStep({
   action,
@@ -39,13 +43,19 @@ export function WorkoutStep({
   copy,
   initialName,
   initialDays,
+  requireDirtyToSave,
 }: WorkoutStepProps) {
   const [name, setName] = useState(initialName);
   const [days, setDays] = useState<WorkoutDayDraft[]>(
-    initialDays.length
-      ? initialDays
-      : [{ weekday: 1, focus: "", exercises: [emptyExercise()] }]
+    initialDays.length ? initialDays : defaultDays()
   );
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify({
+      name: initialName,
+      days: initialDays.length ? initialDays : defaultDays(),
+    })
+  );
+  const dirty = JSON.stringify({ name, days }) !== initialSnapshot;
 
   // Only named exercises are saved; sets/reps stay optional.
   const serialized = JSON.stringify(
@@ -247,6 +257,9 @@ export function WorkoutStep({
         skipLabel={copy.skip}
         backLabel={copy.back}
         submitLabel={submitLabel}
+        copy={copy}
+        dirty={dirty}
+        requireDirtyToSave={requireDirtyToSave}
       />
     </form>
   );
