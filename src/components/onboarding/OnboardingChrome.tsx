@@ -1,8 +1,11 @@
 import Link from "next/link";
 
 // Shared Tailwind class strings so every step's inputs look identical.
-export const inputClass =
-  "min-h-[44px] px-3 border-2 border-forest rounded-lg bg-cream focus:bg-white w-full";
+// `fieldBase` carries no width — use it when the caller sets its own (two
+// width utilities on one element fight, and the stylesheet order decides).
+export const fieldBase =
+  "min-h-[44px] px-3 border-2 border-forest rounded-lg bg-cream focus:bg-white";
+export const inputClass = `${fieldBase} w-full`;
 export const primaryButton =
   "min-h-[48px] inline-flex items-center justify-center gap-2 px-7 rounded-full border-2 border-forest bg-clover text-white font-semibold shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm disabled:opacity-60";
 export const ghostButton =
