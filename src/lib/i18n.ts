@@ -81,7 +81,21 @@ export interface Copy {
     };
   };
   nav: { label: string; today: string; overview: string };
-  overview: { eyebrow: string; title: string; weekTab: string; monthTab: string };
+  overview: {
+    eyebrow: string;
+    title: string;
+    weekTab: string;
+    monthTab: string;
+    summary: {
+      title: string;
+      avgSleep: string;
+      totalPages: string;
+      workout: string;
+      lessons: string;
+      practices: string;
+    };
+  };
+  dayAudit: { eyebrow: string; notLogged: string; back: string; noneLogged: string };
   today: {
     title: string;
     progress: string;
@@ -259,6 +273,20 @@ export const COPY: Record<Lang, Copy> = {
       title: "Overview",
       weekTab: "Week",
       monthTab: "Month",
+      summary: {
+        title: "This month",
+        avgSleep: "Avg sleep",
+        totalPages: "Pages read",
+        workout: "Workout done",
+        lessons: "Lessons",
+        practices: "Practices",
+      },
+    },
+    dayAudit: {
+      eyebrow: "Day audit",
+      notLogged: "Not logged",
+      back: "Back to overview",
+      noneLogged: "Nothing logged this day.",
     },
     today: {
       title: "Today",
@@ -471,6 +499,20 @@ export const COPY: Record<Lang, Copy> = {
       title: "Visão geral",
       weekTab: "Semana",
       monthTab: "Mês",
+      summary: {
+        title: "Neste mês",
+        avgSleep: "Sono médio",
+        totalPages: "Páginas lidas",
+        workout: "Treino feito",
+        lessons: "Lições",
+        practices: "Práticas",
+      },
+    },
+    dayAudit: {
+      eyebrow: "Registro do dia",
+      notLogged: "Não registrado",
+      back: "Voltar à visão geral",
+      noneLogged: "Nada registrado neste dia.",
     },
     today: {
       title: "Hoje",
