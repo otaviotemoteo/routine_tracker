@@ -72,7 +72,8 @@ export function RoutineStep({
             key={i}
             className="bg-white border-2 border-forest rounded-card shadow-hard p-4"
           >
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* One line even at 360px: narrow time inputs, no wrapping. */}
+            <div className="flex items-center gap-1.5">
               <input
                 aria-label={copy.routine.start}
                 type="time"
@@ -84,9 +85,11 @@ export function RoutineStep({
                     )
                   )
                 }
-                className={`${inputClass} font-mono max-w-[7.5rem]`}
+                className={`${inputClass} font-mono min-w-0 flex-1 px-2`}
               />
-              <span aria-hidden>–</span>
+              <span aria-hidden className="shrink-0 opacity-60">
+                –
+              </span>
               <input
                 aria-label={copy.routine.end}
                 type="time"
@@ -98,7 +101,7 @@ export function RoutineStep({
                     )
                   )
                 }
-                className={`${inputClass} font-mono max-w-[7.5rem]`}
+                className={`${inputClass} font-mono min-w-0 flex-1 px-2`}
               />
               {blocks.length > 1 && (
                 <button
@@ -107,7 +110,7 @@ export function RoutineStep({
                   onClick={() =>
                     setBlocks((prev) => prev.filter((_, j) => j !== i))
                   }
-                  className="min-h-[44px] min-w-[44px] ml-auto inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
+                  className="min-h-[44px] min-w-[44px] shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
                 >
                   <X className="w-4 h-4" aria-hidden />
                 </button>
