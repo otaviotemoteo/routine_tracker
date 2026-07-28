@@ -17,7 +17,10 @@ interface DuolingoStepProps {
   submitLabel: string;
   copy: Copy["onboarding"];
   initialLanguages: string[];
+  requireDirtyToSave?: boolean;
 }
+
+const defaultNames = (): string[] => [""];
 
 export function DuolingoStep({
   action,
@@ -27,10 +30,15 @@ export function DuolingoStep({
   submitLabel,
   copy,
   initialLanguages,
+  requireDirtyToSave,
 }: DuolingoStepProps) {
   const [names, setNames] = useState<string[]>(
-    initialLanguages.length ? initialLanguages : [""]
+    initialLanguages.length ? initialLanguages : defaultNames()
   );
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify(initialLanguages.length ? initialLanguages : defaultNames())
+  );
+  const dirty = JSON.stringify(names) !== initialSnapshot;
 
   const serialized = JSON.stringify(
     names.filter((n) => n.trim()).map((name) => ({ name }))
@@ -84,6 +92,9 @@ export function DuolingoStep({
         skipLabel={copy.skip}
         backLabel={copy.back}
         submitLabel={submitLabel}
+        copy={copy}
+        dirty={dirty}
+        requireDirtyToSave={requireDirtyToSave}
       />
     </form>
   );
