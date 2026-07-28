@@ -28,6 +28,7 @@ interface ReadingStepProps {
   copy: Copy["onboarding"];
   initialGoal: string;
   initialBooks: BookDraft[];
+  requireDirtyToSave?: boolean;
 }
 
 const emptyBook = (reading: boolean): BookDraft => ({
@@ -37,6 +38,7 @@ const emptyBook = (reading: boolean): BookDraft => ({
   currentPage: "",
   reading,
 });
+const defaultBooks = (): BookDraft[] => [emptyBook(true)];
 
 export function ReadingStep({
   action,
@@ -47,11 +49,19 @@ export function ReadingStep({
   copy,
   initialGoal,
   initialBooks,
+  requireDirtyToSave,
 }: ReadingStepProps) {
   const [goal, setGoal] = useState(initialGoal);
   const [rows, setRows] = useState<BookDraft[]>(
-    initialBooks.length ? initialBooks : [emptyBook(true)]
+    initialBooks.length ? initialBooks : defaultBooks()
   );
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify({
+      goal: initialGoal,
+      rows: initialBooks.length ? initialBooks : defaultBooks(),
+    })
+  );
+  const dirty = JSON.stringify({ goal, rows }) !== initialSnapshot;
 
   const filled = rows.filter((b) => b.title.trim() && Number(b.pages) > 0);
   const goalNum = Number(goal);
@@ -245,6 +255,9 @@ export function ReadingStep({
         skipLabel={copy.skip}
         backLabel={copy.back}
         submitLabel={submitLabel}
+        copy={copy}
+        dirty={dirty}
+        requireDirtyToSave={requireDirtyToSave}
       />
     </form>
   );
