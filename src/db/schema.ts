@@ -24,12 +24,21 @@ export const habits = pgTable("habits", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+// How an exercise is measured. Not everything is sets×reps: a run is a
+// distance (and maybe a target time), a plank is sets × a hold in seconds.
+export type ExerciseKind = "reps" | "time" | "distance";
+
 // One exercise inside a workout_plan_days.exercises array (entity config, not
 // a daily log). Typed here; daily `details` shapes live in details-schemas.ts.
 export interface PlannedExercise {
   name: string;
+  // Absent means "reps" — the shape every pre-v2.2 row was written with.
+  kind?: ExerciseKind;
   sets?: number;
-  reps?: number;
+  reps?: number; // kind "reps"
+  seconds?: number; // kind "time" — hold/effort per set
+  distance?: number; // kind "distance" — kilometres
+  minutes?: number; // kind "distance" — optional target time
   load?: string;
 }
 
