@@ -114,14 +114,18 @@ export interface Copy {
     progress: string;
     dayComplete: string;
     progressAria: string;
-    firstHint: string;
+    fillHint: string;
     optional: string;
-    saveError: string;
-    doneSr: string;
-    notDoneSr: string;
-    openDetails: string; // {habit}
-    markDone: string; // {habit}
-    markNotDone: string; // {habit}
+    doneLabel: string;
+    pendingLabel: string;
+    restDay: string;
+    notConfigured: string;
+    pageOf: string; // {current} {total}
+    sleepTarget: string; // {from} {to}
+    blockToday: string; // {n} — singular
+    blocksToday: string; // {n} — plural
+    practiceToday: string; // {n} — singular
+    practicesToday: string; // {n} — plural
     pace: string; // {n}
     activities: string;
     activitiesLead: string;
@@ -333,14 +337,18 @@ export const COPY: Record<Lang, Copy> = {
       progress: "Progress",
       dayComplete: "Day complete",
       progressAria: "Required habits done today",
-      firstHint: "Tap a habit to log it — or the box to just mark it done.",
+      fillHint: "Fill in the day to log what you did.",
       optional: "optional",
-      saveError: "Couldn't save. Check your connection and try again.",
-      doneSr: "done",
-      notDoneSr: "not done",
-      openDetails: "Log {habit}",
-      markDone: "Mark {habit} done",
-      markNotDone: "Mark {habit} not done",
+      doneLabel: "Done",
+      pendingLabel: "Not logged yet",
+      restDay: "Rest day",
+      notConfigured: "Not set up",
+      pageOf: "page {current} of {total}",
+      sleepTarget: "Target {from} – {to}",
+      blockToday: "{n} block today",
+      blocksToday: "{n} blocks today",
+      practiceToday: "{n} practice",
+      practicesToday: "{n} practices",
       pace: "Read {n} pages/day to stay on track",
       activities: "Activities",
       activitiesLead: "What you're tracking. Edit any of it anytime.",
@@ -586,14 +594,18 @@ export const COPY: Record<Lang, Copy> = {
       progress: "Progresso",
       dayComplete: "Dia completo",
       progressAria: "Hábitos obrigatórios concluídos hoje",
-      firstHint: "Toque em um hábito para registrar — ou na caixa para só marcar.",
+      fillHint: "Preencha o dia para registrar o que você fez.",
       optional: "opcional",
-      saveError: "Não deu para salvar. Confira a conexão e tente de novo.",
-      doneSr: "feito",
-      notDoneSr: "não feito",
-      openDetails: "Registrar {habit}",
-      markDone: "Marcar {habit} como feito",
-      markNotDone: "Desmarcar {habit}",
+      doneLabel: "Feito",
+      pendingLabel: "Ainda não registrado",
+      restDay: "Dia de descanso",
+      notConfigured: "Não configurado",
+      pageOf: "página {current} de {total}",
+      sleepTarget: "Meta {from} – {to}",
+      blockToday: "{n} bloco hoje",
+      blocksToday: "{n} blocos hoje",
+      practiceToday: "{n} prática",
+      practicesToday: "{n} práticas",
       pace: "Leia {n} páginas/dia para manter o ritmo",
       activities: "Atividades",
       activitiesLead: "O que você acompanha. Dá para editar quando quiser.",
