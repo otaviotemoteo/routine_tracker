@@ -24,6 +24,8 @@ export type SetupSection =
 export interface SetupRow {
   section: SetupSection;
   label: string;
+  // Whether this area has been set up at all (drives the badge + tint).
+  configured: boolean;
   value: string | null; // null → "not set"
   hint?: string; // e.g. the reading pace, or what's still missing
   // "warn" = something still needs the user's attention (straw), "info" = a
@@ -73,11 +75,13 @@ export async function getSetupSummary(
     {
       section: "workout",
       label: copy.review.sections.workout,
+      configured: plan !== null,
       value: plan ? plan.name : null,
     },
     {
       section: "reading",
       label: copy.review.sections.reading,
+      configured: goal !== null || books.length > 0,
       value: goal ? `${goal.targetBooks} ${copy.reading.goalUnit}` : null,
       hint: readingHint,
       hintTone: readingTone,
@@ -85,6 +89,7 @@ export async function getSetupSummary(
     {
       section: "sleep",
       label: copy.review.sections.sleep,
+      configured: sleep !== null,
       value: sleep
         ? `${sleep.bedtime.slice(0, 5)} – ${sleep.wakeTime.slice(0, 5)}`
         : null,
@@ -92,6 +97,7 @@ export async function getSetupSummary(
     {
       section: "routine",
       label: copy.review.sections.routine,
+      configured: routine.length > 0,
       value: routine.length
         ? routine.map((b) => b.activity).slice(0, 3).join(", ")
         : null,
@@ -99,11 +105,13 @@ export async function getSetupSummary(
     {
       section: "duolingo",
       label: copy.review.sections.duolingo,
+      configured: langs.length > 0,
       value: langs.length ? langs.map((l) => l.name).join(", ") : null,
     },
     {
       section: "spirituality",
       label: copy.review.sections.spirituality,
+      configured: practices.length > 0,
       value: practices.length ? practices.map((p) => p.name).join(", ") : null,
     },
   ];
