@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { habitIcon } from "@/lib/icons";
 import { habitName, type Copy, type Lang } from "@/lib/i18n";
@@ -35,12 +36,12 @@ function GridRow({
       </td>
       {habit.done.map((done, i) => (
         <td key={days[i]}>
-          <div
-            role="img"
+          <Link
+            href={`/overview/${days[i]}`}
             aria-label={`${name}, ${copy.dayLabels[i]} ${days[i].slice(8, 10)}: ${
               done ? copy.done : days[i] > today ? copy.noRecordYet : copy.notDone
             }`}
-            className={`w-[22px] h-[22px] sm:w-[26px] sm:h-[26px] rounded-md border border-forest/15 ${
+            className={`block w-[22px] h-[22px] sm:w-[26px] sm:h-[26px] rounded-md border border-forest/15 ${
               done ? "bg-clover" : days[i] > today ? "bg-transparent" : "bg-sand"
             }`}
           />
