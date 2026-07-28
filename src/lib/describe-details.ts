@@ -30,12 +30,14 @@ export function describeDetails(
       const focus = lookups.planDays[Number(d.plan_day_id)];
       if (focus) lines.push({ label: copy.workout.plan, value: focus });
       if (Array.isArray(d.completed)) {
+        const schemes = lookups.planExercises[Number(d.plan_day_id)] ?? {};
         lines.push({
           label: "✓",
           value: d.completed
             .map((e) => {
               const er = rec(e);
-              return `${er?.name}${er?.done ? " ✓" : " ✗"}`;
+              const scheme = schemes[String(er?.name)];
+              return `${er?.name}${scheme ? ` ${scheme}` : ""}${er?.done ? " ✓" : " ✗"}`;
             })
             .join(", "),
         });
