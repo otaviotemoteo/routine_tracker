@@ -21,7 +21,7 @@ Personal web app for daily habit check-ins with weekly/monthly visualization and
 
 **Out:** AI insights in-app, LinkedIn posts, notifications, diet, external integrations (e.g. the Duolingo API), multi-user. The app captures the dataset; the year-end analysis is done by feeding the export + `DATA_DICTIONARY.md` to an AI offline.
 
-See `ARCHITECTURE.md` for how it's built and `DATA_DICTIONARY.md` for every stored field.
+See `ARCHITECTURE.md` for how it's built, `UX_PRINCIPLES.md` for how it should behave, and `DATA_DICTIONARY.md` for every stored field.
 
 ---
 
@@ -202,7 +202,8 @@ tracker/
 ├── postcss.config.mjs
 ├── next.config.ts
 ├── .env.local                    # DATABASE_URL, APP_PASSWORD, AUTH_SECRET
-├── ARCHITECTURE.md               # ships with the repo
+├── ARCHITECTURE.md               # ships with the repo (how it's built)
+├── UX_PRINCIPLES.md              # ships with the repo (how it should behave)
 ├── DATA_DICTIONARY.md            # ships with the repo (every stored field)
 ├── CLAUDE.md                     # (gitignored)
 ├── LEARNING_ROADMAP.md           # (gitignored)
