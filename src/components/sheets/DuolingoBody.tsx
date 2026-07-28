@@ -43,9 +43,14 @@ export function DuolingoBody({ context, initial, copy, onChange }: SheetBodyProp
   return (
     <div className="flex flex-col gap-3">
       <span className={labelClass}>{copy.duolingo.lessons}</span>
+      {/* One card per language: without the boxes, several rows of stepper
+          controls read as one undifferentiated list. */}
       {langs.map((l) => (
-        <div key={l.slug} className="flex items-center justify-between gap-3">
-          <span className="font-medium">{l.name}</span>
+        <div
+          key={l.slug}
+          className="flex items-center justify-between gap-3 border-2 border-forest rounded-card bg-cream px-4 py-2.5"
+        >
+          <span className="font-semibold">{l.name}</span>
           <div className="flex items-center gap-2">
             <button
               type="button"
