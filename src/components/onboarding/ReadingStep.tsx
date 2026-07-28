@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronDown, ChevronUp, Info, Plus, X } from "lucide-react";
 import {
   fieldBase,
   ghostButton,
   inputClass,
   OnboardingFooter,
+  primaryButton,
 } from "./OnboardingChrome";
+import { CollapsedCard } from "./CollapsedCard";
 import { format, type Copy } from "@/lib/i18n";
 
 export interface BookDraft {
@@ -28,6 +30,10 @@ interface ReadingStepProps {
   copy: Copy["onboarding"];
   initialGoal: string;
   initialBooks: BookDraft[];
+  // Days left in the year, computed server-side (São Paulo timezone) so the
+  // pace note here matches the one on Overview.
+  daysLeft: number;
+  year: number;
   requireDirtyToSave?: boolean;
 }
 
@@ -49,11 +55,16 @@ export function ReadingStep({
   copy,
   initialGoal,
   initialBooks,
+  daysLeft,
+  year,
   requireDirtyToSave,
 }: ReadingStepProps) {
   const [goal, setGoal] = useState(initialGoal);
   const [rows, setRows] = useState<BookDraft[]>(
     initialBooks.length ? initialBooks : defaultBooks()
+  );
+  const [openIndex, setOpenIndex] = useState<number>(
+    initialBooks.length ? initialBooks.length - 1 : 0
   );
   const [initialSnapshot] = useState(() =>
     JSON.stringify({
@@ -63,15 +74,25 @@ export function ReadingStep({
   );
   const dirty = JSON.stringify({ goal, rows }) !== initialSnapshot;
 
+  const goalRef = useRef<HTMLInputElement>(null);
+  const explainRef = useRef<HTMLDialogElement>(null);
+
   const filled = rows.filter((b) => b.title.trim() && Number(b.pages) > 0);
   const goalNum = Number(goal);
-  const missing =
-    Number.isFinite(goalNum) && goalNum > 0
-      ? Math.max(0, goalNum - filled.length)
-      : 0;
+  const hasGoal = Number.isFinite(goalNum) && goalNum > 0;
+  const missing = hasGoal ? Math.max(0, goalNum - filled.length) : 0;
+  const atGoal = hasGoal && filled.length >= goalNum;
 
-  // Array order is the reading order (position); id is kept so the server can
-  // update existing books instead of recreating them.
+  // Same math as the Overview note: pages left in the current book plus every
+  // page of the ones after it, spread over the days left in the year.
+  const remainingPages = filled.reduce((sum, b) => {
+    const total = Number(b.pages) || 0;
+    const read = b.reading ? Number(b.currentPage) || 0 : 0;
+    return sum + Math.max(0, total - read);
+  }, 0);
+  const pagesPerDay =
+    remainingPages > 0 ? Math.ceil(remainingPages / Math.max(1, daysLeft)) : 0;
+
   const serialized = JSON.stringify(
     filled.map((b) => ({
       id: b.id,
@@ -95,6 +116,18 @@ export function ReadingStep({
       return copyRows;
     });
 
+  function addBook() {
+    setRows((prev) => {
+      setOpenIndex(prev.length);
+      return [...prev, emptyBook(prev.length === 0)];
+    });
+  }
+
+  function focusGoal() {
+    goalRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    goalRef.current?.focus();
+  }
+
   return (
     <form action={action}>
       <input type="hidden" name="next" value={next} />
@@ -102,10 +135,31 @@ export function ReadingStep({
       <h1 className="display-title text-3xl sm:text-4xl">{copy.reading.title}</h1>
       <p className="mt-2 opacity-75">{copy.reading.lead}</p>
 
-      <label className="block mt-6 mb-1.5 font-semibold text-sm">
+      {pagesPerDay > 0 && (
+        <p className="mt-3 text-sm bg-mint border-2 border-forest rounded-card px-4 py-2.5 flex items-start gap-2">
+          <span className="flex-1">
+            {format(copy.reading.paceNote, { pages: pagesPerDay, year })}
+          </span>
+          <button
+            type="button"
+            aria-label={copy.reading.paceExplainAria}
+            onClick={() => explainRef.current?.showModal()}
+            className="shrink-0 min-h-[24px] min-w-[24px] inline-flex items-center justify-center"
+          >
+            <Info className="w-5 h-5" aria-hidden />
+          </button>
+        </p>
+      )}
+
+      <label
+        htmlFor="targetBooks"
+        className="block mt-6 mb-1.5 font-semibold text-sm"
+      >
         {copy.reading.goal}
       </label>
       <input
+        id="targetBooks"
+        ref={goalRef}
         name="targetBooks"
         type="number"
         min={1}
@@ -117,7 +171,7 @@ export function ReadingStep({
 
       <div className="mt-6 mb-2 flex items-baseline justify-between gap-3 flex-wrap">
         <p className="font-semibold">{copy.reading.list}</p>
-        {goalNum > 0 && (
+        {hasGoal && (
           <p className="text-sm font-mono opacity-70">
             {format(copy.reading.booksCount, {
               added: filled.length,
@@ -127,111 +181,123 @@ export function ReadingStep({
         )}
       </div>
 
-      <ul className="flex flex-col gap-4 list-none">
-        {rows.map((b, i) => (
-          <li
-            key={b.id ?? `new-${i}`}
-            className="bg-white border-2 border-forest rounded-card shadow-hard p-4"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-sm opacity-50 shrink-0">
-                {i + 1}
-              </span>
-              <input
-                placeholder={copy.reading.bookTitle}
-                aria-label={copy.reading.bookTitle}
-                value={b.title}
-                onChange={(e) => update(i, { title: e.target.value })}
-                className={`${inputClass} min-w-0 flex-1`}
+      <ul className="flex flex-col gap-3 list-none">
+        {rows.map((b, i) =>
+          i !== openIndex && b.title.trim() ? (
+            <li key={b.id ?? `new-${i}`}>
+              <CollapsedCard
+                title={`${i + 1}. ${b.title}`}
+                detail={[b.author, b.pages && `${b.pages} p`]
+                  .filter(Boolean)
+                  .join(" · ")}
+                editLabel={copy.config.edit}
+                onEdit={() => setOpenIndex(i)}
               />
-              <div className="flex shrink-0">
-                <button
-                  type="button"
-                  aria-label={copy.reading.moveUp}
-                  disabled={i === 0}
-                  onClick={() => move(i, -1)}
-                  className="min-h-[44px] min-w-[36px] inline-flex items-center justify-center rounded-l-lg border-2 border-forest bg-white disabled:opacity-30"
-                >
-                  <ChevronUp className="w-4 h-4" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  aria-label={copy.reading.moveDown}
-                  disabled={i === rows.length - 1}
-                  onClick={() => move(i, 1)}
-                  className="min-h-[44px] min-w-[36px] inline-flex items-center justify-center rounded-r-lg border-2 border-l-0 border-forest bg-white disabled:opacity-30"
-                >
-                  <ChevronDown className="w-4 h-4" aria-hidden />
-                </button>
-              </div>
-              {rows.length > 1 && (
-                <button
-                  type="button"
-                  aria-label={copy.reading.removeBook}
-                  onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
-                  className="min-h-[44px] min-w-[44px] shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
-                >
-                  <X className="w-4 h-4" aria-hidden />
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-3 mt-3">
-              <input
-                placeholder={copy.reading.author}
-                aria-label={copy.reading.author}
-                value={b.author}
-                onChange={(e) => update(i, { author: e.target.value })}
-                className={`${inputClass} min-w-0 flex-1`}
-              />
-              <input
-                placeholder={copy.reading.pages}
-                aria-label={copy.reading.pages}
-                type="number"
-                min={1}
-                inputMode="numeric"
-                value={b.pages}
-                onChange={(e) => update(i, { pages: e.target.value })}
-                className={`${fieldBase} w-24 shrink-0 font-mono`}
-              />
-            </div>
-
-            <label className="flex items-center gap-2 mt-3 text-sm font-semibold">
-              <input
-                type="radio"
-                name="reading-now"
-                checked={b.reading}
-                onChange={() =>
-                  setRows((prev) => prev.map((r, j) => ({ ...r, reading: j === i })))
-                }
-                className="w-5 h-5 accent-clover"
-              />
-              {copy.reading.reading}
-            </label>
-
-            {/* Only the current book needs a page — it drives the pace math. */}
-            {b.reading && (
-              <div className="mt-3">
-                <label
-                  htmlFor={`current-page-${i}`}
-                  className="block mb-1.5 font-semibold text-sm"
-                >
-                  {copy.reading.currentPage}
-                </label>
+            </li>
+          ) : (
+            <li
+              key={b.id ?? `new-${i}`}
+              className="bg-white border-2 border-forest rounded-card shadow-hard p-4"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-sm opacity-50 shrink-0">
+                  {i + 1}
+                </span>
                 <input
-                  id={`current-page-${i}`}
+                  placeholder={copy.reading.bookTitle}
+                  aria-label={copy.reading.bookTitle}
+                  value={b.title}
+                  onChange={(e) => update(i, { title: e.target.value })}
+                  className={`${inputClass} min-w-0 flex-1`}
+                />
+                <div className="flex shrink-0">
+                  <button
+                    type="button"
+                    aria-label={copy.reading.moveUp}
+                    disabled={i === 0}
+                    onClick={() => move(i, -1)}
+                    className="min-h-[44px] min-w-[36px] inline-flex items-center justify-center rounded-l-lg border-2 border-forest bg-white disabled:opacity-30"
+                  >
+                    <ChevronUp className="w-4 h-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={copy.reading.moveDown}
+                    disabled={i === rows.length - 1}
+                    onClick={() => move(i, 1)}
+                    className="min-h-[44px] min-w-[36px] inline-flex items-center justify-center rounded-r-lg border-2 border-l-0 border-forest bg-white disabled:opacity-30"
+                  >
+                    <ChevronDown className="w-4 h-4" aria-hidden />
+                  </button>
+                </div>
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    aria-label={copy.reading.removeBook}
+                    onClick={() => {
+                      setRows((prev) => prev.filter((_, j) => j !== i));
+                      setOpenIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                    }}
+                    className="min-h-[44px] min-w-[44px] shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
+                  >
+                    <X className="w-4 h-4" aria-hidden />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex gap-3 mt-3">
+                <input
+                  placeholder={copy.reading.author}
+                  aria-label={copy.reading.author}
+                  value={b.author}
+                  onChange={(e) => update(i, { author: e.target.value })}
+                  className={`${inputClass} min-w-0 flex-1`}
+                />
+                <input
+                  placeholder={copy.reading.pages}
+                  aria-label={copy.reading.pages}
                   type="number"
-                  min={0}
-                  max={Number(b.pages) || undefined}
+                  min={1}
                   inputMode="numeric"
-                  value={b.currentPage}
-                  onChange={(e) => update(i, { currentPage: e.target.value })}
-                  className={`${fieldBase} w-24 font-mono`}
+                  value={b.pages}
+                  onChange={(e) => update(i, { pages: e.target.value })}
+                  className={`${fieldBase} w-24 shrink-0 font-mono`}
                 />
               </div>
-            )}
-          </li>
-        ))}
+
+              {/* "Reading now" and its page belong together on one line. */}
+              <div className="flex items-center gap-3 mt-3 flex-wrap">
+                <label className="flex items-center gap-2 text-sm font-semibold min-h-[44px]">
+                  <input
+                    type="radio"
+                    name="reading-now"
+                    checked={b.reading}
+                    onChange={() =>
+                      setRows((prev) =>
+                        prev.map((r, j) => ({ ...r, reading: j === i }))
+                      )
+                    }
+                    className="w-5 h-5 accent-clover"
+                  />
+                  {copy.reading.reading}
+                </label>
+                {b.reading && (
+                  <input
+                    type="number"
+                    min={0}
+                    max={Number(b.pages) || undefined}
+                    inputMode="numeric"
+                    placeholder={copy.reading.currentPage}
+                    aria-label={copy.reading.currentPage}
+                    value={b.currentPage}
+                    onChange={(e) => update(i, { currentPage: e.target.value })}
+                    className={`${fieldBase} w-32 font-mono`}
+                  />
+                )}
+              </div>
+            </li>
+          )
+        )}
       </ul>
 
       {missing > 0 && (
@@ -240,14 +306,24 @@ export function ReadingStep({
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={() => setRows((prev) => [...prev, emptyBook(prev.length === 0)])}
-        className={`${ghostButton} mt-4`}
-      >
-        <Plus className="w-4 h-4 mr-1.5" aria-hidden />
-        {copy.reading.addBook}
-      </button>
+      {/* At the goal there's nothing more to add — raising it is the way on. */}
+      {atGoal ? (
+        <p className="text-sm mt-4">
+          <span className="opacity-75">{copy.reading.goalReachedPre} </span>
+          <button
+            type="button"
+            onClick={focusGoal}
+            className="font-semibold underline"
+          >
+            {format(copy.reading.goalReachedLink, { goal: goalNum })}
+          </button>
+        </p>
+      ) : (
+        <button type="button" onClick={addBook} className={`${ghostButton} mt-4`}>
+          <Plus className="w-4 h-4 mr-1.5" aria-hidden />
+          {copy.reading.addBook}
+        </button>
+      )}
 
       <OnboardingFooter
         backHref={backHref}
@@ -259,6 +335,28 @@ export function ReadingStep({
         dirty={dirty}
         requireDirtyToSave={requireDirtyToSave}
       />
+
+      <dialog
+        ref={explainRef}
+        aria-labelledby="pace-explain-title"
+        className="bg-transparent p-0 backdrop:bg-forest/40"
+      >
+        <div className="bg-white border-2 border-forest rounded-card shadow-hard p-6 w-[min(22rem,90vw)] text-forest">
+          <h2 id="pace-explain-title" className="display-title text-xl">
+            {copy.reading.paceExplainTitle}
+          </h2>
+          <p className="mt-2 opacity-75 text-sm">
+            {copy.reading.paceExplainText}
+          </p>
+          <button
+            type="button"
+            onClick={() => explainRef.current?.close()}
+            className={`${primaryButton} w-full mt-5`}
+          >
+            {copy.reading.paceExplainClose}
+          </button>
+        </div>
+      </dialog>
     </form>
   );
 }
