@@ -453,6 +453,132 @@ export async function isConfigured(): Promise<boolean> {
   return wp + bk + rb + rg + lg + st > 0;
 }
 
+// Canonical dataset export for a date range — the exact payload a future AI
+// analysis consumes (see DATA_DICTIONARY.md). Entities carry full history
+// (all workout-plan versions); days hold per-habit {done, details, note}.
+export async function getExport(from: string, to: string) {
+  const [
+    plans,
+    planDays,
+    bookRows,
+    goals,
+    blocks,
+    practices,
+    langs,
+    sleep,
+    checkRows,
+  ] = await Promise.all([
+    db.select().from(workoutPlans).orderBy(asc(workoutPlans.version)),
+    db.select().from(workoutPlanDays).orderBy(asc(workoutPlanDays.weekday)),
+    db.select().from(books).orderBy(asc(books.position)),
+    db.select().from(readingGoals).orderBy(asc(readingGoals.year)),
+    db.select().from(routineBlocks).orderBy(asc(routineBlocks.position)),
+    db.select().from(spiritualPractices).orderBy(asc(spiritualPractices.position)),
+    db.select().from(languages).orderBy(asc(languages.id)),
+    db.select().from(sleepTargets),
+    db
+      .select({
+        date: dailyChecks.checkedAt,
+        slug: habits.slug,
+        done: dailyChecks.done,
+        details: dailyChecks.details,
+        note: dailyChecks.note,
+      })
+      .from(dailyChecks)
+      .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+      .where(and(gte(dailyChecks.checkedAt, from), lte(dailyChecks.checkedAt, to)))
+      .orderBy(asc(dailyChecks.checkedAt), asc(habits.id)),
+  ]);
+
+  const daysByPlan = new Map<number, typeof planDays>();
+  for (const d of planDays) {
+    const list = daysByPlan.get(d.planId) ?? [];
+    list.push(d);
+    daysByPlan.set(d.planId, list);
+  }
+
+  const daysMap = new Map<
+    string,
+    Record<string, { done: boolean; details: unknown; note: string | null }>
+  >();
+  for (const row of checkRows) {
+    const day = daysMap.get(row.date) ?? {};
+    day[row.slug] = { done: row.done, details: row.details, note: row.note };
+    daysMap.set(row.date, day);
+  }
+
+  // Emit snake_case throughout so the whole export is self-consistent with the
+  // `details` fields and DATA_DICTIONARY.md (Drizzle rows are camelCase).
+  return {
+    meta: { from, to, timezone: "America/Sao_Paulo", schema_version: 2 },
+    entities: {
+      workout_plans: plans.map((p) => ({
+        id: p.id,
+        version: p.version,
+        name: p.name,
+        active: p.active,
+        created_at: p.createdAt,
+        days: (daysByPlan.get(p.id) ?? []).map((d) => ({
+          id: d.id,
+          plan_id: d.planId,
+          weekday: d.weekday,
+          focus: d.focus,
+          exercises: d.exercises,
+        })),
+      })),
+      books: bookRows.map((b) => ({
+        id: b.id,
+        title: b.title,
+        author: b.author,
+        total_pages: b.totalPages,
+        status: b.status,
+        current_page: b.currentPage,
+        position: b.position,
+        started_at: b.startedAt,
+        finished_at: b.finishedAt,
+      })),
+      reading_goals: goals.map((g) => ({
+        id: g.id,
+        year: g.year,
+        target_books: g.targetBooks,
+        created_at: g.createdAt,
+      })),
+      routine_blocks: blocks.map((b) => ({
+        id: b.id,
+        start_time: b.startTime.slice(0, 5),
+        end_time: b.endTime.slice(0, 5),
+        activity: b.activity,
+        weekdays: b.weekdays,
+        active: b.active,
+        position: b.position,
+      })),
+      spiritual_practices: practices.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        countable: p.countable,
+        active: p.active,
+        position: p.position,
+      })),
+      languages: langs.map((l) => ({
+        id: l.id,
+        name: l.name,
+        slug: l.slug,
+        active: l.active,
+      })),
+      sleep_targets: sleep.map((s) => ({
+        id: s.id,
+        bedtime: s.bedtime.slice(0, 5),
+        wake_time: s.wakeTime.slice(0, 5),
+      })),
+    },
+    days: [...daysMap.entries()].map(([date, habitsForDay]) => ({
+      date,
+      habits: habitsForDay,
+    })),
+  };
+}
+
 export interface AuditLookups {
   books: Record<number, string>;
   planDays: Record<number, string>;
