@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { inputClass, OnboardingFooter } from "./OnboardingChrome";
 import type { Copy } from "@/lib/i18n";
 
@@ -10,9 +13,11 @@ interface SleepStepProps {
   copy: Copy["onboarding"];
   initialBedtime: string;
   initialWake: string;
+  requireDirtyToSave?: boolean;
 }
 
-// No dynamic rows — plain server-rendered form (native time inputs).
+// Controlled (rather than defaultValue) so dirty-tracking can compare against
+// what was loaded.
 export function SleepStep({
   action,
   next,
@@ -22,7 +27,12 @@ export function SleepStep({
   copy,
   initialBedtime,
   initialWake,
+  requireDirtyToSave,
 }: SleepStepProps) {
+  const [bedtime, setBedtime] = useState(initialBedtime);
+  const [wakeTime, setWakeTime] = useState(initialWake);
+  const dirty = bedtime !== initialBedtime || wakeTime !== initialWake;
+
   return (
     <form action={action}>
       <input type="hidden" name="next" value={next} />
@@ -38,7 +48,8 @@ export function SleepStep({
             id="bedtime"
             name="bedtime"
             type="time"
-            defaultValue={initialBedtime}
+            value={bedtime}
+            onChange={(e) => setBedtime(e.target.value)}
             className={`${inputClass} font-mono max-w-[9rem]`}
           />
         </div>
@@ -50,7 +61,8 @@ export function SleepStep({
             id="wakeTime"
             name="wakeTime"
             type="time"
-            defaultValue={initialWake}
+            value={wakeTime}
+            onChange={(e) => setWakeTime(e.target.value)}
             className={`${inputClass} font-mono max-w-[9rem]`}
           />
         </div>
@@ -62,6 +74,9 @@ export function SleepStep({
         skipLabel={copy.skip}
         backLabel={copy.back}
         submitLabel={submitLabel}
+        copy={copy}
+        dirty={dirty}
+        requireDirtyToSave={requireDirtyToSave}
       />
     </form>
   );
