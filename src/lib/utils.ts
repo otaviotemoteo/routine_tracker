@@ -55,6 +55,13 @@ export function isMonday(dateStr: string): boolean {
   return toUTCNoon(dateStr).getUTCDay() === 1;
 }
 
+// ISO weekday: 1 = Monday … 7 = Sunday (routine_blocks.weekdays uses this).
+// Mental test: isoWeekday("2026-07-27") = 1 (a Monday); a Sunday returns 7.
+export function isoWeekday(dateStr: string): number {
+  const dow = toUTCNoon(dateStr).getUTCDay();
+  return dow === 0 ? 7 : dow;
+}
+
 // Streak rule (README Decision 4): consecutive done-days counting backwards
 // from YESTERDAY, plus one if today is already done. An unchecked today never
 // breaks the streak — otherwise every streak would read zero each morning.
