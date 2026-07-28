@@ -24,7 +24,12 @@ interface RoutineStepProps {
   submitLabel: string;
   copy: Copy["onboarding"];
   initialBlocks: RoutineBlockDraft[];
+  requireDirtyToSave?: boolean;
 }
+
+const defaultBlocks = (): RoutineBlockDraft[] => [
+  { startTime: "06:30", endTime: "07:00", activity: "", weekdays: [1, 2, 3, 4, 5] },
+];
 
 export function RoutineStep({
   action,
@@ -34,12 +39,15 @@ export function RoutineStep({
   submitLabel,
   copy,
   initialBlocks,
+  requireDirtyToSave,
 }: RoutineStepProps) {
   const [blocks, setBlocks] = useState<RoutineBlockDraft[]>(
-    initialBlocks.length
-      ? initialBlocks
-      : [{ startTime: "06:30", endTime: "07:00", activity: "", weekdays: [1, 2, 3, 4, 5] }]
+    initialBlocks.length ? initialBlocks : defaultBlocks()
   );
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify(initialBlocks.length ? initialBlocks : defaultBlocks())
+  );
+  const dirty = JSON.stringify(blocks) !== initialSnapshot;
 
   const serialized = JSON.stringify(
     blocks.filter((b) => b.activity.trim() && b.weekdays.length > 0)
@@ -172,6 +180,9 @@ export function RoutineStep({
         skipLabel={copy.skip}
         backLabel={copy.back}
         submitLabel={submitLabel}
+        copy={copy}
+        dirty={dirty}
+        requireDirtyToSave={requireDirtyToSave}
       />
     </form>
   );
