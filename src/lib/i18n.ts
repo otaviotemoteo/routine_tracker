@@ -88,18 +88,28 @@ export interface Copy {
     dayComplete: string;
     progressAria: string;
     firstHint: string;
-    editHint: string;
-    saveError: string;
     optional: string;
-    saveButton: string;
-    saving: string;
-    editButton: string;
-    cancel: string;
-    savedTitle: string;
-    savedText: string;
-    savedClose: string;
+    saveError: string;
     doneSr: string;
     notDoneSr: string;
+    openDetails: string; // {habit}
+    markDone: string; // {habit}
+    markNotDone: string; // {habit}
+  };
+  sheets: {
+    save: string;
+    saving: string;
+    close: string;
+    note: string;
+    notePlaceholder: string;
+    saveError: string;
+    workout: { plan: string; effort: string; noPlan: string };
+    reading: { endedOnPage: string; pagesRead: string; noBook: string; of: string };
+    sleep: { hours: string; wokeUp: string; quality: string };
+    routine: { followed: string; struggled: string; struggleNote: string; none: string; noBlocks: string };
+    duolingo: { lessons: string; noLanguages: string };
+    spirituality: { noPractices: string };
+    hobby: { activity: string; activityPlaceholder: string; minutes: string };
   };
   week: {
     eyebrow: string;
@@ -255,19 +265,40 @@ export const COPY: Record<Lang, Copy> = {
       progress: "Progress",
       dayComplete: "Day complete",
       progressAria: "Required habits done today",
-      firstHint: "Pick what you did, then confirm below.",
-      editHint: "Change what you need and save again.",
-      saveError: "Couldn't save. Check your connection and try again.",
+      firstHint: "Tap a habit to log it — or the box to just mark it done.",
       optional: "optional",
-      saveButton: "I made it today",
-      saving: "Saving…",
-      editButton: "Edit tasks",
-      cancel: "Cancel",
-      savedTitle: "All saved",
-      savedText: "Today's habits are recorded. Come back anytime to edit them.",
-      savedClose: "Close",
+      saveError: "Couldn't save. Check your connection and try again.",
       doneSr: "done",
       notDoneSr: "not done",
+      openDetails: "Log {habit}",
+      markDone: "Mark {habit} done",
+      markNotDone: "Mark {habit} not done",
+    },
+    sheets: {
+      save: "Save",
+      saving: "Saving…",
+      close: "Cancel",
+      note: "Note",
+      notePlaceholder: "What could've been better?",
+      saveError: "Couldn't save. Try again.",
+      workout: { plan: "Today's focus", effort: "Effort", noPlan: "No training planned for today." },
+      reading: {
+        endedOnPage: "Ended on page",
+        pagesRead: "Pages read",
+        noBook: "No current book. Add one in settings.",
+        of: "of",
+      },
+      sleep: { hours: "Hours slept", wokeUp: "Woke up during the night", quality: "Quality" },
+      routine: {
+        followed: "Blocks followed",
+        struggled: "Hardest block",
+        struggleNote: "What made it hard?",
+        none: "None",
+        noBlocks: "No routine blocks for today.",
+      },
+      duolingo: { lessons: "Lessons", noLanguages: "No languages. Add some in settings." },
+      spirituality: { noPractices: "No practices. Add some in settings." },
+      hobby: { activity: "Activity", activityPlaceholder: "Guitar, drawing…", minutes: "Minutes" },
     },
     week: {
       eyebrow: "Day-by-day consistency",
@@ -446,19 +477,40 @@ export const COPY: Record<Lang, Copy> = {
       progress: "Progresso",
       dayComplete: "Dia completo",
       progressAria: "Hábitos obrigatórios concluídos hoje",
-      firstHint: "Marque o que você fez e confirme abaixo.",
-      editHint: "Ajuste o que precisar e salve de novo.",
-      saveError: "Não deu para salvar. Confira a conexão e tente de novo.",
+      firstHint: "Toque em um hábito para registrar — ou na caixa para só marcar.",
       optional: "opcional",
-      saveButton: "Marquei hoje",
-      saving: "Salvando…",
-      editButton: "Editar tarefas",
-      cancel: "Cancelar",
-      savedTitle: "Tudo salvo",
-      savedText: "Os hábitos de hoje foram registrados. Você pode editar quando quiser.",
-      savedClose: "Fechar",
+      saveError: "Não deu para salvar. Confira a conexão e tente de novo.",
       doneSr: "feito",
       notDoneSr: "não feito",
+      openDetails: "Registrar {habit}",
+      markDone: "Marcar {habit} como feito",
+      markNotDone: "Desmarcar {habit}",
+    },
+    sheets: {
+      save: "Salvar",
+      saving: "Salvando…",
+      close: "Cancelar",
+      note: "Nota",
+      notePlaceholder: "O que poderia ter sido melhor?",
+      saveError: "Não deu para salvar. Tente de novo.",
+      workout: { plan: "Foco de hoje", effort: "Esforço", noPlan: "Nenhum treino planejado para hoje." },
+      reading: {
+        endedOnPage: "Parou na página",
+        pagesRead: "Páginas lidas",
+        noBook: "Nenhum livro atual. Adicione um nas configurações.",
+        of: "de",
+      },
+      sleep: { hours: "Horas dormidas", wokeUp: "Acordou durante a noite", quality: "Qualidade" },
+      routine: {
+        followed: "Blocos seguidos",
+        struggled: "Bloco mais difícil",
+        struggleNote: "O que dificultou?",
+        none: "Nenhum",
+        noBlocks: "Nenhum bloco de rotina para hoje.",
+      },
+      duolingo: { lessons: "Lições", noLanguages: "Nenhum idioma. Adicione nas configurações." },
+      spirituality: { noPractices: "Nenhuma prática. Adicione nas configurações." },
+      hobby: { activity: "Atividade", activityPlaceholder: "Violão, desenho…", minutes: "Minutos" },
     },
     week: {
       eyebrow: "Consistência dia a dia",
