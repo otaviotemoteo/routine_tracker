@@ -23,7 +23,12 @@ interface SpiritualityStepProps {
   submitLabel: string;
   copy: Copy["onboarding"];
   initialPractices: PracticeDraft[];
+  requireDirtyToSave?: boolean;
 }
+
+const defaultPractices = (): PracticeDraft[] => [
+  { name: "", slug: "", countable: false },
+];
 
 export function SpiritualityStep({
   action,
@@ -33,12 +38,15 @@ export function SpiritualityStep({
   submitLabel,
   copy,
   initialPractices,
+  requireDirtyToSave,
 }: SpiritualityStepProps) {
   const [rows, setRows] = useState<PracticeDraft[]>(
-    initialPractices.length
-      ? initialPractices
-      : [{ name: "", slug: "", countable: false }]
+    initialPractices.length ? initialPractices : defaultPractices()
   );
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify(initialPractices.length ? initialPractices : defaultPractices())
+  );
+  const dirty = JSON.stringify(rows) !== initialSnapshot;
 
   // Preserve existing slugs; new rows send an empty slug and the server derives
   // it from the name (keeps stable identifiers for edits).
@@ -122,6 +130,9 @@ export function SpiritualityStep({
         skipLabel={copy.skip}
         backLabel={copy.back}
         submitLabel={submitLabel}
+        copy={copy}
+        dirty={dirty}
+        requireDirtyToSave={requireDirtyToSave}
       />
     </form>
   );
