@@ -299,26 +299,51 @@ export async function createBook(input: {
   return book;
 }
 
-// Replace the not-yet-started books (current_page = 0, still queued/reading)
-// with a fresh list — used by the reading onboarding/config step. Books with
-// real progress or a finished/abandoned status are preserved (and may be
-// referenced by past `details.book_id`, so they're never deleted here).
-export async function replaceUntouchedBooks(
+// Reconcile the reading list by id: update the rows that already exist, insert
+// the new ones, and delete only books the user removed **and** never touched
+// (current_page = 0, still queued/reading). Books with real progress or a
+// done/abandoned status are never deleted — past `details.book_id` references
+// them. Used by the reading onboarding/config step.
+export async function saveReadingList(
   rows: {
+    id?: number;
     title: string;
     author: string | null;
     totalPages: number;
+    currentPage: number;
     status: string;
     position: number;
   }[]
 ) {
-  await db
-    .delete(books)
+  const keptIds = rows.map((r) => r.id).filter((id): id is number => !!id);
+
+  const stale = await db
+    .select({ id: books.id })
+    .from(books)
     .where(
       and(eq(books.currentPage, 0), inArray(books.status, ["queued", "reading"]))
     );
-  if (rows.length > 0) {
-    await db.insert(books).values(rows);
+  const toDelete = stale
+    .map((s) => s.id)
+    .filter((id) => !keptIds.includes(id));
+  if (toDelete.length > 0) {
+    await db.delete(books).where(inArray(books.id, toDelete));
+  }
+
+  for (const row of rows) {
+    const values = {
+      title: row.title,
+      author: row.author,
+      totalPages: row.totalPages,
+      currentPage: row.currentPage,
+      status: row.status,
+      position: row.position,
+    };
+    if (row.id) {
+      await db.update(books).set(values).where(eq(books.id, row.id));
+    } else {
+      await db.insert(books).values(values);
+    }
   }
 }
 
@@ -582,6 +607,8 @@ export async function getExport(from: string, to: string) {
 export interface AuditLookups {
   books: Record<number, string>;
   planDays: Record<number, string>;
+  // plan_day_id → exercise name → "3×8" (empty when the plan omits sets/reps)
+  planExercises: Record<number, Record<string, string>>;
   blocks: Record<number, string>;
   languages: Record<string, string>;
   practices: Record<string, string>;
@@ -594,7 +621,11 @@ export async function getAuditLookups(): Promise<AuditLookups> {
   const [bks, planDays, blocks, langs, pracs] = await Promise.all([
     db.select({ id: books.id, title: books.title }).from(books),
     db
-      .select({ id: workoutPlanDays.id, focus: workoutPlanDays.focus })
+      .select({
+        id: workoutPlanDays.id,
+        focus: workoutPlanDays.focus,
+        exercises: workoutPlanDays.exercises,
+      })
       .from(workoutPlanDays),
     db
       .select({ id: routineBlocks.id, activity: routineBlocks.activity })
@@ -607,6 +638,17 @@ export async function getAuditLookups(): Promise<AuditLookups> {
   return {
     books: Object.fromEntries(bks.map((b) => [b.id, b.title])),
     planDays: Object.fromEntries(planDays.map((d) => [d.id, d.focus])),
+    planExercises: Object.fromEntries(
+      planDays.map((d) => [
+        d.id,
+        Object.fromEntries(
+          d.exercises.map((e) => [
+            e.name,
+            e.sets && e.reps ? `${e.sets}×${e.reps}` : e.sets ? `${e.sets}×` : "",
+          ])
+        ),
+      ])
+    ),
     blocks: Object.fromEntries(blocks.map((b) => [b.id, b.activity])),
     languages: Object.fromEntries(langs.map((l) => [l.slug, l.name])),
     practices: Object.fromEntries(pracs.map((p) => [p.slug, p.name])),
