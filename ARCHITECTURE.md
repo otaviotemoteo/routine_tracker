@@ -173,6 +173,8 @@ Development runs as an autonomous loop (see `CLAUDE.md`): assess state → build
 
 Every phase that touches the interface is audited against two skill checklists — `ui-ux-pro-max-skill` (GitHub) and the local `revenue-centric-design` skill — covering visual hierarchy, toggle affordance, empty/loading/error states, mobile legibility, and the first-run experience (login → empty Today → first check). "It works" is not "it's good"; the loop iterates until the checklist passes.
 
+**`UX_PRINCIPLES.md` is the standing output of that process** — the rules real usage has already settled (status vs. editing, how pending looks, guarded navigation, prefill and collapse, copy and a11y), each tied to the code that implements it, plus a checklist for new screens. Read it before building a screen; add to it when a review decides something new.
+
 The loop stops only when every phase is complete and audited. What remains is the **human block**: creating the Neon database, filling `.env.local`, running migrations/seed, deploying to Vercel, and end-to-end testing on desktop and mobile.
 
 ## Deviations & Notable Choices
