@@ -11,8 +11,8 @@ Personal web app for daily habit check-ins with weekly/monthly visualization and
 **In:**
 
 - 7 habits (6 required + 1 optional): 🏋️ Workout, 📖 Reading, 🌙 Sleep, ⏰ Routine, 🌍 Duolingo, ✝️ Spirituality, 🎸 Hobby (optional)
-- **Today** screen (`/`): 7 cards + progress bar (required habits). Tapping a card opens a per-habit detail **sheet** (save = details + done in one write); the corner box quick-toggles for rushed days. Each card shows a badge (e.g. "+23 p").
-- **Overview** screen (`/overview`): a Week | Month toggle (absorbs the old `/semana`, `/mes`). Week = contributions grid with tappable cells; Month = adherence % + streaks **plus** rich summaries (avg sleep, pages read, workout %, lessons). Cells link to a **Day Audit** (`/overview/[date]`) — everything logged that day, human-readable.
+- **Today** screen (`/`): 7 cards + progress bar (required habits) + a **"Complete daily"** button that opens the guided check-in at `/day` — one habit per step, prefilled from your goals ("Did you do Workout today? · Chest + triceps · Bench press 4×8"), saving details + done per step. Tapping a card jumps straight to that habit's step; the corner box quick-toggles for rushed days. Each card shows a badge (e.g. "+23 p").
+- **Overview** screen (`/overview`): a Week | Month toggle (absorbs the old `/semana`, `/mes`). Week = contributions grid with tappable cells; Month = adherence % + streaks **plus** rich summaries (avg sleep, pages read, workout %, lessons). Cells link to a **Day Audit** (`/overview/[date]`) — everything logged that day, human-readable. Below the chart, an **Activities** section shows your configured setup (with the reading pace you need to hit your goal) and links straight into editing it.
 - **Onboarding** (`/onboarding`): an 8-step wizard configuring the workout plan, reading list/goal, sleep window, routine blocks, languages and spiritual practices. Editable later under `/config`.
 - **Rich data model** (v2): a binary spine (`done`) + JSONB `details` validated by Zod + normalized entity tables. See `DATA_DICTIONARY.md`.
 - **Export** (`GET /api/export?from&to`): the canonical dataset JSON for a future year-end AI analysis.
