@@ -10,7 +10,7 @@ import {
   listRoutineBlocks,
   listSpiritualPractices,
 } from "@/db/queries";
-import { format, type Copy } from "@/lib/i18n";
+import { format, plural, type Copy } from "@/lib/i18n";
 import { daysLeftInYear, readingPace, todayInSaoPaulo } from "@/lib/utils";
 
 export type SetupSection =
@@ -25,7 +25,10 @@ export interface SetupRow {
   section: SetupSection;
   label: string;
   value: string | null; // null → "not set"
-  hint?: string; // e.g. the reading pace
+  hint?: string; // e.g. the reading pace, or what's still missing
+  // "warn" = something still needs the user's attention (straw), "info" = a
+  // healthy stat (clover).
+  hintTone?: "info" | "warn";
 }
 
 export async function getSetupSummary(
@@ -43,20 +46,27 @@ export async function getSetupSummary(
     listSpiritualPractices(),
   ]);
 
-  // Pace: pages still to read across the goal's unfinished books, spread over
-  // the days left in the year (README reading rule).
-  let paceHint: string | undefined;
-  const unfinished = books.filter(
-    (b) => b.status === "reading" || b.status === "queued"
-  );
-  const remainingPages = unfinished.reduce(
-    (sum, b) => sum + Math.max(0, b.totalPages - b.currentPage),
-    0
-  );
-  if (todayCopy && remainingPages > 0) {
-    paceHint = format(todayCopy.pace, {
-      n: readingPace(remainingPages, daysLeftInYear(today)),
-    });
+  // Reading hint. The list must be complete before a pace means anything —
+  // otherwise it quotes a target computed from books the user hasn't added yet.
+  let readingHint: string | undefined;
+  let readingTone: "info" | "warn" | undefined;
+  const missingBooks = goal ? goal.targetBooks - books.length : 0;
+  if (todayCopy && missingBooks > 0) {
+    readingHint = format(
+      plural(missingBooks, todayCopy.bookMissing, todayCopy.booksMissing),
+      { n: missingBooks }
+    );
+    readingTone = "warn";
+  } else if (todayCopy) {
+    const remainingPages = books
+      .filter((b) => b.status === "reading" || b.status === "queued")
+      .reduce((sum, b) => sum + Math.max(0, b.totalPages - b.currentPage), 0);
+    if (remainingPages > 0) {
+      readingHint = format(todayCopy.pace, {
+        n: readingPace(remainingPages, daysLeftInYear(today)),
+      });
+      readingTone = "info";
+    }
   }
 
   return [
@@ -69,7 +79,8 @@ export async function getSetupSummary(
       section: "reading",
       label: copy.review.sections.reading,
       value: goal ? `${goal.targetBooks} ${copy.reading.goalUnit}` : null,
-      hint: paceHint,
+      hint: readingHint,
+      hintTone: readingTone,
     },
     {
       section: "sleep",
