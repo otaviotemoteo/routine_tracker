@@ -127,6 +127,8 @@ export interface Copy {
     practiceToday: string; // {n} — singular
     practicesToday: string; // {n} — plural
     pace: string; // {n}
+    bookMissing: string; // {n} — singular
+    booksMissing: string; // {n} — plural
     activities: string;
     activitiesLead: string;
     notSet: string;
@@ -270,6 +272,12 @@ export interface Copy {
       };
     };
     config: { eyebrow: string; title: string; lead: string; edit: string };
+    unsaved: {
+      title: string;
+      text: string;
+      keepEditing: string;
+      leave: string;
+    };
   };
 }
 
@@ -350,6 +358,8 @@ export const COPY: Record<Lang, Copy> = {
       practiceToday: "{n} practice",
       practicesToday: "{n} practices",
       pace: "Read {n} pages/day to stay on track",
+      bookMissing: "{n} book still to add",
+      booksMissing: "{n} books still to add",
       activities: "Activities",
       activitiesLead: "What you're tracking. Edit any of it anytime.",
       notSet: "Not set",
@@ -529,6 +539,12 @@ export const COPY: Record<Lang, Copy> = {
         lead: "Edit any area you set up during onboarding.",
         edit: "Edit",
       },
+      unsaved: {
+        title: "Unsaved changes",
+        text: "You changed things here but didn't save. Going back discards them.",
+        keepEditing: "Keep editing",
+        leave: "Discard and go back",
+      },
     },
   },
   pt: {
@@ -607,6 +623,8 @@ export const COPY: Record<Lang, Copy> = {
       practiceToday: "{n} prática",
       practicesToday: "{n} práticas",
       pace: "Leia {n} páginas/dia para manter o ritmo",
+      bookMissing: "Falta cadastrar {n} livro",
+      booksMissing: "Faltam cadastrar {n} livros",
       activities: "Atividades",
       activitiesLead: "O que você acompanha. Dá para editar quando quiser.",
       notSet: "Não definido",
@@ -785,6 +803,12 @@ export const COPY: Record<Lang, Copy> = {
         title: "Configuração",
         lead: "Edite qualquer área que você configurou no onboarding.",
         edit: "Editar",
+      },
+      unsaved: {
+        title: "Alterações não salvas",
+        text: "Você mudou coisas aqui e não salvou. Voltar vai descartar tudo.",
+        keepEditing: "Continuar editando",
+        leave: "Descartar e voltar",
       },
     },
   },
