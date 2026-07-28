@@ -2,7 +2,13 @@ import Link from "next/link";
 import { PeriodNav } from "@/components/PeriodNav";
 import { WeekGrid } from "@/components/WeekGrid";
 import { MonthProgress } from "@/components/MonthProgress";
-import { getMonthData, getWeekData } from "@/db/queries";
+import { MonthSummary } from "@/components/MonthSummary";
+import {
+  getMonthData,
+  getMonthDetailStats,
+  getWeekData,
+  listLanguages,
+} from "@/db/queries";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import {
@@ -131,10 +137,15 @@ async function MonthView({
   const currentMonth = today.slice(0, 7);
   const month =
     period && /^\d{4}-(0[1-9]|1[0-2])$/.test(period) ? period : currentMonth;
-  const data = await getMonthData(month, today);
+  const [data, stats, langs] = await Promise.all([
+    getMonthData(month, today),
+    getMonthDetailStats(month),
+    listLanguages(false),
+  ]);
+  const languageNames = Object.fromEntries(langs.map((l) => [l.slug, l.name]));
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <PeriodNav
         label={formatMonthLabel(month, lang)}
         prevHref={`/overview?view=month&period=${addMonths(month, -1)}`}
@@ -153,6 +164,11 @@ async function MonthView({
           {copy.month.emptyPost}
         </p>
       )}
+      <MonthSummary
+        stats={stats}
+        copy={copy.overview.summary}
+        languageNames={languageNames}
+      />
       <MonthProgress habits={data.habits} lang={lang} copy={copy.month} />
     </div>
   );
