@@ -21,11 +21,13 @@ import {
   calcMonthAdherence,
   calcStreak,
   daysInMonth,
+  isoWeekday,
 } from "@/lib/utils";
 import type {
   CheckWithHabit,
   MonthData,
   MonthHabitStats,
+  TodayContext,
   WeekData,
   WeekHabitRow,
 } from "@/types/habit";
@@ -80,41 +82,78 @@ export async function toggleCheck(
   return row ?? null;
 }
 
-// Batch save for the Today screen: the user picks the whole day and confirms
-// once. Grouped into at most two UPDATEs (done true / done false) so the save
-// is a single round trip per group instead of one request per habit.
-export async function setChecksDone(
-  updates: { id: number; done: boolean }[]
-): Promise<CheckWithHabit[]> {
-  if (updates.length === 0) return [];
-  const now = new Date();
-  const doneIds = updates.filter((u) => u.done).map((u) => u.id);
-  const undoneIds = updates.filter((u) => !u.done).map((u) => u.id);
+// Everything the Today detail sheets need, resolved for the given day: the
+// active plan's day for today's weekday, the current book, the sleep default,
+// today's routine blocks, active languages and practices.
+export async function getTodayContext(date: string): Promise<TodayContext> {
+  const weekday = isoWeekday(date);
+  const [plan, book, sleep, blocks, langs, practices] = await Promise.all([
+    getActiveWorkoutPlan(),
+    getCurrentBook(),
+    getSleepTarget(),
+    listRoutineBlocks(true),
+    listLanguages(true),
+    listSpiritualPractices(true),
+  ]);
+  const day = plan?.days.find((d) => d.weekday === weekday) ?? null;
+  return {
+    weekday,
+    plan: plan
+      ? {
+          name: plan.name,
+          day: day
+            ? { id: day.id, focus: day.focus, exercises: day.exercises }
+            : null,
+        }
+      : null,
+    book: book
+      ? {
+          id: book.id,
+          title: book.title,
+          totalPages: book.totalPages,
+          currentPage: book.currentPage,
+        }
+      : null,
+    sleepTarget: sleep
+      ? { bedtime: sleep.bedtime.slice(0, 5), wakeTime: sleep.wakeTime.slice(0, 5) }
+      : null,
+    routineBlocks: blocks
+      .filter((b) => b.weekdays.includes(weekday))
+      .map((b) => ({
+        id: b.id,
+        startTime: b.startTime.slice(0, 5),
+        endTime: b.endTime.slice(0, 5),
+        activity: b.activity,
+      })),
+    languages: langs.map((l) => ({ slug: l.slug, name: l.name })),
+    practices: practices.map((p) => ({
+      slug: p.slug,
+      name: p.name,
+      countable: p.countable,
+    })),
+  };
+}
 
-  if (doneIds.length > 0) {
-    await db
-      .update(dailyChecks)
-      .set({ done: true, updatedAt: now })
-      .where(inArray(dailyChecks.id, doneIds));
+// When a reading detail is saved, advance the book's current_page and flip it
+// to "done" if the last page was reached (spec: mark finished → next book).
+export async function applyReadingProgress(
+  bookId: number,
+  endedOnPage: number,
+  date: string
+) {
+  const book = await getBookById(bookId);
+  if (!book) return;
+  const patch: Parameters<typeof updateBook>[1] = {
+    currentPage: Math.max(book.currentPage, endedOnPage),
+  };
+  if (!book.startedAt) patch.startedAt = date;
+  if (endedOnPage >= book.totalPages) {
+    patch.status = "done";
+    patch.finishedAt = date;
+  } else if (book.status === "queued") {
+    patch.status = "reading";
   }
-  if (undoneIds.length > 0) {
-    await db
-      .update(dailyChecks)
-      .set({ done: false, updatedAt: now })
-      .where(inArray(dailyChecks.id, undoneIds));
-  }
-
-  return db
-    .select(checkWithHabitColumns)
-    .from(dailyChecks)
-    .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
-    .where(
-      inArray(
-        dailyChecks.id,
-        updates.map((u) => u.id)
-      )
-    )
-    .orderBy(asc(habits.id));
+  await updateBook(bookId, patch);
 }
 
 // The habit slug for a check id — the API needs it to pick the Zod schema
