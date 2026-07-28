@@ -9,7 +9,7 @@ import {
   listRoutineBlocks,
   listSpiritualPractices,
 } from "@/db/queries";
-import { todayInSaoPaulo } from "@/lib/utils";
+import { daysLeftInYear, todayInSaoPaulo } from "@/lib/utils";
 
 export async function workoutInitial() {
   const plan = await getActiveWorkoutPlan();
@@ -25,11 +25,14 @@ export async function workoutInitial() {
 }
 
 export async function readingInitial() {
+  const today = todayInSaoPaulo();
   const [goal, books] = await Promise.all([
-    getReadingGoal(Number(todayInSaoPaulo().slice(0, 4))),
+    getReadingGoal(Number(today.slice(0, 4))),
     listBooks(),
   ]);
   return {
+    daysLeft: daysLeftInYear(today),
+    year: Number(today.slice(0, 4)),
     initialGoal: goal ? String(goal.targetBooks) : "",
     initialBooks: books.map((b) => ({
       id: b.id,
