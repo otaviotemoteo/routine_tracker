@@ -186,6 +186,10 @@ The loop stops only when every phase is complete and audited. What remains is th
 - One commit per file, Conventional Commits (`chore:` / `feat:` / `fix:` / `docs:`), no co-authorship, no push before manual review.
 - Personal gitignored files: `CLAUDE.md` (autonomous execution prompt), `LEARNING_ROADMAP.md` (guided codebase reading order, updated as files are created), `LINKEDIN_POSTS.md` (post ideas), `identidade-visual.html` (design system preview).
 
-## Out of Scope (MVP)
+## Export & AI contract (v2)
 
-No AI, no insights, no LinkedIn generator, no notifications, no diet tracking, no external integrations, no multi-user. All of that belongs to the future "personal hub" and is only reconsidered after 2–3 weeks of real daily usage. The MVP is daily check-in + visualization. Period.
+`GET /api/export?from&to` returns a snake_case canonical JSON — `meta` (timezone + `schema_version`), `entities` (full workout-plan history + all config), and `days[]` (per-habit `{done, details, note}`). `DATA_DICTIONARY.md` documents every field; `src/lib/details-schemas.ts` is the source of truth for the `details` shapes. The year-end analysis is: export Jan–Dec → feed the JSON + dictionary to an AI, offline. The `/overview/[date]` Day Audit is the on-screen twin of one export `days[]` entry.
+
+## Out of Scope
+
+Still out: **in-app** AI/insights, LinkedIn generator, notifications, diet, external integrations (e.g. the Duolingo API), multi-user. v2's job is to *capture* a rich, structured dataset; the intelligence layer stays offline (the export). What was MVP-simplified and a bigger version might revisit: routine adherence uses logged blocks (planned counts aren't reconstructed historically); the data dictionary is hand-maintained against the Zod schemas rather than generated.
