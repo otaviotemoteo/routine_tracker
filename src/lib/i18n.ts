@@ -133,6 +133,8 @@ export interface Copy {
     activitiesLead: string;
     notSet: string;
     edit: string;
+    configured: string;
+    notConfiguredBadge: string;
   };
   sheets: {
     save: string;
@@ -141,8 +143,22 @@ export interface Copy {
     note: string;
     notePlaceholder: string;
     saveError: string;
-    workout: { plan: string; effort: string; noPlan: string };
-    reading: { endedOnPage: string; pagesRead: string; noBook: string; of: string };
+    workout: {
+      plan: string;
+      effort: string;
+      noPlan: string;
+      otherTraining: string;
+      pickTraining: string;
+      restLabel: string;
+    };
+    reading: {
+      endedOnPage: string;
+      pagesRead: string;
+      noBook: string;
+      of: string;
+      finishEstimate: string; // {date}
+      finishToday: string;
+    };
     sleep: { hours: string; wokeUp: string; quality: string };
     routine: { followed: string; struggled: string; struggleNote: string; none: string; noBlocks: string };
     duolingo: { lessons: string; noLanguages: string };
@@ -189,6 +205,8 @@ export interface Copy {
     continue: string;
     finish: string;
     save: string;
+    saving: string;
+    backTo: string; // {section}
     weekdays: string[]; // Mon..Sun, ISO order (7)
     welcome: { title: string; lead: string; time: string; items: string[]; start: string };
     workout: {
@@ -202,10 +220,19 @@ export interface Copy {
       exerciseName: string;
       sets: string;
       reps: string;
+      kindReps: string;
+      kindTime: string;
+      kindDistance: string;
+      seconds: string;
+      distance: string;
+      minutes: string;
+      measuredBy: string;
       addExercise: string;
       removeExercise: string;
       addDay: string;
       removeDay: string;
+      exerciseCount: string; // {n} — singular
+      exerciseCountPlural: string; // {n} — plural
       empty: string;
     };
     reading: {
@@ -225,6 +252,13 @@ export interface Copy {
       moveDown: string;
       booksCount: string; // {added}/{goal}
       booksRemaining: string; // {n} {goal}
+      goalReachedPre: string;
+      goalReachedLink: string; // {goal}
+      paceNote: string; // {pages} {year}
+      paceExplainTitle: string;
+      paceExplainText: string;
+      paceExplainClose: string;
+      paceExplainAria: string;
       empty: string;
     };
     sleep: { title: string; lead: string; bedtime: string; wake: string };
@@ -364,6 +398,8 @@ export const COPY: Record<Lang, Copy> = {
       activitiesLead: "What you're tracking. Edit any of it anytime.",
       notSet: "Not set",
       edit: "Edit",
+      configured: "configured",
+      notConfiguredBadge: "not configured",
     },
     sheets: {
       save: "Save",
@@ -372,12 +408,21 @@ export const COPY: Record<Lang, Copy> = {
       note: "Note",
       notePlaceholder: "What could've been better?",
       saveError: "Couldn't save. Try again.",
-      workout: { plan: "Today's focus", effort: "Effort", noPlan: "No training planned for today." },
+      workout: {
+        plan: "Today's focus",
+        effort: "Effort",
+        noPlan: "No training planned for today.",
+        otherTraining: "I did a different training today",
+        pickTraining: "Which one?",
+        restLabel: "Rest",
+      },
       reading: {
         endedOnPage: "Ended on page",
         pagesRead: "Pages read",
         noBook: "No current book. Add one in settings.",
         of: "of",
+        finishEstimate: "At this pace you finish this book on {date}",
+        finishToday: "That finishes the book!",
       },
       sleep: { hours: "Hours slept", wokeUp: "Woke up during the night", quality: "Quality" },
       routine: {
@@ -435,6 +480,8 @@ export const COPY: Record<Lang, Copy> = {
       continue: "Continue",
       finish: "Finish",
       save: "Save",
+      saving: "Saving…",
+      backTo: "Back to {section}",
       weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
       welcome: {
         title: "Let's set up your tracker",
@@ -459,10 +506,19 @@ export const COPY: Record<Lang, Copy> = {
         exerciseName: "Exercise",
         sets: "Sets",
         reps: "Reps",
+        kindReps: "Reps",
+        kindTime: "Time",
+        kindDistance: "Distance",
+        seconds: "Seconds",
+        distance: "km",
+        minutes: "Minutes",
+        measuredBy: "Measured by",
         addExercise: "Add exercise",
         removeExercise: "Remove exercise",
         addDay: "Add day",
         removeDay: "Remove",
+        exerciseCount: "{n} exercise",
+        exerciseCountPlural: "{n} exercises",
         empty: "No training days yet.",
       },
       reading: {
@@ -482,6 +538,15 @@ export const COPY: Record<Lang, Copy> = {
         moveDown: "Move down",
         booksCount: "{added} of {goal} books added",
         booksRemaining: "Add {n} more to reach your goal",
+        goalReachedPre: "That's your whole goal.",
+        goalReachedLink: "Want to read more than {goal}?",
+        paceNote:
+          "At this list, you need about {pages} pages/day to finish everything by the end of {year}.",
+        paceExplainTitle: "How this is calculated",
+        paceExplainText:
+          "Pages still left in the book you're reading, plus every page of the books after it, divided by the days remaining in the year.",
+        paceExplainClose: "Got it",
+        paceExplainAria: "How the pace is calculated",
         empty: "No books yet.",
       },
       sleep: {
@@ -629,6 +694,8 @@ export const COPY: Record<Lang, Copy> = {
       activitiesLead: "O que você acompanha. Dá para editar quando quiser.",
       notSet: "Não definido",
       edit: "Editar",
+      configured: "configurado",
+      notConfiguredBadge: "não configurado",
     },
     sheets: {
       save: "Salvar",
@@ -637,12 +704,21 @@ export const COPY: Record<Lang, Copy> = {
       note: "Nota",
       notePlaceholder: "O que poderia ter sido melhor?",
       saveError: "Não deu para salvar. Tente de novo.",
-      workout: { plan: "Foco de hoje", effort: "Esforço", noPlan: "Nenhum treino planejado para hoje." },
+      workout: {
+        plan: "Foco de hoje",
+        effort: "Esforço",
+        noPlan: "Nenhum treino planejado para hoje.",
+        otherTraining: "Fiz um treino diferente hoje",
+        pickTraining: "Qual?",
+        restLabel: "Descanso",
+      },
       reading: {
         endedOnPage: "Parou na página",
         pagesRead: "Páginas lidas",
         noBook: "Nenhum livro atual. Adicione um nas configurações.",
         of: "de",
+        finishEstimate: "Nesse ritmo você termina este livro em {date}",
+        finishToday: "Isso termina o livro!",
       },
       sleep: { hours: "Horas dormidas", wokeUp: "Acordou durante a noite", quality: "Qualidade" },
       routine: {
@@ -700,6 +776,8 @@ export const COPY: Record<Lang, Copy> = {
       continue: "Continuar",
       finish: "Concluir",
       save: "Salvar",
+      saving: "Salvando…",
+      backTo: "Voltar para {section}",
       weekdays: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
       welcome: {
         title: "Vamos configurar seu tracker",
@@ -724,10 +802,19 @@ export const COPY: Record<Lang, Copy> = {
         exerciseName: "Exercício",
         sets: "Séries",
         reps: "Reps",
+        kindReps: "Reps",
+        kindTime: "Tempo",
+        kindDistance: "Distância",
+        seconds: "Segundos",
+        distance: "km",
+        minutes: "Minutos",
+        measuredBy: "Medido por",
         addExercise: "Adicionar exercício",
         removeExercise: "Remover exercício",
         addDay: "Adicionar dia",
         removeDay: "Remover",
+        exerciseCount: "{n} exercício",
+        exerciseCountPlural: "{n} exercícios",
         empty: "Nenhum dia de treino ainda.",
       },
       reading: {
@@ -747,6 +834,15 @@ export const COPY: Record<Lang, Copy> = {
         moveDown: "Mover para baixo",
         booksCount: "{added} de {goal} livros adicionados",
         booksRemaining: "Adicione mais {n} para alcançar sua meta",
+        goalReachedPre: "Essa é a sua meta completa.",
+        goalReachedLink: "Quer ler mais que {goal}?",
+        paceNote:
+          "Com esta lista, você precisa de cerca de {pages} páginas/dia para terminar tudo até o fim de {year}.",
+        paceExplainTitle: "Como esta conta é feita",
+        paceExplainText:
+          "As páginas que faltam no livro atual, mais todas as páginas dos livros seguintes, divididas pelos dias restantes do ano.",
+        paceExplainClose: "Entendi",
+        paceExplainAria: "Como o ritmo é calculado",
         empty: "Nenhum livro ainda.",
       },
       sleep: {
