@@ -6,15 +6,8 @@ import { SleepStep } from "@/components/onboarding/SleepStep";
 import { RoutineStep } from "@/components/onboarding/RoutineStep";
 import { DuolingoStep } from "@/components/onboarding/DuolingoStep";
 import { SpiritualityStep } from "@/components/onboarding/SpiritualityStep";
-import { ReviewStep, type ReviewRow } from "@/components/onboarding/ReviewStep";
-import {
-  getActiveWorkoutPlan,
-  getReadingGoal,
-  getSleepTarget,
-  listLanguages,
-  listRoutineBlocks,
-  listSpiritualPractices,
-} from "@/db/queries";
+import { ReviewStep } from "@/components/onboarding/ReviewStep";
+import { LanguageSelect } from "@/components/landing/LanguageSelect";
 import {
   saveDuolingoStep,
   saveReadingStep,
@@ -41,7 +34,7 @@ import {
   spiritualityInitial,
   workoutInitial,
 } from "@/lib/onboarding-prefill";
-import { todayInSaoPaulo } from "@/lib/utils";
+import { getSetupSummary } from "@/lib/setup-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +56,11 @@ export default async function OnboardingPage({
   const submit = copy.continue;
 
   return (
-    <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-8 pb-24">
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-24">
+      {/* No NavBar on this route, so the language toggle lives here. */}
+      <div className="flex justify-end mb-4">
+        <LanguageSelect current={lang} />
+      </div>
       <OnboardingProgress stepNumber={num} total={TOTAL_STEPS} label={progressLabel} />
 
       {step === "welcome" && (
@@ -147,55 +144,16 @@ export default async function OnboardingPage({
       )}
 
       {step === "review" && (
-        <ReviewStep copy={copy} backHref={back} rows={await reviewRows(copy)} />
+        <ReviewStep
+          copy={copy}
+          backHref={back}
+          rows={(await getSetupSummary(copy)).map((row) => ({
+            label: row.label,
+            value: row.value,
+            editHref: stepHref(row.section),
+          }))}
+        />
       )}
     </main>
   );
-}
-
-async function reviewRows(
-  copy: (typeof COPY)[keyof typeof COPY]["onboarding"]
-): Promise<ReviewRow[]> {
-  const [plan, goal, sleep, routine, langs, practices] = await Promise.all([
-    getActiveWorkoutPlan(),
-    getReadingGoal(Number(todayInSaoPaulo().slice(0, 4))),
-    getSleepTarget(),
-    listRoutineBlocks(),
-    listLanguages(),
-    listSpiritualPractices(),
-  ]);
-  return [
-    {
-      label: copy.review.sections.workout,
-      value: plan ? plan.name : null,
-      editHref: stepHref("workout"),
-    },
-    {
-      label: copy.review.sections.reading,
-      value: goal ? `${goal.targetBooks} ${copy.reading.goalUnit}` : null,
-      editHref: stepHref("reading"),
-    },
-    {
-      label: copy.review.sections.sleep,
-      value: sleep ? `${sleep.bedtime.slice(0, 5)} – ${sleep.wakeTime.slice(0, 5)}` : null,
-      editHref: stepHref("sleep"),
-    },
-    {
-      label: copy.review.sections.routine,
-      value: routine.length
-        ? routine.map((b) => b.activity).slice(0, 3).join(", ")
-        : null,
-      editHref: stepHref("routine"),
-    },
-    {
-      label: copy.review.sections.duolingo,
-      value: langs.length ? langs.map((l) => l.name).join(", ") : null,
-      editHref: stepHref("duolingo"),
-    },
-    {
-      label: copy.review.sections.spirituality,
-      value: practices.length ? practices.map((p) => p.name).join(", ") : null,
-      editHref: stepHref("spirituality"),
-    },
-  ];
 }
