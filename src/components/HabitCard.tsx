@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Check } from "lucide-react";
 import { habitIcon } from "@/lib/icons";
 import { format, habitName, type Copy, type Lang } from "@/lib/i18n";
@@ -10,19 +11,17 @@ interface HabitCardProps {
   check: CheckWithHabit;
   lang: Lang;
   copy: Copy["today"];
-  onOpen: (id: number) => void;
   onQuickToggle: (id: number, done: boolean) => void;
 }
 
-// Two targets: the whole card opens the detail sheet; the box in the corner is
-// a quick-toggle (done without details) for rushed days. Both ≥44px, no nested
-// buttons — the full-card button is an absolute overlay and the box sits above
-// it.
+// Two targets: the whole card enters the guided daily flow at this habit's
+// step; the box in the corner is a quick-toggle (done without details) for
+// rushed days. Both ≥44px — the card link is an absolute <a> overlay and the
+// box is a <button> stacked above it (no nested interactive elements).
 export function HabitCard({
   check,
   lang,
   copy,
-  onOpen,
   onQuickToggle,
 }: HabitCardProps) {
   const Icon = habitIcon(check.slug);
@@ -35,9 +34,8 @@ export function HabitCard({
         check.optional ? "border-dashed" : ""
       } ${check.done ? "bg-mint" : "bg-white"}`}
     >
-      <button
-        type="button"
-        onClick={() => onOpen(check.id)}
+      <Link
+        href={`/day?step=${check.slug}`}
         aria-label={format(copy.openDetails, { habit: name })}
         className="absolute inset-0 rounded-card"
       />
