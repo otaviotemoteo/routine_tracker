@@ -6,6 +6,8 @@ import { asRecord, labelClass, type SheetBodyProps } from "./types";
 interface ExerciseState {
   name: string;
   done: boolean;
+  // "3×8" when the plan specifies sets/reps — shown next to the name.
+  scheme: string;
 }
 
 export function WorkoutBody({ context, initial, copy, onChange }: SheetBodyProps) {
@@ -19,6 +21,7 @@ export function WorkoutBody({ context, initial, copy, onChange }: SheetBodyProps
     (day?.exercises ?? []).map((e) => ({
       name: e.name,
       done: initialCompleted.find((c) => c.name === e.name)?.done ?? false,
+      scheme: e.sets && e.reps ? `${e.sets}×${e.reps}` : e.sets ? `${e.sets}×` : "",
     }))
   );
   const [effort, setEffort] = useState<number>(
@@ -63,6 +66,9 @@ export function WorkoutBody({ context, initial, copy, onChange }: SheetBodyProps
                 className="w-6 h-6 accent-clover"
               />
               {ex.name}
+              {ex.scheme && (
+                <span className="font-mono text-sm opacity-60">{ex.scheme}</span>
+              )}
             </label>
           </li>
         ))}
