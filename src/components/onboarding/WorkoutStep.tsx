@@ -8,8 +8,10 @@ import {
   inputClass,
   OnboardingFooter,
 } from "./OnboardingChrome";
-import type { PlannedExercise } from "@/db/schema";
-import type { Copy } from "@/lib/i18n";
+import { CollapsedCard } from "./CollapsedCard";
+import type { ExerciseKind, PlannedExercise } from "@/db/schema";
+import { exerciseScheme } from "@/lib/exercise";
+import { format, plural, type Copy } from "@/lib/i18n";
 
 export interface WorkoutDayDraft {
   weekday: number;
@@ -29,10 +31,12 @@ interface WorkoutStepProps {
   requireDirtyToSave?: boolean;
 }
 
-const emptyExercise = (): PlannedExercise => ({ name: "" });
+const emptyExercise = (): PlannedExercise => ({ name: "", kind: "reps" });
 const defaultDays = (): WorkoutDayDraft[] => [
   { weekday: 1, focus: "", exercises: [emptyExercise()] },
 ];
+
+const KINDS: ExerciseKind[] = ["reps", "time", "distance"];
 
 export function WorkoutStep({
   action,
@@ -49,6 +53,11 @@ export function WorkoutStep({
   const [days, setDays] = useState<WorkoutDayDraft[]>(
     initialDays.length ? initialDays : defaultDays()
   );
+  // Only one day is expanded at a time; the rest fold into summaries. Start
+  // with the last one open when there's existing data to extend.
+  const [openIndex, setOpenIndex] = useState<number>(
+    initialDays.length ? initialDays.length - 1 : 0
+  );
   const [initialSnapshot] = useState(() =>
     JSON.stringify({
       name: initialName,
@@ -57,7 +66,12 @@ export function WorkoutStep({
   );
   const dirty = JSON.stringify({ name, days }) !== initialSnapshot;
 
-  // Only named exercises are saved; sets/reps stay optional.
+  const kindLabel: Record<ExerciseKind, string> = {
+    reps: copy.workout.kindReps,
+    time: copy.workout.kindTime,
+    distance: copy.workout.kindDistance,
+  };
+
   const serialized = JSON.stringify(
     days
       .filter((d) => d.focus.trim())
@@ -66,11 +80,20 @@ export function WorkoutStep({
         focus: d.focus,
         exercises: d.exercises
           .filter((e) => e.name.trim())
-          .map((e) => ({
-            name: e.name.trim(),
-            ...(e.sets ? { sets: e.sets } : {}),
-            ...(e.reps ? { reps: e.reps } : {}),
-          })),
+          .map((e) => {
+            const kind = e.kind ?? "reps";
+            return {
+              name: e.name.trim(),
+              kind,
+              ...(e.sets ? { sets: e.sets } : {}),
+              ...(kind === "reps" && e.reps ? { reps: e.reps } : {}),
+              ...(kind === "time" && e.seconds ? { seconds: e.seconds } : {}),
+              ...(kind === "distance" && e.distance
+                ? { distance: e.distance }
+                : {}),
+              ...(kind === "distance" && e.minutes ? { minutes: e.minutes } : {}),
+            };
+          }),
       }))
   );
 
@@ -95,6 +118,27 @@ export function WorkoutStep({
       )
     );
 
+  // The day after the last configured one, so a week fills in naturally.
+  function addDay() {
+    setDays((prev) => {
+      const lastWeekday = prev.length ? prev[prev.length - 1].weekday : 0;
+      const nextWeekday = (lastWeekday % 7) + 1;
+      setOpenIndex(prev.length);
+      return [
+        ...prev,
+        { weekday: nextWeekday, focus: "", exercises: [emptyExercise()] },
+      ];
+    });
+  }
+
+  function summaryFor(day: WorkoutDayDraft): string {
+    const count = day.exercises.filter((e) => e.name.trim()).length;
+    return format(
+      plural(count, copy.workout.exerciseCount, copy.workout.exerciseCountPlural),
+      { n: count }
+    );
+  }
+
   return (
     <form action={action}>
       <input type="hidden" name="next" value={next} />
@@ -112,141 +156,242 @@ export function WorkoutStep({
         className={inputClass}
       />
 
-      <ul className="flex flex-col gap-4 mt-6 list-none">
-        {days.map((day, i) => (
-          <li
-            key={i}
-            className="bg-white border-2 border-forest rounded-card shadow-hard p-4"
-          >
-            <div className="flex items-center gap-3 justify-between">
-              <select
-                aria-label={copy.workout.weekday}
-                value={day.weekday}
-                onChange={(e) => updateDay(i, { weekday: Number(e.target.value) })}
-                className={`${inputClass} max-w-[9rem]`}
-              >
-                {copy.weekdays.map((label, wi) => (
-                  <option key={wi} value={wi + 1}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              {days.length > 1 && (
-                <button
-                  type="button"
-                  aria-label={copy.workout.removeDay}
-                  onClick={() =>
-                    setDays((prev) => prev.filter((_, j) => j !== i))
-                  }
-                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
-                >
-                  <X className="w-4 h-4" aria-hidden />
-                </button>
-              )}
-            </div>
-
-            <input
-              placeholder={copy.workout.focusPlaceholder}
-              aria-label={copy.workout.focus}
-              value={day.focus}
-              onChange={(e) => updateDay(i, { focus: e.target.value })}
-              className={`${inputClass} mt-3`}
-            />
-
-            <p className="mt-4 mb-2 font-semibold text-sm">
-              {copy.workout.exercises}
-            </p>
-            <ul className="flex flex-col gap-2 list-none">
-              {/* Name on its own row, then sets × reps — fits 360px without
-                  crushing the name field. */}
-              {day.exercises.map((ex, k) => (
-                <li
-                  key={k}
-                  className="flex flex-col gap-2 border-t-2 border-dashed border-sand pt-2 first:border-t-0 first:pt-0"
-                >
-                  <input
-                    placeholder={copy.workout.exerciseName}
-                    aria-label={copy.workout.exerciseName}
-                    value={ex.name}
-                    onChange={(e) =>
-                      updateExercise(i, k, { name: e.target.value })
-                    }
-                    className={inputClass}
-                  />
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      inputMode="numeric"
-                      placeholder={copy.workout.sets}
-                      aria-label={copy.workout.sets}
-                      value={ex.sets ?? ""}
-                      onChange={(e) =>
-                        updateExercise(i, k, {
-                          sets: e.target.value ? Number(e.target.value) : undefined,
-                        })
-                      }
-                      className={`${fieldBase} font-mono w-20 px-2`}
-                    />
-                    <span aria-hidden className="opacity-60">
-                      ×
-                    </span>
-                    <input
-                      type="number"
-                      min={1}
-                      inputMode="numeric"
-                      placeholder={copy.workout.reps}
-                      aria-label={copy.workout.reps}
-                      value={ex.reps ?? ""}
-                      onChange={(e) =>
-                        updateExercise(i, k, {
-                          reps: e.target.value ? Number(e.target.value) : undefined,
-                        })
-                      }
-                      className={`${fieldBase} font-mono w-20 px-2`}
-                    />
-                    {day.exercises.length > 1 && (
-                      <button
-                        type="button"
-                        aria-label={copy.workout.removeExercise}
-                        onClick={() =>
-                          updateDay(i, {
-                            exercises: day.exercises.filter((_, j) => j !== k),
-                          })
-                        }
-                        className="min-h-[44px] min-w-[44px] ml-auto shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
-                      >
-                        <X className="w-4 h-4" aria-hidden />
-                      </button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              onClick={() =>
-                updateDay(i, { exercises: [...day.exercises, emptyExercise()] })
-              }
-              className={`${ghostButton} mt-3`}
+      <ul className="flex flex-col gap-3 mt-6 list-none">
+        {days.map((day, i) =>
+          i !== openIndex && day.focus.trim() ? (
+            <li key={i}>
+              <CollapsedCard
+                title={`${copy.weekdays[day.weekday - 1]} · ${day.focus}`}
+                detail={summaryFor(day)}
+                editLabel={copy.config.edit}
+                onEdit={() => setOpenIndex(i)}
+              />
+            </li>
+          ) : (
+            <li
+              key={i}
+              className="bg-white border-2 border-forest rounded-card shadow-hard p-4"
             >
-              <Plus className="w-4 h-4 mr-1.5" aria-hidden />
-              {copy.workout.addExercise}
-            </button>
-          </li>
-        ))}
+              <div className="flex items-center gap-3 justify-between">
+                <select
+                  aria-label={copy.workout.weekday}
+                  value={day.weekday}
+                  onChange={(e) =>
+                    updateDay(i, { weekday: Number(e.target.value) })
+                  }
+                  className={`${inputClass} max-w-[9rem]`}
+                >
+                  {copy.weekdays.map((label, wi) => (
+                    <option key={wi} value={wi + 1}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {days.length > 1 && (
+                  <button
+                    type="button"
+                    aria-label={copy.workout.removeDay}
+                    onClick={() => {
+                      setDays((prev) => prev.filter((_, j) => j !== i));
+                      setOpenIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                    }}
+                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
+                  >
+                    <X className="w-4 h-4" aria-hidden />
+                  </button>
+                )}
+              </div>
+
+              <input
+                placeholder={copy.workout.focusPlaceholder}
+                aria-label={copy.workout.focus}
+                value={day.focus}
+                onChange={(e) => updateDay(i, { focus: e.target.value })}
+                className={`${inputClass} mt-3`}
+              />
+
+              <p className="mt-4 mb-2 font-semibold text-sm">
+                {copy.workout.exercises}
+              </p>
+              <ul className="flex flex-col gap-2 list-none">
+                {day.exercises.map((ex, k) => {
+                  const kind = ex.kind ?? "reps";
+                  return (
+                    <li
+                      key={k}
+                      className="flex flex-col gap-2 border-t-2 border-dashed border-sand pt-2 first:border-t-0 first:pt-0"
+                    >
+                      <input
+                        placeholder={copy.workout.exerciseName}
+                        aria-label={copy.workout.exerciseName}
+                        value={ex.name}
+                        onChange={(e) =>
+                          updateExercise(i, k, { name: e.target.value })
+                        }
+                        className={inputClass}
+                      />
+
+                      {/* How this exercise is measured — a run has no reps. */}
+                      <div
+                        role="group"
+                        aria-label={copy.workout.measuredBy}
+                        className="flex gap-1.5"
+                      >
+                        {KINDS.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            aria-pressed={kind === option}
+                            onClick={() => updateExercise(i, k, { kind: option })}
+                            className={`min-h-[36px] px-3 rounded-lg border-2 border-forest text-xs font-semibold ${
+                              kind === option
+                                ? "bg-clover text-white"
+                                : "bg-white text-forest"
+                            }`}
+                          >
+                            {kindLabel[option]}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {kind !== "distance" && (
+                          <>
+                            <input
+                              type="number"
+                              min={1}
+                              inputMode="numeric"
+                              placeholder={copy.workout.sets}
+                              aria-label={copy.workout.sets}
+                              value={ex.sets ?? ""}
+                              onChange={(e) =>
+                                updateExercise(i, k, {
+                                  sets: e.target.value
+                                    ? Number(e.target.value)
+                                    : undefined,
+                                })
+                              }
+                              className={`${fieldBase} font-mono w-20 px-2`}
+                            />
+                            <span aria-hidden className="opacity-60">
+                              ×
+                            </span>
+                          </>
+                        )}
+
+                        {kind === "reps" && (
+                          <input
+                            type="number"
+                            min={1}
+                            inputMode="numeric"
+                            placeholder={copy.workout.reps}
+                            aria-label={copy.workout.reps}
+                            value={ex.reps ?? ""}
+                            onChange={(e) =>
+                              updateExercise(i, k, {
+                                reps: e.target.value
+                                  ? Number(e.target.value)
+                                  : undefined,
+                              })
+                            }
+                            className={`${fieldBase} font-mono w-20 px-2`}
+                          />
+                        )}
+
+                        {kind === "time" && (
+                          <input
+                            type="number"
+                            min={1}
+                            inputMode="numeric"
+                            placeholder={copy.workout.seconds}
+                            aria-label={copy.workout.seconds}
+                            value={ex.seconds ?? ""}
+                            onChange={(e) =>
+                              updateExercise(i, k, {
+                                seconds: e.target.value
+                                  ? Number(e.target.value)
+                                  : undefined,
+                              })
+                            }
+                            className={`${fieldBase} font-mono w-24 px-2`}
+                          />
+                        )}
+
+                        {kind === "distance" && (
+                          <>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.1"
+                              inputMode="decimal"
+                              placeholder={copy.workout.distance}
+                              aria-label={copy.workout.distance}
+                              value={ex.distance ?? ""}
+                              onChange={(e) =>
+                                updateExercise(i, k, {
+                                  distance: e.target.value
+                                    ? Number(e.target.value)
+                                    : undefined,
+                                })
+                              }
+                              className={`${fieldBase} font-mono w-20 px-2`}
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              inputMode="numeric"
+                              placeholder={copy.workout.minutes}
+                              aria-label={copy.workout.minutes}
+                              value={ex.minutes ?? ""}
+                              onChange={(e) =>
+                                updateExercise(i, k, {
+                                  minutes: e.target.value
+                                    ? Number(e.target.value)
+                                    : undefined,
+                                })
+                              }
+                              className={`${fieldBase} font-mono w-24 px-2`}
+                            />
+                          </>
+                        )}
+
+                        {day.exercises.length > 1 && (
+                          <button
+                            type="button"
+                            aria-label={copy.workout.removeExercise}
+                            onClick={() =>
+                              updateDay(i, {
+                                exercises: day.exercises.filter(
+                                  (_, j) => j !== k
+                                ),
+                              })
+                            }
+                            className="min-h-[44px] min-w-[44px] ml-auto shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
+                          >
+                            <X className="w-4 h-4" aria-hidden />
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <button
+                type="button"
+                onClick={() =>
+                  updateDay(i, { exercises: [...day.exercises, emptyExercise()] })
+                }
+                className={`${ghostButton} mt-3`}
+              >
+                <Plus className="w-4 h-4 mr-1.5" aria-hidden />
+                {copy.workout.addExercise}
+              </button>
+            </li>
+          )
+        )}
       </ul>
 
-      <button
-        type="button"
-        onClick={() =>
-          setDays((prev) => [
-            ...prev,
-            { weekday: 1, focus: "", exercises: [emptyExercise()] },
-          ])
-        }
-        className={`${ghostButton} mt-4`}
-      >
+      <button type="button" onClick={addDay} className={`${ghostButton} mt-4`}>
         <Plus className="w-4 h-4 mr-1.5" aria-hidden />
         {copy.workout.addDay}
       </button>
