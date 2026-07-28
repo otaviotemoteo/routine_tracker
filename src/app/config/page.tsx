@@ -64,10 +64,24 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
       <div className="flex justify-end mb-4">
         <LanguageSelect current={lang} />
       </div>
-      <p className="eyebrow">{copy.config.eyebrow}</p>
-      <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-5">
-        {copy.config.title}
-      </h1>
+      {section === null ? (
+        <>
+          <p className="eyebrow">{copy.config.eyebrow}</p>
+          <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-5">
+            {copy.config.title}
+          </h1>
+        </>
+      ) : (
+        // Editing one area: a back link right at the top, so returning doesn't
+        // mean scrolling past the whole form.
+        <Link
+          href={origin}
+          className="inline-flex items-center gap-2 min-h-[44px] font-semibold mb-2"
+        >
+          <ArrowLeft className="w-5 h-5" aria-hidden />
+          {copy.review.sections[section]}
+        </Link>
+      )}
 
       {section === null ? (
         <>
