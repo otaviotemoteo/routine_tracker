@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { format, locale } from "@/lib/i18n";
 import { asRecord, fieldClass, labelClass, type SheetBodyProps } from "./types";
 
-export function ReadingBody({ context, initial, copy, onChange }: SheetBodyProps) {
+export function ReadingBody({
+  context,
+  initial,
+  copy,
+  lang,
+  onChange,
+}: SheetBodyProps) {
   const book = context.book;
   const initialRecord = asRecord(initial);
   const [endedOnPage, setEndedOnPage] = useState<string>(
@@ -33,6 +40,28 @@ export function ReadingBody({ context, initial, copy, onChange }: SheetBodyProps
     return <p className="opacity-75">{copy.reading.noBook}</p>;
   }
 
+  // "Keep this up and you finish on …" — days needed at today's rate, from
+  // today. Formatted in the viewer's language; UTC-noon keeps the day stable.
+  const pagesLeft = Math.max(0, book.totalPages - ended);
+  let projection: string | null = null;
+  if (pagesRead > 0) {
+    if (pagesLeft === 0) {
+      projection = copy.reading.finishToday;
+    } else {
+      const days = Math.ceil(pagesLeft / pagesRead);
+      const finish = new Date();
+      finish.setUTCHours(12, 0, 0, 0);
+      finish.setUTCDate(finish.getUTCDate() + days);
+      projection = format(copy.reading.finishEstimate, {
+        date: new Intl.DateTimeFormat(locale(lang), {
+          timeZone: "UTC",
+          day: "numeric",
+          month: "short",
+        }).format(finish),
+      });
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <p className="font-semibold">{book.title}</p>
@@ -60,6 +89,13 @@ export function ReadingBody({ context, initial, copy, onChange }: SheetBodyProps
         {copy.reading.pagesRead}:{" "}
         <span className="font-mono text-clover">+{pagesRead}</span>
       </p>
+
+      {/* What today's pace implies for this book — recomputed as you type. */}
+      {projection && (
+        <p className="text-sm bg-mint border-2 border-forest rounded-card px-3 py-2">
+          {projection}
+        </p>
+      )}
     </div>
   );
 }
