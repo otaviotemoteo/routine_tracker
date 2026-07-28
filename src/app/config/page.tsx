@@ -6,6 +6,8 @@ import { SleepStep } from "@/components/onboarding/SleepStep";
 import { RoutineStep } from "@/components/onboarding/RoutineStep";
 import { DuolingoStep } from "@/components/onboarding/DuolingoStep";
 import { SpiritualityStep } from "@/components/onboarding/SpiritualityStep";
+import { LanguageSelect } from "@/components/landing/LanguageSelect";
+import { getSetupSummary } from "@/lib/setup-summary";
 import {
   saveDuolingoStep,
   saveReadingStep,
@@ -54,7 +56,11 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
   const submit = copy.save;
 
   return (
-    <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-8 pb-24">
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-24">
+      {/* No NavBar on this route, so the language toggle lives here. */}
+      <div className="flex justify-end mb-4">
+        <LanguageSelect current={lang} />
+      </div>
       <p className="eyebrow">{copy.config.eyebrow}</p>
       <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-5">
         {copy.config.title}
@@ -64,14 +70,23 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
         <>
           <p className="opacity-75 mb-6">{copy.config.lead}</p>
           <ul className="flex flex-col gap-3 list-none">
-            {SECTIONS.map((s) => (
-              <li key={s}>
+            {(await getSetupSummary(copy)).map((row) => (
+              <li key={row.section}>
                 <Link
-                  href={`/config?section=${s}`}
-                  className="min-h-[56px] flex items-center justify-between px-5 rounded-card border-2 border-forest bg-white shadow-hard font-semibold hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg transition-[transform,box-shadow] duration-150"
+                  href={`/config?section=${row.section}`}
+                  className="min-h-[64px] flex items-center justify-between gap-3 px-5 py-3 rounded-card border-2 border-forest bg-white shadow-hard hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg transition-[transform,box-shadow] duration-150"
                 >
-                  {copy.review.sections[s]}
-                  <ChevronRight className="w-5 h-5" aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{row.label}</span>
+                    <span
+                      className={`block text-sm truncate ${
+                        row.value ? "opacity-75" : "opacity-50"
+                      }`}
+                    >
+                      {row.value ?? copy.review.notSet}
+                    </span>
+                  </span>
+                  <ChevronRight className="w-5 h-5 shrink-0" aria-hidden />
                 </Link>
               </li>
             ))}
