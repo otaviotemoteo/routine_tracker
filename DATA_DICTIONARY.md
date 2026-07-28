@@ -63,7 +63,7 @@ Editing a plan inserts `version+1` and flips `active`; history = `ORDER BY versi
 | plan_id | int FK→workout_plans | |
 | weekday | int | ISO 1..7 |
 | focus | varchar(80) | "Push", "Rest", "Cardio" |
-| exercises | jsonb | `[{ name, sets?, reps?, load? }]` (plan config, not a daily log) |
+| exercises | jsonb | `[{ name, kind?, sets?, reps?, seconds?, distance?, minutes?, load? }]` (plan config, not a daily log). `kind` is `reps` (default when absent) \| `time` \| `distance`; `reps` applies to `reps`, `seconds` (hold per set) to `time`, `distance` (km) + optional `minutes` to `distance` |
 
 ### `reading_goals`
 | Column | Type | Meaning |
