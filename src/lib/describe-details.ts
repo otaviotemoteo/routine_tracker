@@ -30,7 +30,8 @@ export function describeDetails(
       const focus = lookups.planDays[Number(d.plan_day_id)];
       if (focus) lines.push({ label: copy.workout.plan, value: focus });
       if (Array.isArray(d.completed)) {
-        const schemes = lookups.planExercises[Number(d.plan_day_id)] ?? {};
+        const schemes: Record<string, string> =
+          lookups.planExercises[Number(d.plan_day_id)] ?? {};
         lines.push({
           label: "✓",
           value: d.completed
