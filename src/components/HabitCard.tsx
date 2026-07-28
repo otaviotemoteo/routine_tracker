@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, Clock } from "lucide-react";
 import { habitIcon } from "@/lib/icons";
 import { habitName, type Copy, type Lang } from "@/lib/i18n";
 import { cardStatus } from "@/lib/card-status";
@@ -36,10 +36,14 @@ export function HabitCard({ check, context, lang, copy }: HabitCardProps) {
             <Check className="w-5 h-5" strokeWidth={3.5} />
           </span>
         ) : (
+          // Filled chip, not a dashed outline: an outline reads as an empty
+          // input (tappable), a straw chip with a clock reads as "waiting".
           <span
             aria-hidden
-            className="w-[30px] h-[30px] shrink-0 rounded-lg border-2 border-dashed border-forest/35"
-          />
+            className="w-[30px] h-[30px] shrink-0 rounded-lg border-2 border-forest bg-straw/30 flex items-center justify-center"
+          >
+            <Clock className="w-4 h-4 text-forest/75" strokeWidth={2.5} />
+          </span>
         )}
       </div>
 
