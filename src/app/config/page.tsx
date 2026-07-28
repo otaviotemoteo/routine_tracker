@@ -40,19 +40,22 @@ const SECTIONS = [
 type Section = (typeof SECTIONS)[number];
 
 interface ConfigPageProps {
-  searchParams: Promise<{ section?: string }>;
+  searchParams: Promise<{ section?: string; from?: string }>;
 }
 
-// Reuses the onboarding step components. `next="/config"` makes each step save
-// and return here instead of advancing a wizard; the same server actions write.
+// Reuses the onboarding step components. Both Back and Save return wherever
+// the edit was entered from — the Config list by default, or Overview when
+// reached from its Activities section (`?from=overview`) — since that's the
+// screen the change is meant to be seen on. The same server actions write.
 export default async function ConfigPage({ searchParams }: ConfigPageProps) {
   const lang = await getLang();
   const copy = COPY[lang].onboarding;
-  const raw = (await searchParams).section;
+  const { section: raw, from } = await searchParams;
   const section = SECTIONS.includes(raw as Section) ? (raw as Section) : null;
 
-  const back = "/config";
-  const next = "/config";
+  const origin = from === "overview" ? "/overview" : "/config";
+  const back = origin;
+  const next = origin;
   const submit = copy.save;
 
   return (
@@ -108,6 +111,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               backHref={back}
               submitLabel={submit}
               copy={copy}
+              requireDirtyToSave
               {...(await workoutInitial())}
             />
           )}
@@ -118,6 +122,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               backHref={back}
               submitLabel={submit}
               copy={copy}
+              requireDirtyToSave
               {...(await readingInitial())}
             />
           )}
@@ -128,6 +133,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               backHref={back}
               submitLabel={submit}
               copy={copy}
+              requireDirtyToSave
               {...(await sleepInitial())}
             />
           )}
@@ -138,6 +144,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               backHref={back}
               submitLabel={submit}
               copy={copy}
+              requireDirtyToSave
               initialBlocks={await routineInitial()}
             />
           )}
@@ -148,6 +155,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               backHref={back}
               submitLabel={submit}
               copy={copy}
+              requireDirtyToSave
               initialLanguages={await duolingoInitial()}
             />
           )}
@@ -158,6 +166,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               backHref={back}
               submitLabel={submit}
               copy={copy}
+              requireDirtyToSave
               initialPractices={await spiritualityInitial()}
             />
           )}
