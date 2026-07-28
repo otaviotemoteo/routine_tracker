@@ -7,7 +7,7 @@ import {
   replaceLanguages,
   replaceRoutineBlocks,
   replaceSpiritualPractices,
-  replaceUntouchedBooks,
+  saveReadingList,
   saveWorkoutPlan,
   upsertReadingGoal,
   upsertSleepTarget,
@@ -58,23 +58,36 @@ export async function saveReadingStep(formData: FormData): Promise<void> {
   const rows = parseJsonArray(formData)
     .map((b) => b as Record<string, unknown>)
     .filter((b) => String(b.title ?? "").trim() && Number(b.pages) > 0);
-  const books = rows.map((b, i) => ({
-    title: String(b.title).trim(),
-    author: String(b.author ?? "").trim() || null,
-    totalPages: Number(b.pages),
-    // First book flagged "reading now" becomes the current book.
-    status: b.reading ? "reading" : "queued",
-    position: i,
-  }));
+  const books = rows.map((b, i) => {
+    const totalPages = Number(b.pages);
+    const current = Number(b.currentPage);
+    return {
+      id: Number(b.id) || undefined,
+      title: String(b.title).trim(),
+      author: String(b.author ?? "").trim() || null,
+      totalPages,
+      // Current page only applies to the book being read; clamp to the total.
+      currentPage:
+        b.reading && Number.isFinite(current) && current > 0
+          ? Math.min(current, totalPages)
+          : 0,
+      // First book flagged "reading now" becomes the current book.
+      status: b.reading ? "reading" : "queued",
+      position: i,
+    };
+  });
   // Keep only the first "reading" to avoid two current books.
   let seenReading = false;
   for (const b of books) {
     if (b.status === "reading") {
-      if (seenReading) b.status = "queued";
+      if (seenReading) {
+        b.status = "queued";
+        b.currentPage = 0;
+      }
       seenReading = true;
     }
   }
-  await replaceUntouchedBooks(books);
+  await saveReadingList(books);
   redirect(safeNext(formData));
 }
 
