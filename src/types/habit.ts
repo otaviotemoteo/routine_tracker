@@ -1,9 +1,36 @@
+import type { PlannedExercise } from "@/db/schema";
+
 export interface Habit {
   id: number;
   name: string;
   slug: string;
   icon: string | null;
   optional: boolean;
+}
+
+// Everything the per-habit detail sheets need to render their forms with the
+// user's configured entities. Plain serializable data (crosses to the client).
+export interface TodayContext {
+  weekday: number; // ISO 1..7
+  plan: {
+    name: string;
+    day: { id: number; focus: string; exercises: PlannedExercise[] } | null;
+  } | null;
+  book: {
+    id: number;
+    title: string;
+    totalPages: number;
+    currentPage: number;
+  } | null;
+  sleepTarget: { bedtime: string; wakeTime: string } | null;
+  routineBlocks: {
+    id: number;
+    startTime: string;
+    endTime: string;
+    activity: string;
+  }[];
+  languages: { slug: string; name: string }[];
+  practices: { slug: string; name: string; countable: boolean }[];
 }
 
 // One habit's check for one day, flattened with the habit fields the UI needs.
