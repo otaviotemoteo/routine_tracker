@@ -119,16 +119,17 @@ Encoded in `src/lib/utils.ts` and enforced everywhere:
 2. **Streak doesn't break on an unchecked today.** Streak = consecutive done-days counting backwards from *yesterday*, plus one if today is already done. (Otherwise every streak would read zero each morning.)
 3. **Monthly adherence** = done days ÷ *elapsed* days of the month (day 1 through today, inclusive) for the current month; past months use the full day count. This prevents the depressing 16%-on-day-5 effect.
 4. **Optional habits never penalize.** They show everywhere but count nowhere.
-5. **The day is confirmed, not auto-saved.** Tapping cards edits a local draft; one "I made it today" press saves all seven in a single batch `PATCH`, a dialog confirms it (auto-dismissing after 5s with a visible countdown on its button), and the screen becomes read-only until "Edit tasks" is pressed. This replaced per-tap optimistic saving: an explicit confirmation makes the write intentional and gives the user a clear "it's recorded" moment.
+5. **Per-habit sheets (v2).** Tapping a card opens a detail sheet whose Save writes that habit's `details` (validated) **and** flips `done` in one `PATCH /api/checks/:id`; the corner box is a quick-toggle (`done` only, details preserved) for rushed days. The card then shows a one-line badge (e.g. "+23 p", "7.5 h"). The spine never depends on details being filled. (This replaced an interim whole-day "confirm" flow.)
 
 ## API Surface
 
 ```
 GET    /api/checks?date=YYYY-MM-DD    today's 7 checks (lazily created)
-PATCH  /api/checks                    { updates: [{ id, done }] } — saves the whole day
-PATCH  /api/checks/:id                { done: boolean } single toggle
+PATCH  /api/checks/:id                { done }                  quick toggle (keeps details)
+                                      { done, details, note }   sheet save (details Zod-validated per slug)
 GET    /api/checks/week?start=...     7 days × 7 habits (start must be Monday)
 GET    /api/checks/month?month=...    month's checks + adherence % + streak per habit
+GET    /api/export?from&to            canonical dataset JSON (v2)
 ```
 
 All routes sit behind the auth middleware. Handlers return proper status codes with JSON error bodies; every handler wraps its work in try/catch.
