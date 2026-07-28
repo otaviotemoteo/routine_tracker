@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { SHEET_BODIES } from "@/components/sheets";
 import { format, habitName, type Copy, type Lang } from "@/lib/i18n";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
@@ -51,6 +51,9 @@ export function DailyStep({
       });
       if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
       router.push(nextHref);
+      // The save happened outside the router's knowledge, so the destination
+      // (the next step, or Today at the end) would render from a stale cache.
+      router.refresh();
     } catch {
       setError(true);
       setSaving(false);
@@ -132,6 +135,12 @@ export function DailyStep({
             disabled={saving}
             className="min-h-[48px] inline-flex items-center justify-center gap-2 px-7 rounded-full border-2 border-forest bg-clover text-white font-semibold shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm disabled:opacity-60"
           >
+            {saving && (
+              <Loader2
+                className="w-4 h-4 animate-spin motion-reduce:animate-none"
+                aria-hidden
+              />
+            )}
             {saving ? copy.saving : isLast ? copy.finish : copy.save}
           </button>
         </div>
