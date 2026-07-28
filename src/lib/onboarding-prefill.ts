@@ -9,18 +9,7 @@ import {
   listRoutineBlocks,
   listSpiritualPractices,
 } from "@/db/queries";
-import type { PlannedExercise } from "@/db/schema";
 import { todayInSaoPaulo } from "@/lib/utils";
-
-function exercisesToText(exercises: PlannedExercise[]): string {
-  return exercises
-    .map((e) =>
-      [e.name, e.sets, e.reps, e.load]
-        .filter((v) => v !== undefined && v !== "")
-        .join("; ")
-    )
-    .join("\n");
-}
 
 export async function workoutInitial() {
   const plan = await getActiveWorkoutPlan();
@@ -30,7 +19,7 @@ export async function workoutInitial() {
       plan?.days.map((d) => ({
         weekday: d.weekday,
         focus: d.focus,
-        exercises: exercisesToText(d.exercises),
+        exercises: d.exercises,
       })) ?? [],
   };
 }
@@ -43,9 +32,11 @@ export async function readingInitial() {
   return {
     initialGoal: goal ? String(goal.targetBooks) : "",
     initialBooks: books.map((b) => ({
+      id: b.id,
       title: b.title,
       author: b.author ?? "",
       pages: String(b.totalPages),
+      currentPage: b.currentPage ? String(b.currentPage) : "",
       reading: b.status === "reading",
     })),
   };
