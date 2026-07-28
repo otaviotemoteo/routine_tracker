@@ -69,7 +69,7 @@ In code (tailwind.config.ts) the tokens use English color names; the mapping is 
 | `--mata` | `forest` | `#17281C` | Text, borders, hard shadows |
 | `--trevo` | `clover` | `#3D9B4F` | Accent: primary buttons, completed checks, done cells |
 | `--broto` | `mint` | `#E3EFE0` | Soft fills: hover, marked card, section tint |
-| `--palha` | `straw` | `#D9A03F` | Exclusive to streaks and achievement highlights |
+| `--palha` | `straw` | `#D9A03F` | Streaks, achievement highlights, and the "pending" state (a `straw/30` chip on Today's cards) |
 | `--cinza-palha` | `sand` | `#DCD9CC` | Empty cells, unfilled bars, muted text together with `forest` opacity |
 
 ### Typography
