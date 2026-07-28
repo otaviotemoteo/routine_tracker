@@ -1,23 +1,27 @@
 # Personal Tracker
 
-Personal web app for daily habit check-ins with weekly and monthly visualization.
+Personal web app for daily habit check-ins with weekly/monthly visualization and a rich, auditable per-day dataset.
 
-**One sentence:** I open the app, mark what I did today, and see my consistency over the week and the month.
+**One sentence:** I open the app, mark what I did today (down to pages read and lessons done), and see my consistency — and any single day — over the week and the month.
 
 ---
 
-## MVP Scope
+## Scope
 
 **In:**
 
 - 7 habits (6 required + 1 optional): 🏋️ Workout, 📖 Reading, 🌙 Sleep, ⏰ Routine, 🌍 Duolingo, ✝️ Spirituality, 🎸 Hobby (optional)
-- **Today** screen (`/`): 7 cards + progress bar for the required habits. Picking the day is a draft; one confirm button saves everything and the screen locks until "edit tasks"
-- Bilingual interface (English default, Portuguese), switchable from any screen
-- **Week** screen (`/semana`): GitHub-contributions-style grid (7 days x 7 habits), navigation between weeks
-- **Month** screen (`/mes`): adherence % per habit + current streak, navigation between months
-- Simple single-user auth (password via env var)
+- **Today** screen (`/`): 7 cards + progress bar (required habits). Tapping a card opens a per-habit detail **sheet** (save = details + done in one write); the corner box quick-toggles for rushed days. Each card shows a badge (e.g. "+23 p").
+- **Overview** screen (`/overview`): a Week | Month toggle (absorbs the old `/semana`, `/mes`). Week = contributions grid with tappable cells; Month = adherence % + streaks **plus** rich summaries (avg sleep, pages read, workout %, lessons). Cells link to a **Day Audit** (`/overview/[date]`) — everything logged that day, human-readable.
+- **Onboarding** (`/onboarding`): an 8-step wizard configuring the workout plan, reading list/goal, sleep window, routine blocks, languages and spiritual practices. Editable later under `/config`.
+- **Rich data model** (v2): a binary spine (`done`) + JSONB `details` validated by Zod + normalized entity tables. See `DATA_DICTIONARY.md`.
+- **Export** (`GET /api/export?from&to`): the canonical dataset JSON for a future year-end AI analysis.
+- Bilingual interface (English default, Portuguese), switchable from any screen.
+- Simple single-user auth (password via env var, login rate-limited).
 
-**Out:** AI, insights, LinkedIn posts, projects, notifications, diet, external integrations, multi-user. All of that is a future hub. The MVP is daily check-in + visualization. Period.
+**Out:** AI insights in-app, LinkedIn posts, notifications, diet, external integrations (e.g. the Duolingo API), multi-user. The app captures the dataset; the year-end analysis is done by feeding the export + `DATA_DICTIONARY.md` to an AI offline.
+
+See `ARCHITECTURE.md` for how it's built and `DATA_DICTIONARY.md` for every stored field.
 
 ---
 
@@ -135,17 +139,18 @@ INSERT INTO habits (name, slug, icon, optional) VALUES
 GET    /api/checks?date=YYYY-MM-DD
        → returns the day's 7 checks (creates them if they don't exist). Without ?date, uses today (São Paulo TZ).
 
-PATCH  /api/checks
-       → body: { updates: [{ id, done }] }. Saves the whole day in one request (used by the "Today" screen).
-
 PATCH  /api/checks/:id
-       → body: { done: boolean }. Toggles a single check.
+       → { done }                → quick toggle (keeps details)
+       → { done, details, note } → sheet save (details validated per habit slug by Zod)
 
 GET    /api/checks/week?start=YYYY-MM-DD
        → start must be a Monday. Returns 7 days x 7 habits.
 
 GET    /api/checks/month?month=YYYY-MM
        → all checks for the month + adherence % + streak per habit.
+
+GET    /api/export?from=YYYY-MM-DD&to=YYYY-MM-DD
+       → canonical dataset JSON (entities + per-day details). See DATA_DICTIONARY.md.
 ```
 
 Thin routes: input validation + call to the `src/db/queries.ts` layer. All protected by the auth middleware.
@@ -158,40 +163,37 @@ Thin routes: input validation + call to the `src/db/queries.ts` layer. All prote
 tracker/
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx              # "Today" screen
-│   │   ├── login/
-│   │   │   ├── page.tsx          # Landing + password form
-│   │   │   └── actions.ts        # Login server action
-│   │   ├── semana/page.tsx
-│   │   ├── mes/page.tsx
-│   │   ├── api/checks/
-│   │   │   ├── route.ts          # GET (day)
-│   │   │   ├── [id]/route.ts     # PATCH (toggle)
-│   │   │   ├── week/route.ts
-│   │   │   └── month/route.ts
-│   │   ├── layout.tsx
-│   │   ├── loading.tsx           # skeleton
-│   │   ├── error.tsx             # error boundary
-│   │   ├── globals.css
-│   │   └── icon.svg
+│   │   ├── (app)/               # authed shell: persistent NavBar + onboarding gate
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx         # Today
+│   │   │   ├── loading.tsx
+│   │   │   └── overview/
+│   │   │       ├── page.tsx     # Week | Month toggle
+│   │   │       └── [date]/page.tsx   # Day Audit
+│   │   ├── login/              # landing + login (no NavBar)
+│   │   ├── onboarding/         # 8-step wizard (page.tsx + actions.ts)
+│   │   ├── config/            # settings, reuses wizard steps
+│   │   ├── api/
+│   │   │   ├── checks/{route,[id],week,month}.ts
+│   │   │   └── export/route.ts
+│   │   ├── layout.tsx          # root: <html>, fonts, lang
+│   │   ├── globals.css / error.tsx / icon.svg
 │   ├── components/
-│   │   ├── HabitCard.tsx         # "use client" — optimistic toggle
-│   │   ├── TodayChecklist.tsx    # owns the day state + progress bar
-│   │   ├── WeekGrid.tsx
-│   │   ├── MonthProgress.tsx
-│   │   ├── PeriodNav.tsx         # shared prev/next navigation
-│   │   ├── NavBar.tsx
-│   │   └── landing/              # Hero, HowItWorks, LoginForm
+│   │   ├── HabitCard.tsx / HabitSheet.tsx / TodayChecklist.tsx
+│   │   ├── sheets/             # per-habit detail-sheet bodies + registry
+│   │   ├── onboarding/         # wizard step components + chrome
+│   │   ├── WeekGrid / MonthProgress / MonthSummary / PeriodNav / NavBar
+│   │   └── landing/            # Hero, HowItWorks, LoginForm, LanguageSelect
 │   ├── db/
-│   │   ├── schema.ts
-│   │   ├── index.ts
-│   │   ├── queries.ts            # All database reads/writes go through here
-│   │   └── seed.ts
+│   │   ├── schema.ts           # Tier 1 spine + Tier 3 entities
+│   │   ├── index.ts / queries.ts / seed.ts
 │   ├── lib/
-│   │   ├── utils.ts              # todayInSaoPaulo(), weekStartMonday(), streaks, %
-│   │   ├── auth.ts               # HMAC cookie signing (Web Crypto)
-│   │   └── icons.ts              # habit slug → lucide icon
-│   ├── middleware.ts             # cookie-based auth
+│   │   ├── utils.ts            # timezone/date helpers, streaks, adherence, pace
+│   │   ├── details-schemas.ts  # Zod per-habit details (source of truth)
+│   │   ├── i18n.ts + get-lang.ts   # bilingual copy
+│   │   ├── onboarding{,-prefill}.ts / summaries.ts / describe-details.ts
+│   │   ├── auth.ts / rate-limit.ts / icons.ts
+│   ├── middleware.ts           # cookie-based auth
 │   └── types/habit.ts
 ├── docs/identidade-visual.html   # (gitignored) design system preview
 ├── drizzle.config.ts
@@ -201,6 +203,7 @@ tracker/
 ├── next.config.ts
 ├── .env.local                    # DATABASE_URL, APP_PASSWORD, AUTH_SECRET
 ├── ARCHITECTURE.md               # ships with the repo
+├── DATA_DICTIONARY.md            # ships with the repo (every stored field)
 ├── CLAUDE.md                     # (gitignored)
 ├── LEARNING_ROADMAP.md           # (gitignored)
 ├── LINKEDIN_POSTS.md             # (gitignored)
