@@ -3,6 +3,8 @@ import { PeriodNav } from "@/components/PeriodNav";
 import { WeekGrid } from "@/components/WeekGrid";
 import { MonthProgress } from "@/components/MonthProgress";
 import { MonthSummary } from "@/components/MonthSummary";
+import { ActivitiesSection } from "@/components/ActivitiesSection";
+import { getSetupSummary } from "@/lib/setup-summary";
 import {
   getMonthData,
   getMonthDetailStats,
@@ -75,6 +77,12 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
       ) : (
         <MonthView lang={lang} copy={copy} today={today} period={period} />
       )}
+
+      {/* Editable setup, below the frequency views. */}
+      <ActivitiesSection
+        rows={await getSetupSummary(copy.onboarding, copy.today)}
+        copy={copy.today}
+      />
     </main>
   );
 }
