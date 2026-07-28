@@ -20,11 +20,23 @@ export function ActivitiesSection({ rows, copy }: ActivitiesSectionProps) {
           <li key={row.section}>
             <Link
               href={`/config?section=${row.section}&from=overview`}
-              className="min-h-[64px] flex items-center justify-between gap-3 px-5 py-3 rounded-card border-2 border-forest bg-white shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm"
+              className={`min-h-[64px] flex items-center justify-between gap-3 px-5 py-3 rounded-card border-2 border-forest shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm ${
+                row.configured ? "bg-mint" : "bg-white"
+              }`}
             >
               <span className="min-w-0 flex-1">
-                <span className="block text-xs uppercase tracking-widest font-semibold opacity-60">
-                  {row.label}
+                <span className="flex items-center gap-2 text-xs uppercase tracking-widest font-semibold">
+                  <span className="opacity-60">{row.label}</span>
+                  <span
+                    className={`normal-case tracking-normal font-semibold ${
+                      row.configured ? "text-clover" : "text-straw"
+                    }`}
+                  >
+                    ·{" "}
+                    {row.configured
+                      ? copy.configured
+                      : copy.notConfiguredBadge}
+                  </span>
                 </span>
                 <span className="flex items-baseline justify-between gap-3 flex-wrap">
                   <span
