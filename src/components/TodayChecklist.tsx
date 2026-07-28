@@ -1,40 +1,32 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { CircleAlert } from "lucide-react";
+import Link from "next/link";
+import { CircleAlert, ListChecks } from "lucide-react";
 import { HabitCard } from "@/components/HabitCard";
-import { HabitSheet } from "@/components/HabitSheet";
 import type { Copy, Lang } from "@/lib/i18n";
-import type { CheckWithHabit, TodayContext } from "@/types/habit";
+import type { CheckWithHabit } from "@/types/habit";
 
 interface TodayChecklistProps {
   initialChecks: CheckWithHabit[];
-  context: TodayContext;
   title: string;
   lang: Lang;
   copy: Copy["today"];
-  sheetCopy: Copy["sheets"];
+  dailyCopy: Copy["daily"];
 }
 
-// Owns the day's checks so the progress bar reflects every card change. Tapping
-// a card opens its detail sheet (save = details + done); the box quick-toggles.
+// Owns the day's checks so the progress bar reflects every quick-toggle.
+// Detailed logging happens in the guided flow at /day — the "Complete daily"
+// button starts it and each card deep-links into its own step.
 export function TodayChecklist({
   initialChecks,
-  context,
   title,
   lang,
   copy,
-  sheetCopy,
+  dailyCopy,
 }: TodayChecklistProps) {
   const [checks, setChecks] = useState(initialChecks);
-  const [openId, setOpenId] = useState<number | null>(null);
   const [saveError, setSaveError] = useState(false);
-
-  const replace = useCallback(
-    (updated: CheckWithHabit) =>
-      setChecks((prev) => prev.map((c) => (c.id === updated.id ? updated : c))),
-    []
-  );
 
   const quickToggle = useCallback(async (id: number, done: boolean) => {
     setSaveError(false);
@@ -59,7 +51,6 @@ export function TodayChecklist({
   const percent =
     required.length === 0 ? 0 : Math.round((doneCount / required.length) * 100);
   const allDone = required.length > 0 && doneCount === required.length;
-  const openCheck = checks.find((c) => c.id === openId) ?? null;
 
   return (
     <>
@@ -106,6 +97,14 @@ export function TodayChecklist({
           </p>
         )}
 
+        <Link
+          href="/day"
+          className="min-h-[52px] inline-flex items-center justify-center gap-2 px-7 rounded-full border-2 border-forest bg-clover text-white font-semibold shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm"
+        >
+          <ListChecks aria-hidden className="w-5 h-5" />
+          {dailyCopy.start}
+        </Link>
+
         <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4 list-none">
           {checks.map((check) => (
             <li key={check.id} className="contents">
@@ -113,27 +112,12 @@ export function TodayChecklist({
                 check={check}
                 lang={lang}
                 copy={copy}
-                onOpen={setOpenId}
                 onQuickToggle={quickToggle}
               />
             </li>
           ))}
         </ul>
       </div>
-
-      {openCheck && (
-        <HabitSheet
-          check={openCheck}
-          context={context}
-          lang={lang}
-          copy={sheetCopy}
-          onClose={() => setOpenId(null)}
-          onSaved={(updated) => {
-            replace(updated);
-            setOpenId(null);
-          }}
-        />
-      )}
     </>
   );
 }
