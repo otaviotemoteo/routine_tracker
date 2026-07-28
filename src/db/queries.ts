@@ -23,6 +23,7 @@ import {
   daysInMonth,
   isoWeekday,
 } from "@/lib/utils";
+import { exerciseScheme } from "@/lib/exercise";
 import type {
   CheckWithHabit,
   MonthData,
@@ -95,15 +96,20 @@ export async function getTodayContext(date: string): Promise<TodayContext> {
     listLanguages(true),
     listSpiritualPractices(true),
   ]);
-  const day = plan?.days.find((d) => d.weekday === weekday) ?? null;
+  const planDays =
+    plan?.days.map((d) => ({
+      id: d.id,
+      weekday: d.weekday,
+      focus: d.focus,
+      exercises: d.exercises,
+    })) ?? [];
   return {
     weekday,
     plan: plan
       ? {
           name: plan.name,
-          day: day
-            ? { id: day.id, focus: day.focus, exercises: day.exercises }
-            : null,
+          day: planDays.find((d) => d.weekday === weekday) ?? null,
+          days: planDays,
         }
       : null,
     book: book
@@ -641,12 +647,7 @@ export async function getAuditLookups(): Promise<AuditLookups> {
     planExercises: Object.fromEntries(
       planDays.map((d) => [
         d.id,
-        Object.fromEntries(
-          d.exercises.map((e) => [
-            e.name,
-            e.sets && e.reps ? `${e.sets}×${e.reps}` : e.sets ? `${e.sets}×` : "",
-          ])
-        ),
+        Object.fromEntries(d.exercises.map((e) => [e.name, exerciseScheme(e)])),
       ])
     ),
     blocks: Object.fromEntries(blocks.map((b) => [b.id, b.activity])),
