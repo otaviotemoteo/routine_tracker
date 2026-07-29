@@ -185,7 +185,14 @@ export interface Copy {
       finishEstimate: string; // {date}
       finishToday: string;
     };
-    sleep: { hours: string; wokeUp: string; quality: string };
+    // `*Short` are the tile labels in the Day Audit — full field labels wrap.
+    sleep: {
+      hours: string;
+      hoursShort: string;
+      wokeUp: string;
+      wokeShort: string;
+      quality: string;
+    };
     routine: { followed: string; struggled: string; struggleNote: string; none: string; noBlocks: string };
     duolingo: { lessons: string; noLanguages: string };
     spirituality: { noPractices: string };
@@ -480,7 +487,13 @@ export const COPY: Record<Lang, Copy> = {
         finishEstimate: "At this pace you finish this book on {date}",
         finishToday: "That finishes the book!",
       },
-      sleep: { hours: "Hours slept", wokeUp: "Woke up during the night", quality: "Quality" },
+      sleep: {
+        hours: "Hours slept",
+        hoursShort: "Hours",
+        wokeUp: "Woke up during the night",
+        wokeShort: "Woke up",
+        quality: "Quality",
+      },
       routine: {
         followed: "Blocks followed",
         struggled: "Hardest block",
@@ -806,7 +819,13 @@ export const COPY: Record<Lang, Copy> = {
         finishEstimate: "Nesse ritmo você termina este livro em {date}",
         finishToday: "Isso termina o livro!",
       },
-      sleep: { hours: "Horas dormidas", wokeUp: "Acordou durante a noite", quality: "Qualidade" },
+      sleep: {
+        hours: "Horas dormidas",
+        hoursShort: "Horas",
+        wokeUp: "Acordou durante a noite",
+        wokeShort: "Acordou",
+        quality: "Qualidade",
+      },
       routine: {
         followed: "Blocos seguidos",
         struggled: "Bloco mais difícil",
