@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ListChecks } from "lucide-react";
 import { HabitCard } from "@/components/HabitCard";
+import { DAILY_STEPS } from "@/lib/daily";
 import type { Copy, Lang } from "@/lib/i18n";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
 
@@ -11,6 +12,10 @@ interface TodayBoardProps {
   lang: Lang;
   copy: Copy["today"];
   dailyCopy: Copy["daily"];
+  readingCopy: Copy["onboarding"]["reading"];
+  // Reading target for the year, already formatted; omitted when the list
+  // isn't complete enough for the number to mean anything.
+  paceNote?: string;
 }
 
 // Today is a status board: progress, one card per habit reporting where it
@@ -23,12 +28,18 @@ export function TodayBoard({
   lang,
   copy,
   dailyCopy,
+  readingCopy,
+  paceNote,
 }: TodayBoardProps) {
   const required = checks.filter((c) => !c.optional);
   const doneCount = required.filter((c) => c.done).length;
   const percent =
     required.length === 0 ? 0 : Math.round((doneCount / required.length) * 100);
   const allDone = required.length > 0 && doneCount === required.length;
+  // Progress across every habit (optional included) decides the CTA: the
+  // optional Hobby still counts as "something logged today".
+  const anyLogged = checks.some((c) => c.done);
+  const allLogged = checks.every((c) => c.done);
 
   return (
     <>
@@ -65,12 +76,18 @@ export function TodayBoard({
           )}
         </section>
 
+        {/* Nothing logged yet → walk the whole flow. Once something is in,
+            the index is the faster way to whatever is left. */}
         <Link
-          href="/day"
+          href={anyLogged ? "/day" : `/day?step=${DAILY_STEPS[0]}`}
           className="min-h-[52px] inline-flex items-center justify-center gap-2 px-7 rounded-full border-2 border-forest bg-clover text-white font-semibold shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm"
         >
           <ListChecks aria-hidden className="w-5 h-5" />
-          {dailyCopy.start}
+          {!anyLogged
+            ? dailyCopy.start
+            : allLogged
+              ? dailyCopy.review
+              : dailyCopy.startRemaining}
         </Link>
 
         <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4 list-none">
@@ -81,6 +98,8 @@ export function TodayBoard({
                 context={context}
                 lang={lang}
                 copy={copy}
+                readingCopy={readingCopy}
+                paceNote={check.slug === "leitura" ? paceNote : undefined}
               />
             </li>
           ))}
