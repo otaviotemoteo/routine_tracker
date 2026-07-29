@@ -50,6 +50,9 @@ settle decisions that were already made, not re-open them.
 - **State is always in text too.** Cards carry an `sr-only` "Done"/"Not logged
   yet"; the week grid's cells label themselves per day. Never rely on the fill
   colour alone.
+- **Summaries are sentences, not shorthand.** "5/5", "+9p", "7h" are compact
+  but need decoding. Say "All exercises done", "9 pages read", "7h slept",
+  "4 of 6 blocks followed" (`src/lib/summaries.ts`).
 - **Signature styling is structural, not decorative:** hard offset shadows
   (`4px 4px 0`, never blurred), 2px borders, small-caps serif display type.
 
@@ -74,6 +77,13 @@ settle decisions that were already made, not re-open them.
   check-in are one topic per step, with a progress bar, Back, and Skip. They
   deliberately share mechanics (`src/lib/onboarding.ts`, `src/lib/daily.ts`)
   so the app only teaches one interaction.
+- **A resumed task opens as an index, not a replay.** The first daily check-in
+  walks all seven steps; once anything is logged, the CTA becomes "Fill the
+  remaining tasks" and opens a list of the day's areas — done ones in mint with
+  their summary, pending ones in white — so the user jumps to what's left
+  (`src/components/daily/DailyIndex.tsx`). Entry points should name what
+  they'll actually do: "Complete daily" / "Fill the remaining tasks" /
+  "Review the day".
 - **Every step saves on advance.** Abandoning midway loses nothing.
 - **Everything is skippable.** A skipped area falls back to plain
   done/not-done until it's configured.
@@ -115,14 +125,16 @@ settle decisions that were already made, not re-open them.
 - **Return where you came from.** An edit opened from Overview returns to
   Overview on both Back and Save; one opened from the config list returns
   there (`?from=overview`). The change should be visible where it was made.
-- **Don't make the user scroll to leave.** A config section opens with a
-  "← Reading" link at the top.
+- **Don't make the user scroll to leave, and don't stack two ways back.** The
+  back arrow lives *on the screen's title* ("← Reading"), not as a separate
+  link above it (`StepTitle`).
 - **Client transitions only.** The nav bar lives in the `(app)` layout so it
   persists across navigations; everything uses `<Link>`. A full reload is a bug.
 - **URL carries view state** so a view is linkable and survives refresh:
   `?view=week|month`, `?period=`, `?step=`, `?section=`.
-- **Loading states mirror the layout** they replace, so nothing shifts when
-  content lands.
+- **Loading states mirror the layout** they replace — the real card sizes, the
+  real column count, the CTA — so nothing shifts when content lands. When a
+  screen's shape changes, its skeleton changes with it.
 
 ## Progressive disclosure
 
@@ -130,12 +142,24 @@ settle decisions that were already made, not re-open them.
 - **Reveal on relevance:** the current-page field appears only on the book
   you're reading; the training picker only when you say you trained something
   else; the struggle note only after you name a hard block.
-- **Explain derived numbers on demand.** The reading pace shows an ⓘ that
-  opens a dialog with the actual math, rather than expanding the page for
-  everyone.
+- **Explain derived numbers on demand, wherever they appear.** Any reading-pace
+  figure — onboarding, Today's card, Overview — carries the same ⓘ opening the
+  same formula, set in large mono type with its terms spelled out
+  (`src/components/PaceInfo.tsx`). One shared island, so a server-rendered card
+  can still explain itself.
+- **A derived number sits in a straw note**, not a mint one: it's guidance to
+  act on, not a completed state.
 - **Group to create hierarchy.** Repeated control rows (per-language steppers)
   get their own cards; without containment they read as one undifferentiated
   list.
+- **Give each kind of fact its own shape.** A read-only record isn't a stack of
+  "label: value" lines — ticked items become a checklist with the plan's figure
+  trailing each row, a set of small numbers becomes stat tiles, a set of things
+  becomes chips, a 1–5 score becomes dots. `describeDetails()` returns typed
+  blocks and the Day Audit renders each kind accordingly, so the page is
+  scannable instead of uniform.
+- **A status badge earns its place only when it says something.** "Configured"
+  on an already-mint card is noise; only the unfinished state is called out.
 
 ## Copy
 
@@ -164,6 +188,9 @@ settle decisions that were already made, not re-open them.
   card is an absolute link *under* a stacked button.
 - **`prefers-reduced-motion` is respected** globally, and animations that
   convey progress degrade to their end state.
+- **Motion is short and meaningful.** Dialogs rise in over ~150ms and out over
+  ~140ms so they read as opening rather than blinking into place; nothing
+  animates purely for decoration.
 
 ## Mobile-first
 
