@@ -667,6 +667,39 @@ export function getDayChecksReadonly(date: string): Promise<CheckWithHabit[]> {
     .orderBy(asc(habits.id));
 }
 
+// Consecutive days where every required habit was done — the same rule as a
+// habit streak (count back from yesterday, +1 if today already qualifies), so
+// an unfinished today never zeroes it. Bounded to a window; a streak longer
+// than that is beyond what this screen needs to say.
+const STREAK_WINDOW_DAYS = 180;
+
+export async function getDayStreak(today: string): Promise<number> {
+  const requiredCount = await db.$count(habits, eq(habits.optional, false));
+  if (requiredCount === 0) return 0;
+
+  const rows = await db
+    .select({
+      date: dailyChecks.checkedAt,
+      done: sql<number>`count(*)`.as("done"),
+    })
+    .from(dailyChecks)
+    .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .where(
+      and(
+        eq(dailyChecks.done, true),
+        eq(habits.optional, false),
+        gte(dailyChecks.checkedAt, addDays(today, -STREAK_WINDOW_DAYS)),
+        lte(dailyChecks.checkedAt, today)
+      )
+    )
+    .groupBy(dailyChecks.checkedAt);
+
+  const complete = new Set(
+    rows.filter((r) => Number(r.done) >= requiredCount).map((r) => r.date)
+  );
+  return calcStreak(complete, today);
+}
+
 export interface MonthDetailStats {
   sleep: { avgHours: number | null; nights: number };
   reading: { totalPages: number };
