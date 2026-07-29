@@ -1,35 +1,42 @@
 import Link from "next/link";
 import { ListChecks } from "lucide-react";
 import { HabitCard } from "@/components/HabitCard";
+import { TodayStats } from "@/components/today/TodayStats";
 import { DAILY_STEPS } from "@/lib/daily";
 import type { Copy, Lang } from "@/lib/i18n";
+import type { ReadingPace } from "@/lib/today-card";
+import type { PaceValues } from "@/lib/setup-summary";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
 
 interface TodayBoardProps {
   checks: CheckWithHabit[];
   context: TodayContext;
   title: string;
+  eyebrow: string;
+  streak: number;
   lang: Lang;
   copy: Copy["today"];
   dailyCopy: Copy["daily"];
   readingCopy: Copy["onboarding"]["reading"];
-  // Reading target for the year, already formatted; omitted when the list
-  // isn't complete enough for the number to mean anything.
-  paceNote?: string;
+  pace?: ReadingPace;
+  paceValues?: PaceValues;
 }
 
-// Today is a status board: progress, one card per habit reporting where it
-// stands, and a single call to action that opens the guided flow. No controls
-// on the cards, so the whole screen is server-rendered.
+// Today is a status board: the day in two figures, a progress bar, one call to
+// action, and a card per habit. No controls on the cards, so the whole screen
+// is server-rendered.
 export function TodayBoard({
   checks,
   context,
   title,
+  eyebrow,
+  streak,
   lang,
   copy,
   dailyCopy,
   readingCopy,
-  paceNote,
+  pace,
+  paceValues,
 }: TodayBoardProps) {
   const required = checks.filter((c) => !c.optional);
   const doneCount = required.filter((c) => c.done).length;
@@ -43,7 +50,18 @@ export function TodayBoard({
 
   return (
     <>
-      <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-7">{title}</h1>
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
+        <div className="min-w-0">
+          <p className="eyebrow">{eyebrow}</p>
+          <h1 className="display-title text-4xl sm:text-5xl mt-2">{title}</h1>
+        </div>
+        <TodayStats
+          done={doneCount}
+          total={required.length}
+          streak={streak}
+          copy={copy}
+        />
+      </div>
 
       <div className="flex flex-col gap-5">
         <section
@@ -90,7 +108,14 @@ export function TodayBoard({
               : dailyCopy.startRemaining}
         </Link>
 
-        <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4 list-none">
+        {/* auto-fit + 1fr rows: cards share a height whatever they contain. */}
+        <ul
+          className="grid gap-3.5 sm:gap-4 list-none"
+          style={{
+            gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+            gridAutoRows: "1fr",
+          }}
+        >
           {checks.map((check) => (
             <li key={check.id} className="contents">
               <HabitCard
@@ -99,7 +124,8 @@ export function TodayBoard({
                 lang={lang}
                 copy={copy}
                 readingCopy={readingCopy}
-                paceNote={check.slug === "leitura" ? paceNote : undefined}
+                pace={check.slug === "leitura" ? pace : undefined}
+                paceValues={check.slug === "leitura" ? paceValues : undefined}
               />
             </li>
           ))}
