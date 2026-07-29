@@ -52,6 +52,12 @@ export interface TodayCard {
     bars?: PanelBars;
     itemsLabel?: string;
     items?: PanelItem[];
+    // "list" is a row per item; "grid" is a tile per item, two across — for a
+    // short set of equals where the rows would leave the panel half empty.
+    itemsLayout?: "list" | "grid";
+    // How many rows this panel can hold before it needs a "+N more". Set where
+    // the panel is built, since it depends on what else is in there.
+    maxItems?: number;
     // Two or three figures, shown large — the answer when there is no list and
     // no proportion, only numbers.
     stats?: { label: string; value: string }[];
@@ -228,6 +234,9 @@ export function buildTodayCard(
                     detail: format(copy.pagesShort, { n: next.totalPages }),
                   }))
                 : undefined,
+              // The text and the meter already take most of the panel — two
+              // books plus a "+N more" is what's left before it clips.
+              maxItems: 2,
             }
           : { label: panelLabel, text: copy.ctxNoBook },
         note: pace
@@ -339,6 +348,8 @@ export function buildTodayCard(
                   : false,
                 detail: block.startTime,
               })),
+              // Nothing else in this panel, so a full day of blocks fits.
+              maxItems: 6,
             }
           : { label: panelLabel, text: copy.ctxNothingSet },
         note: check.done
@@ -381,8 +392,9 @@ export function buildTodayCard(
         panel: context.languages.length
           ? {
               label: panelLabel,
-              // Today's lessons tick the row; the week's total sits behind it
-              // as a bar, so a quiet language is visible as a short one.
+              // A tile per language: a handful of equals, which as rows would
+              // leave most of the panel empty.
+              itemsLayout: "grid",
               items: context.languages.map((language) => {
                 const lessons = sessions.find(
                   (s) => s?.language_slug === language.slug
@@ -443,6 +455,7 @@ export function buildTodayCard(
         panel: context.practices.length
           ? {
               label: panelLabel,
+              itemsLayout: "grid",
               items: context.practices.map((practice) => {
                 const logged = done.find((p) => String(p?.slug) === practice.slug);
                 const count = logged && typeof logged.count === "number"
@@ -490,6 +503,7 @@ export function buildTodayCard(
           text: copy.noteOptionalSub,
           // No list and no proportion here — just two figures, so show them as
           // figures rather than as two thin rows.
+          itemsLabel: copy.thisWeek,
           stats: [
             {
               label: copy.hobbyWeekSessions,
