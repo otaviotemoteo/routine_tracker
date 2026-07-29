@@ -3,15 +3,19 @@
 import { useRef, useState } from "react";
 import { Info } from "lucide-react";
 import type { Copy } from "@/lib/i18n";
+import type { PaceValues } from "@/lib/setup-summary";
 
 interface PaceInfoProps {
   copy: Copy["onboarding"]["reading"];
+  // Without the numbers the dialog can only describe the formula; with them it
+  // can show its own arithmetic.
+  values?: PaceValues;
 }
 
-// The ⓘ next to any reading-pace figure: opens the formula behind it. A tiny
-// client island so server-rendered cards (Today, Overview) can still explain
-// their numbers.
-export function PaceInfo({ copy }: PaceInfoProps) {
+// The ⓘ next to any reading-pace figure: opens the formula *and the figures
+// that produced it*. A tiny client island so server-rendered cards (Today,
+// Overview) can still explain their numbers.
+export function PaceInfo({ copy, values }: PaceInfoProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const [closing, setClosing] = useState(false);
 
@@ -24,11 +28,27 @@ export function PaceInfo({ copy }: PaceInfoProps) {
     }, 140);
   }
 
-  const legend: [string, string][] = [
-    ["Pc", copy.paceLegendCurrent],
-    ["Pn", copy.paceLegendNext],
-    ["Dr", copy.paceLegendDays],
-  ];
+  const legend: { symbol: string; meaning: string; value?: number; tone: string }[] =
+    [
+      {
+        symbol: "Pa",
+        meaning: copy.paceLegendCurrent,
+        value: values?.currentBookLeft,
+        tone: "text-clover",
+      },
+      {
+        symbol: "Pp",
+        meaning: copy.paceLegendNext,
+        value: values?.nextBooksPages,
+        tone: "text-clover",
+      },
+      {
+        symbol: "Dr",
+        meaning: copy.paceLegendDays,
+        value: values?.daysLeft,
+        tone: "text-straw",
+      },
+    ];
 
   return (
     <>
@@ -36,7 +56,7 @@ export function PaceInfo({ copy }: PaceInfoProps) {
         type="button"
         aria-label={copy.paceExplainAria}
         onClick={() => ref.current?.showModal()}
-        className="shrink-0 inline-flex items-center justify-center text-forest/70 hover:text-forest"
+        className="shrink-0 inline-flex items-center justify-center text-forest/60 hover:text-forest"
       >
         <Info className="w-5 h-5" aria-hidden />
       </button>
@@ -46,34 +66,56 @@ export function PaceInfo({ copy }: PaceInfoProps) {
         aria-labelledby="pace-explain-title"
         onClose={() => setClosing(false)}
         className={`bg-transparent p-0 backdrop:bg-forest/40 ${
-          closing ? "motion-safe:animate-dialog-out" : "motion-safe:animate-dialog-in"
+          closing
+            ? "motion-safe:animate-dialog-out"
+            : "motion-safe:animate-dialog-in"
         }`}
       >
-        <div className="bg-white border-2 border-forest rounded-card shadow-hard p-6 w-[min(24rem,92vw)] text-forest">
+        <div className="bg-white border-2 border-forest rounded-card shadow-hard-lg p-6 w-[min(25rem,92vw)] text-forest text-left">
           <h2 id="pace-explain-title" className="display-title text-xl">
             {copy.paceExplainTitle}
           </h2>
+          <p className="text-sm opacity-70 mt-1">{copy.paceSubtitle}</p>
 
-          <p className="font-mono font-bold text-2xl sm:text-3xl text-center my-5">
-            {copy.paceFormula}
+          {/* The formula, with each term coloured the way it is in the legend. */}
+          <p className="bg-cream rounded-card py-4 my-4 font-mono font-bold text-xl sm:text-2xl flex items-center justify-center gap-2">
+            <span className="opacity-40">(</span>
+            <span className="text-clover">Pa</span>
+            <span className="opacity-40">+</span>
+            <span className="text-clover">Pp</span>
+            <span className="opacity-40">)</span>
+            <span className="opacity-40">÷</span>
+            <span className="text-straw">Dr</span>
           </p>
 
-          <dl className="flex flex-col gap-1.5 text-sm">
-            {legend.map(([symbol, meaning]) => (
-              <div key={symbol} className="flex gap-2">
-                <dt className="font-mono font-bold text-clover w-8 shrink-0">
-                  {symbol}
+          <dl className="flex flex-col gap-2.5 text-sm">
+            {legend.map((row) => (
+              <div key={row.symbol} className="flex items-baseline gap-3">
+                <dt
+                  className={`font-mono font-bold w-7 shrink-0 ${row.tone}`}
+                >
+                  {row.symbol}
                 </dt>
-                <dd className="opacity-75">{meaning}</dd>
+                <dd className="flex-1 opacity-75">{row.meaning}</dd>
+                {row.value !== undefined && (
+                  <dd className="font-mono font-bold shrink-0">{row.value}</dd>
+                )}
               </div>
             ))}
-            <div className="flex gap-2 border-t-2 border-dashed border-sand pt-1.5 mt-1">
-              <dt className="font-mono font-bold w-8 shrink-0">=</dt>
-              <dd className="font-semibold">{copy.paceLegendResult}</dd>
-            </div>
           </dl>
 
-          <p className="mt-4 text-sm opacity-75">{copy.paceExplainText}</p>
+          {values && (
+            <p className="flex items-center justify-between gap-3 bg-straw/20 rounded-lg px-3.5 py-2.5 mt-4">
+              <span className="text-sm font-bold">{copy.paceResultLabel}</span>
+              <span className="font-mono font-bold">
+                {values.perDay} {copy.paceUnit}
+              </span>
+            </p>
+          )}
+
+          <p className="text-sm opacity-70 mt-4 leading-relaxed">
+            {copy.paceExplainText}
+          </p>
 
           <button
             type="button"

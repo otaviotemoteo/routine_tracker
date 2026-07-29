@@ -69,7 +69,9 @@ export function ActivitiesSection({
               </span>
 
               <span className="relative flex items-center gap-3 shrink-0">
-                {showPace && <PaceInfo copy={readingCopy} />}
+                {showPace && (
+                  <PaceInfo copy={readingCopy} values={row.paceValues} />
+                )}
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold pointer-events-none">
                   <Pencil className="w-4 h-4" aria-hidden />
                   {copy.edit}
