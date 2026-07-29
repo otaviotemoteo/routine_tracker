@@ -1,15 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Info, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import {
   fieldBase,
   ghostButton,
   inputClass,
   OnboardingFooter,
-  primaryButton,
+  StepTitle,
 } from "./OnboardingChrome";
 import { CollapsedCard } from "./CollapsedCard";
+import { PaceInfo } from "@/components/PaceInfo";
 import { format, type Copy } from "@/lib/i18n";
 
 export interface BookDraft {
@@ -35,6 +36,7 @@ interface ReadingStepProps {
   daysLeft: number;
   year: number;
   requireDirtyToSave?: boolean;
+  titleBackHref?: string;
 }
 
 const emptyBook = (reading: boolean): BookDraft => ({
@@ -58,6 +60,7 @@ export function ReadingStep({
   daysLeft,
   year,
   requireDirtyToSave,
+  titleBackHref,
 }: ReadingStepProps) {
   const [goal, setGoal] = useState(initialGoal);
   const [rows, setRows] = useState<BookDraft[]>(
@@ -75,7 +78,6 @@ export function ReadingStep({
   const dirty = JSON.stringify({ goal, rows }) !== initialSnapshot;
 
   const goalRef = useRef<HTMLInputElement>(null);
-  const explainRef = useRef<HTMLDialogElement>(null);
 
   const filled = rows.filter((b) => b.title.trim() && Number(b.pages) > 0);
   const goalNum = Number(goal);
@@ -132,23 +134,18 @@ export function ReadingStep({
     <form action={action}>
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="data" value={serialized} />
-      <h1 className="display-title text-3xl sm:text-4xl">{copy.reading.title}</h1>
+      <StepTitle backHref={titleBackHref} backLabel={copy.back}>
+        {copy.reading.title}
+      </StepTitle>
       <p className="mt-2 opacity-75">{copy.reading.lead}</p>
 
       {pagesPerDay > 0 && (
-        <p className="mt-3 text-sm bg-mint border-2 border-forest rounded-card px-4 py-2.5 flex items-start gap-2">
-          <span className="flex-1">
+        <div className="mt-3 text-sm bg-straw/20 border-2 border-forest rounded-card px-4 py-2.5 flex items-center gap-3">
+          <p className="flex-1">
             {format(copy.reading.paceNote, { pages: pagesPerDay, year })}
-          </span>
-          <button
-            type="button"
-            aria-label={copy.reading.paceExplainAria}
-            onClick={() => explainRef.current?.showModal()}
-            className="shrink-0 min-h-[24px] min-w-[24px] inline-flex items-center justify-center"
-          >
-            <Info className="w-5 h-5" aria-hidden />
-          </button>
-        </p>
+          </p>
+          <PaceInfo copy={copy.reading} />
+        </div>
       )}
 
       <label
@@ -336,27 +333,6 @@ export function ReadingStep({
         requireDirtyToSave={requireDirtyToSave}
       />
 
-      <dialog
-        ref={explainRef}
-        aria-labelledby="pace-explain-title"
-        className="bg-transparent p-0 backdrop:bg-forest/40"
-      >
-        <div className="bg-white border-2 border-forest rounded-card shadow-hard p-6 w-[min(22rem,90vw)] text-forest">
-          <h2 id="pace-explain-title" className="display-title text-xl">
-            {copy.reading.paceExplainTitle}
-          </h2>
-          <p className="mt-2 opacity-75 text-sm">
-            {copy.reading.paceExplainText}
-          </p>
-          <button
-            type="button"
-            onClick={() => explainRef.current?.close()}
-            className={`${primaryButton} w-full mt-5`}
-          >
-            {copy.reading.paceExplainClose}
-          </button>
-        </div>
-      </dialog>
     </form>
   );
 }
