@@ -1,11 +1,16 @@
 import { Check, Clock } from "lucide-react";
 import { PaceInfo } from "@/components/PaceInfo";
+import { PanelChart } from "@/components/today/PanelChart";
 import { habitIcon } from "@/lib/icons";
-import { habitName, type Copy, type Lang } from "@/lib/i18n";
+import { format, habitName, type Copy, type Lang } from "@/lib/i18n";
 import { buildTodayCard, type ReadingPace } from "@/lib/today-card";
 import type { PaceValues } from "@/lib/setup-summary";
 import type { TodayComparisons } from "@/db/queries";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
+
+// What fits in the panel of a 320px card alongside a label, a line of text and
+// the note.
+const MAX_PANEL_ITEMS = 5;
 
 interface HabitCardProps {
   check: CheckWithHabit;
@@ -47,6 +52,14 @@ export function HabitCard({
     pace
   );
   const pending = card.state === "pending";
+  // Row bars are scaled to the busiest row, so the list reads as a comparison
+  // between its own items rather than against an invented ceiling.
+  const allItems = card.panel?.items ?? [];
+  const barMax = Math.max(0, ...allItems.map((item) => item.bar ?? 0));
+  // The card is a fixed frame. Show what fits and say how much didn't, rather
+  // than letting one long list set the height of every card on the board.
+  const items = allItems.slice(0, MAX_PANEL_ITEMS);
+  const hiddenItems = allItems.length - items.length;
 
   const pill = {
     done: { label: copy.pillDone, className: "text-clover bg-mint" },
@@ -56,7 +69,7 @@ export function HabitCard({
 
   return (
     <div
-      className={`h-full flex flex-col gap-2.5 p-4 rounded-card border-2 border-forest shadow-hard ${
+      className={`h-full overflow-hidden flex flex-col gap-2.5 p-4 rounded-card border-2 border-forest shadow-hard ${
         check.optional ? "border-dashed" : ""
       } ${pending ? "bg-cream" : "bg-white"}`}
     >
@@ -110,16 +123,70 @@ export function HabitCard({
           </span>
           {card.panel.text && (
             <span
-              className={`text-xs font-semibold leading-snug ${
+              className={`text-xs font-semibold leading-snug line-clamp-2 ${
                 pending ? "text-forest/80" : "text-forest"
               }`}
             >
               {card.panel.text}
             </span>
           )}
-          {card.panel.items && (
-            <ul className="flex flex-col gap-1 list-none mt-0.5">
-              {card.panel.items.map((item) => (
+          {card.panel.meter && (
+            <div className="mt-0.5">
+              <div
+                role="progressbar"
+                aria-valuenow={card.panel.meter.value}
+                aria-valuemin={0}
+                aria-valuemax={card.panel.meter.max}
+                aria-label={card.panel.meter.caption}
+                className="h-2 rounded-full bg-forest/10 overflow-hidden"
+              >
+                <div
+                  className="h-full rounded-full bg-clover"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.round(
+                        (card.panel.meter.value / card.panel.meter.max) * 100
+                      )
+                    )}%`,
+                  }}
+                />
+              </div>
+              <p className="font-mono text-[0.62rem] font-bold opacity-55 mt-1">
+                {card.panel.meter.caption}
+              </p>
+            </div>
+          )}
+
+          {card.panel.bars && <PanelChart bars={card.panel.bars} />}
+
+          {card.panel.stats && (
+            <div className="flex gap-4 mt-auto pt-1">
+              {card.panel.stats.map((stat) => (
+                <div key={stat.label} className="min-w-0">
+                  <p className="font-mono font-bold text-xl leading-none">
+                    {stat.value}
+                  </p>
+                  <p className="text-[0.62rem] font-semibold uppercase tracking-wider opacity-50 mt-1 leading-tight">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {card.panel.itemsLabel && (
+            <span
+              className={`font-mono text-[0.55rem] font-bold uppercase tracking-widest mt-1 ${
+                pending ? "text-straw/80" : "text-clover/60"
+              }`}
+            >
+              {card.panel.itemsLabel}
+            </span>
+          )}
+          {items.length > 0 && (
+            <ul className="flex flex-col gap-1 list-none min-h-0">
+              {items.map((item) => (
                 <li
                   key={item.label}
                   className="flex items-center gap-1.5 text-[0.7rem] leading-tight"
@@ -145,13 +212,31 @@ export function HabitCard({
                   >
                     {item.label}
                   </span>
+                  {item.bar !== undefined && barMax > 0 && (
+                    <span
+                      aria-hidden
+                      className="shrink-0 w-10 h-1.5 rounded-full bg-forest/10 overflow-hidden"
+                    >
+                      <span
+                        className="block h-full rounded-full bg-clover"
+                        style={{
+                          width: `${Math.round((item.bar / barMax) * 100)}%`,
+                        }}
+                      />
+                    </span>
+                  )}
                   {item.detail && (
-                    <span className="shrink-0 font-mono text-[0.65rem] opacity-50">
+                    <span className="shrink-0 min-w-6 whitespace-nowrap text-right font-mono text-[0.65rem] opacity-50">
                       {item.detail}
                     </span>
                   )}
                 </li>
               ))}
+              {hiddenItems > 0 && (
+                <li className="text-[0.65rem] font-semibold opacity-45 pl-[1.125rem]">
+                  {format(copy.moreItems, { n: hiddenItems })}
+                </li>
+              )}
             </ul>
           )}
         </div>

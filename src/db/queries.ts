@@ -91,14 +91,16 @@ export async function toggleCheck(
 // today's routine blocks, active languages and practices.
 export async function getTodayContext(date: string): Promise<TodayContext> {
   const weekday = isoWeekday(date);
-  const [plan, book, sleep, blocks, langs, practices] = await Promise.all([
-    getActiveWorkoutPlan(),
-    getCurrentBook(),
-    getSleepTarget(),
-    listRoutineBlocks(true),
-    listLanguages(true),
-    listSpiritualPractices(true),
-  ]);
+  const [plan, book, sleep, blocks, langs, practices, allBooks] =
+    await Promise.all([
+      getActiveWorkoutPlan(),
+      getCurrentBook(),
+      getSleepTarget(),
+      listRoutineBlocks(true),
+      listLanguages(true),
+      listSpiritualPractices(true),
+      listBooks(),
+    ]);
   const planDays =
     plan?.days.map((d) => ({
       id: d.id,
@@ -121,6 +123,11 @@ export async function getTodayContext(date: string): Promise<TodayContext> {
           title: book.title,
           totalPages: book.totalPages,
           currentPage: book.currentPage,
+          // What comes after this one, in reading order — the card shows the
+          // road ahead, not just the book in hand.
+          queue: allBooks
+            .filter((b) => b.id !== book.id && b.status === "queued")
+            .map((b) => ({ title: b.title, totalPages: b.totalPages })),
         }
       : null,
     sleepTarget: sleep
@@ -711,6 +718,11 @@ export interface TodayComparisons {
   lastDone: Record<string, string>; // per slug, last done day before today
   avgSleepHours: number | null; // trailing 7 days
   avgRoutineBlocks: number | null; // trailing 7 days
+  // Last nights' hours, oldest first — the sleep card plots them.
+  recentSleep: { date: string; hours: number }[];
+  // Trailing 7 days per language slug / practice slug.
+  weekLessons: Record<string, number>;
+  weekPractices: Record<string, number>;
   // Hobby has no configured plan to show, so its card leans on recent history.
   hobbySessions: number; // trailing 7 days
   hobbyMinutes: number; // trailing 7 days
@@ -734,17 +746,28 @@ export async function getTodayComparisons(
         )
       ),
     db
-      .select({ slug: habits.slug, details: dailyChecks.details })
+      .select({
+        slug: habits.slug,
+        date: dailyChecks.checkedAt,
+        details: dailyChecks.details,
+      })
       .from(dailyChecks)
       .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
       .where(
         and(
           eq(dailyChecks.done, true),
-          inArray(habits.slug, ["sono", "rotina", "hobby"]),
+          inArray(habits.slug, [
+            "sono",
+            "rotina",
+            "hobby",
+            "duolingo",
+            "espiritualidade",
+          ]),
           gte(dailyChecks.checkedAt, addDays(today, -RECENT_WINDOW_DAYS)),
           lte(dailyChecks.checkedAt, addDays(today, -1))
         )
-      ),
+      )
+      .orderBy(asc(dailyChecks.checkedAt)),
   ]);
 
   const datesBySlug = new Map<string, Set<string>>();
@@ -769,18 +792,36 @@ export async function getTodayComparisons(
       ? null
       : values.reduce((sum, v) => sum + v, 0) / values.length;
 
-  const sleepHours: number[] = [];
+  const recentSleep: { date: string; hours: number }[] = [];
   const routineBlockCounts: number[] = [];
+  const weekLessons: Record<string, number> = {};
+  const weekPractices: Record<string, number> = {};
   let hobbySessions = 0;
   let hobbyMinutes = 0;
   for (const row of recentRows) {
     const d = rec(row.details);
     if (!d) continue;
     if (row.slug === "sono" && typeof d.hours === "number") {
-      sleepHours.push(d.hours);
+      recentSleep.push({ date: row.date, hours: d.hours });
     }
     if (row.slug === "rotina" && Array.isArray(d.followed_block_ids)) {
       routineBlockCounts.push(d.followed_block_ids.length);
+    }
+    if (row.slug === "duolingo" && Array.isArray(d.sessions)) {
+      for (const session of d.sessions) {
+        const s = rec(session);
+        const slug = typeof s?.language_slug === "string" ? s.language_slug : null;
+        if (slug && typeof s?.lessons === "number") {
+          weekLessons[slug] = (weekLessons[slug] ?? 0) + s.lessons;
+        }
+      }
+    }
+    if (row.slug === "espiritualidade" && Array.isArray(d.practices)) {
+      for (const practice of d.practices) {
+        const p = rec(practice);
+        const slug = typeof p?.slug === "string" ? p.slug : null;
+        if (slug) weekPractices[slug] = (weekPractices[slug] ?? 0) + 1;
+      }
     }
     if (row.slug === "hobby") {
       hobbySessions += 1;
@@ -791,8 +832,11 @@ export async function getTodayComparisons(
   return {
     streak,
     lastDone,
-    avgSleepHours: average(sleepHours),
+    avgSleepHours: average(recentSleep.map((n) => n.hours)),
     avgRoutineBlocks: average(routineBlockCounts),
+    recentSleep,
+    weekLessons,
+    weekPractices,
     hobbySessions,
     hobbyMinutes,
   };

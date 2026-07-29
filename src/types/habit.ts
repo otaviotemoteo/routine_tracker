@@ -31,6 +31,8 @@ export interface TodayContext {
     title: string;
     totalPages: number;
     currentPage: number;
+    // Still-queued books, in reading order.
+    queue: { title: string; totalPages: number }[];
   } | null;
   sleepTarget: { bedtime: string; wakeTime: string } | null;
   routineBlocks: {

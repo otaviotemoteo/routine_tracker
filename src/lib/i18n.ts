@@ -197,6 +197,12 @@ export interface Copy {
     panelOptional: string;
     hobbyWeekSessions: string;
     hobbyWeekMinutes: string;
+    nextBooks: string;
+    pagesShort: string; // {n}
+    lastNights: string;
+    weekLessonsLabel: string; // {n}
+    weekPracticesLabel: string;
+    moreItems: string; // {n}
     // Card context panel text
     ctxSets: string; // {focus} {sets}
     ctxBookPage: string; // {title} {page} {total}
@@ -582,8 +588,14 @@ export const COPY: Record<Lang, Copy> = {
       panelPlanned: "planned",
       panelTarget: "target",
       panelOptional: "optional",
-      hobbyWeekSessions: "Sessions this week",
-      hobbyWeekMinutes: "Time this week",
+      hobbyWeekSessions: "sessions this week",
+      hobbyWeekMinutes: "minutes this week",
+      nextBooks: "next up",
+      pagesShort: "{n} pg",
+      lastNights: "last nights",
+      weekLessonsLabel: "{n} lessons this week",
+      weekPracticesLabel: "this week",
+      moreItems: "+{n} more",
       ctxSets: "{focus} · {sets} sets",
       ctxBookPage: "{title} · page {page} of {total}",
       ctxReadTo: "{title} · {n} pages to reach page {page}",
@@ -995,8 +1007,14 @@ export const COPY: Record<Lang, Copy> = {
       panelPlanned: "planejado",
       panelTarget: "meta",
       panelOptional: "opcional",
-      hobbyWeekSessions: "Sessões nesta semana",
-      hobbyWeekMinutes: "Tempo nesta semana",
+      hobbyWeekSessions: "sessões nesta semana",
+      hobbyWeekMinutes: "minutos nesta semana",
+      nextBooks: "próximos",
+      pagesShort: "{n} pág",
+      lastNights: "últimas noites",
+      weekLessonsLabel: "{n} lições nesta semana",
+      weekPracticesLabel: "nesta semana",
+      moreItems: "+{n} outros",
       ctxSets: "{focus} · {sets} séries",
       ctxBookPage: "{title} · página {page} de {total}",
       ctxReadTo: "{title} · {n} páginas para chegar na {page}",

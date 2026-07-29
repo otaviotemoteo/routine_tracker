@@ -20,12 +20,42 @@ export interface PanelItem {
   // check mark next to "Time this week" would claim it was completed.
   done?: boolean;
   detail?: string; // "3×12", "07:00", "2×"
+  // How much this row got over the trailing week. Drawn as a bar scaled to the
+  // largest row, so the list doubles as a small chart.
+  bar?: number;
+}
+
+// A single proportion — how far through the book, how much of the plan.
+export interface PanelMeter {
+  value: number;
+  max: number;
+  caption: string;
+}
+
+// One column per night. Single series, so no legend: the caption names it.
+export interface PanelBars {
+  caption: string;
+  max: number;
+  // A recessive hairline across the plot — the night you were aiming for.
+  target?: number;
+  targetLabel?: string;
+  columns: { label: string; value: number; valueLabel: string }[];
 }
 
 export interface TodayCard {
   state: CardState;
   hero: { value: string; unit: string };
-  panel: { label: string; text?: string; items?: PanelItem[] } | null;
+  panel: {
+    label: string;
+    text?: string;
+    meter?: PanelMeter;
+    bars?: PanelBars;
+    itemsLabel?: string;
+    items?: PanelItem[];
+    // Two or three figures, shown large — the answer when there is no list and
+    // no proportion, only numbers.
+    stats?: { label: string; value: string }[];
+  } | null;
   note: { primary: string; secondary?: string } | null;
 }
 
@@ -40,6 +70,26 @@ function rec(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
     : null;
+}
+
+// How long the configured window actually is, crossing midnight.
+function targetWindowHours(bedtime: string, wakeTime: string): number {
+  const minutes = (time: string) => {
+    const [h, m] = time.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const span = minutes(wakeTime) - minutes(bedtime);
+  return (span <= 0 ? span + 24 * 60 : span) / 60;
+}
+
+// One letter under each column of the sleep plot.
+function weekdayInitial(date: string, lang: Lang): string {
+  return new Intl.DateTimeFormat(locale(lang), {
+    timeZone: "UTC",
+    weekday: "narrow",
+  })
+    .format(new Date(`${date}T12:00:00Z`))
+    .toUpperCase();
 }
 
 // "6h40" — the shape sleep figures take everywhere on this screen.
@@ -161,7 +211,25 @@ export function buildTodayCard(
       return {
         state,
         hero: { value: String(pages), unit: copy.unitPagesToday },
-        panel: { label: panelLabel, text: target },
+        panel: book
+          ? {
+              label: panelLabel,
+              text: target,
+              meter: {
+                value: page,
+                max: book.totalPages,
+                caption: `${page} / ${book.totalPages}`,
+              },
+              // The road ahead, so the card shows a plan rather than a page.
+              itemsLabel: book.queue.length ? copy.nextBooks : undefined,
+              items: book.queue.length
+                ? book.queue.map((next) => ({
+                    label: next.title,
+                    detail: format(copy.pagesShort, { n: next.totalPages }),
+                  }))
+                : undefined,
+            }
+          : { label: panelLabel, text: copy.ctxNoBook },
         note: pace
           ? {
               primary: format(copy.notePace, { n: pace.perDay }),
@@ -178,6 +246,14 @@ export function buildTodayCard(
     case "sono": {
       const hours = typeof d?.hours === "number" ? d.hours : null;
       const target = context.sleepTarget;
+      const targetHours = target
+        ? targetWindowHours(target.bedtime, target.wakeTime)
+        : null;
+      // Today's own night joins the plot, so the card compares it to the week.
+      const nights = [
+        ...comparisons.recentSleep,
+        ...(hours !== null ? [{ date: today, hours }] : []),
+      ].slice(-7);
       const weekAvg =
         comparisons.avgSleepHours === null
           ? undefined
@@ -200,6 +276,19 @@ export function buildTodayCard(
                 to: target.wakeTime,
               })
             : copy.ctxNothingSet,
+          bars: nights.length
+            ? {
+                caption: copy.lastNights,
+                max: Math.max(...nights.map((n) => n.hours), targetHours ?? 0, 1),
+                target: targetHours ?? undefined,
+                targetLabel: targetHours ? hoursLabel(targetHours) : undefined,
+                columns: nights.map((night) => ({
+                  label: weekdayInitial(night.date, lang),
+                  value: night.hours,
+                  valueLabel: hoursLabel(night.hours),
+                })),
+              }
+            : undefined,
         },
         note: check.done
           ? {
@@ -292,16 +381,26 @@ export function buildTodayCard(
         panel: context.languages.length
           ? {
               label: panelLabel,
+              // Today's lessons tick the row; the week's total sits behind it
+              // as a bar, so a quiet language is visible as a short one.
               items: context.languages.map((language) => {
                 const lessons = sessions.find(
                   (s) => s?.language_slug === language.slug
                 )?.lessons;
                 const count = typeof lessons === "number" ? lessons : 0;
+                const week = comparisons.weekLessons[language.slug] ?? 0;
                 return {
                   label: language.name,
                   done: count > 0,
                   detail: count > 0 ? `${count}×` : undefined,
+                  bar: week,
                 };
+              }),
+              itemsLabel: format(copy.weekLessonsLabel, {
+                n: Object.values(comparisons.weekLessons).reduce(
+                  (sum, n) => sum + n,
+                  0
+                ),
               }),
             }
           : { label: panelLabel, text: copy.ctxNothingSet },
@@ -353,8 +452,10 @@ export function buildTodayCard(
                   label: practice.name,
                   done: Boolean(logged),
                   detail: count ? `${count}×` : undefined,
+                  bar: comparisons.weekPractices[practice.slug] ?? 0,
                 };
               }),
+              itemsLabel: copy.weekPracticesLabel,
             }
           : { label: panelLabel, text: copy.ctxNothingSet },
         note: check.done
@@ -387,18 +488,18 @@ export function buildTodayCard(
         panel: {
           label: copy.panelOptional,
           text: copy.noteOptionalSub,
-          items: comparisons.hobbySessions
-            ? [
-                {
-                  label: copy.hobbyWeekSessions,
-                  detail: String(comparisons.hobbySessions),
-                },
-                {
-                  label: copy.hobbyWeekMinutes,
-                  detail: `${comparisons.hobbyMinutes} min`,
-                },
-              ]
-            : undefined,
+          // No list and no proportion here — just two figures, so show them as
+          // figures rather than as two thin rows.
+          stats: [
+            {
+              label: copy.hobbyWeekSessions,
+              value: String(comparisons.hobbySessions + (check.done ? 1 : 0)),
+            },
+            {
+              label: copy.hobbyWeekMinutes,
+              value: `${comparisons.hobbyMinutes + minutes}`,
+            },
+          ],
         },
         note: check.done
           ? streakLine

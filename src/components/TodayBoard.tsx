@@ -113,14 +113,16 @@ export function TodayBoard({
               : dailyCopy.startRemaining}
         </Link>
 
-        {/* auto-fit + 1fr rows: cards share a height whatever they contain.
-            250px keeps this to two columns inside max-w-3xl — at three, a name
-            like "Espiritualidade" has no room left beside its status pill. */}
+        {/* A fixed row height, not 1fr: the card is a fixed frame that shows as
+            much as it can hold, so a habit with a long list can't stretch every
+            other card on the board. 250px columns keep this to two inside
+            max-w-3xl — at three, a name like "Espiritualidade" has no room left
+            beside its status pill. */}
         <ul
           className="grid gap-3.5 sm:gap-4 list-none"
           style={{
             gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gridAutoRows: "1fr",
+            gridAutoRows: "320px",
           }}
         >
           {checks.map((check) => (
