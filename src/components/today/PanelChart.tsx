@@ -12,7 +12,9 @@ export function PanelChart({ bars }: PanelChartProps) {
   const plotHeight = 46;
 
   return (
-    <figure className="mt-1">
+    // Its own panel within the panel: a plot needs an edge to be read as a
+    // plot rather than as loose marks floating in the card.
+    <figure className="mt-1 rounded-lg border-2 border-forest/10 bg-white/60 px-2.5 pt-2 pb-1.5">
       <figcaption className="font-mono text-[0.55rem] font-bold uppercase tracking-widest text-clover/60 mb-1.5 flex items-baseline justify-between gap-2">
         <span>{caption}</span>
         {targetLabel && (
