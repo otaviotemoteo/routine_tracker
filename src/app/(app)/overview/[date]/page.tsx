@@ -61,16 +61,57 @@ function Block({ block }: { block: AuditBlock }) {
         </div>
       );
 
-    case "tiles":
+    case "stack":
       return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div>
+          <p className={`${sectionLabel} mb-1`}>{block.label}</p>
+          <p className="font-semibold">{block.value}</p>
+        </div>
+      );
+
+    case "tiles":
+      // Equal columns filling the row, however many there are.
+      return (
+        <div
+          className="grid gap-2"
+          style={{
+            gridTemplateColumns: `repeat(${block.items.length}, minmax(0, 1fr))`,
+          }}
+        >
           {block.items.map((tile) => (
-            <div key={tile.label} className="bg-cream rounded-lg px-3 py-2">
+            <div key={tile.label} className="bg-cream rounded-lg px-4 py-3">
               <p className={sectionLabel}>{tile.label}</p>
-              <p className="font-mono font-bold">{tile.value}</p>
+              <p
+                className={`font-bold mt-0.5 ${
+                  tile.mono ? "font-mono" : ""
+                }`}
+              >
+                {tile.value}
+              </p>
             </div>
           ))}
         </div>
+      );
+
+    case "list":
+      return (
+        <ul className="list-none -my-1">
+          {block.items.map((item, i) => (
+            <li
+              key={`${item.label}-${i}`}
+              className="flex items-center justify-between gap-3 py-2.5 border-t-2 border-sand first:border-t-0"
+            >
+              <span>{item.label}</span>
+              <span
+                className={`text-sm bg-cream rounded-full px-3 py-1 shrink-0 ${
+                  item.mono ? "font-mono" : ""
+                }`}
+              >
+                {item.value}
+              </span>
+            </li>
+          ))}
+        </ul>
       );
 
     case "chips":
@@ -184,9 +225,26 @@ export default async function DayAuditPage({ params }: DayAuditPageProps) {
 
                 {(blocks.length > 0 || check.note) && (
                   <div className="border-t-2 border-sand px-5 py-4 flex flex-col gap-3">
-                    {blocks.map((block, i) => (
-                      <Block key={i} block={block} />
-                    ))}
+                    {blocks.map((block, i) => {
+                      // A summary line closing out a richer block (the effort
+                      // after the exercises, the hard block after the chips)
+                      // gets a rule above it; consecutive plain rows don't.
+                      const prev = blocks[i - 1];
+                      const divided =
+                        prev !== undefined &&
+                        (block.kind === "row" || block.kind === "rating") &&
+                        prev.kind !== "row";
+                      return (
+                        <div
+                          key={i}
+                          className={
+                            divided ? "border-t-2 border-sand pt-3" : undefined
+                          }
+                        >
+                          <Block block={block} />
+                        </div>
+                      );
+                    })}
                     {check.note && (
                       <p className="text-sm italic opacity-75 border-l-2 border-sand pl-3">
                         {check.note}
