@@ -157,6 +157,45 @@ export interface Copy {
     sumPractice: string; // {n} — singular
     sumPractices: string; // {n} — plural
     sumMinutes: string; // {n}
+    // Header stats
+    statDone: string;
+    statStreak: string;
+    // Card status pills
+    pillDone: string;
+    pillPending: string;
+    pillExtra: string;
+    // Card heroes: big number + the unit under it
+    unitExercises: string;
+    unitPagesToday: string;
+    unitSlept: string;
+    unitBlocks: string;
+    unitLanguages: string;
+    unitOfPractices: string; // {total}
+    unitMinutesOf: string; // {activity}
+    unitMinutes: string;
+    // Card context lines
+    ctxSets: string; // {focus} {sets}
+    ctxBookPage: string; // {title} {page} {total}
+    ctxSleepTarget: string; // {from} {to}
+    ctxNoPlan: string;
+    ctxNoBook: string;
+    ctxNothingSet: string;
+    // Card notes
+    noteEffort: string; // {value}
+    noteQuality: string; // {value}
+    noteWokeUp: string;
+    noteSleptThrough: string;
+    noteHardest: string; // {block}
+    noteStruggle: string; // {note}
+    noteLessonsEach: string; // {n}
+    noteLessonsTotal: string; // {n}
+    notePracticesDone: string; // {names}
+    notePending: string;
+    noteOptional: string;
+    noteOptionalSub: string;
+    notePace: string; // {n}
+    noteForecast: string; // {date}
+    noteNoTraining: string;
   };
   sheets: {
     save: string;
@@ -292,6 +331,9 @@ export interface Copy {
       paceExplainText: string;
       paceExplainClose: string;
       paceExplainAria: string;
+      paceSubtitle: string;
+      paceResultLabel: string;
+      paceUnit: string;
       paceFormula: string;
       paceLegendCurrent: string;
       paceLegendNext: string;
@@ -459,6 +501,40 @@ export const COPY: Record<Lang, Copy> = {
       sumPractice: "{n} practice",
       sumPractices: "{n} practices",
       sumMinutes: "{n} min",
+      statDone: "completed",
+      statStreak: "day streak",
+      pillDone: "done",
+      pillPending: "pending",
+      pillExtra: "extra",
+      unitExercises: "exercises done",
+      unitPagesToday: "pages read today",
+      unitSlept: "slept",
+      unitBlocks: "blocks followed",
+      unitLanguages: "languages practiced",
+      unitOfPractices: "of {total} practices",
+      unitMinutesOf: "min of {activity}",
+      unitMinutes: "minutes",
+      ctxSets: "{focus} · {sets} sets",
+      ctxBookPage: "{title} · page {page} of {total}",
+      ctxSleepTarget: "Target {from} – {to}",
+      ctxNoPlan: "No training planned for today",
+      ctxNoBook: "No book being read",
+      ctxNothingSet: "Not set up yet",
+      noteEffort: "Effort: {value} of 5",
+      noteQuality: "Quality: {value} of 5",
+      noteWokeUp: "Woke up during the night",
+      noteSleptThrough: "Slept through the night",
+      noteHardest: "Hardest: {block}",
+      noteStruggle: "What made it hard: {note}",
+      noteLessonsEach: "{n} lesson in each language",
+      noteLessonsTotal: "{n} lessons in total",
+      notePracticesDone: "Done: {names}",
+      notePending: "Nothing logged today yet",
+      noteOptional: "Optional habit",
+      noteOptionalSub: "Doesn't count toward the day's progress",
+      notePace: "Required pace: {n} pages/day",
+      noteForecast: "Finishing this book on {date}",
+      noteNoTraining: "Rest day — nothing scheduled",
     },
     sheets: {
       save: "Save",
@@ -616,6 +692,9 @@ export const COPY: Record<Lang, Copy> = {
           "Recalculated every time you save a page, so the target follows your real progress.",
         paceExplainClose: "Got it",
         paceExplainAria: "How the pace is calculated",
+        paceSubtitle: "The pace needed to finish your books within the year.",
+        paceResultLabel: "Today that comes to",
+        paceUnit: "pages/day",
         paceFormula: "( Pc + Pn ) ÷ Dr",
         paceLegendCurrent: "pages left in the book you're reading",
         paceLegendNext: "pages in the books after it",
@@ -791,6 +870,40 @@ export const COPY: Record<Lang, Copy> = {
       sumPractice: "{n} prática",
       sumPractices: "{n} práticas",
       sumMinutes: "{n} min",
+      statDone: "concluídos",
+      statStreak: "dias seguidos",
+      pillDone: "feito",
+      pillPending: "pendente",
+      pillExtra: "extra",
+      unitExercises: "exercícios feitos",
+      unitPagesToday: "páginas lidas hoje",
+      unitSlept: "dormidas",
+      unitBlocks: "blocos seguidos",
+      unitLanguages: "idiomas praticados",
+      unitOfPractices: "de {total} práticas",
+      unitMinutesOf: "min de {activity}",
+      unitMinutes: "minutos",
+      ctxSets: "{focus} · {sets} séries",
+      ctxBookPage: "{title} · página {page} de {total}",
+      ctxSleepTarget: "Meta {from} – {to}",
+      ctxNoPlan: "Nenhum treino planejado para hoje",
+      ctxNoBook: "Nenhum livro em leitura",
+      ctxNothingSet: "Ainda não configurado",
+      noteEffort: "Esforço: {value} de 5",
+      noteQuality: "Qualidade: {value} de 5",
+      noteWokeUp: "Acordou durante a noite",
+      noteSleptThrough: "Dormiu a noite inteira",
+      noteHardest: "Mais difícil: {block}",
+      noteStruggle: "O que dificultou: {note}",
+      noteLessonsEach: "{n} lição em cada idioma",
+      noteLessonsTotal: "{n} lições no total",
+      notePracticesDone: "Feitas: {names}",
+      notePending: "Ainda sem registro hoje",
+      noteOptional: "Hábito opcional",
+      noteOptionalSub: "Não entra no progresso do dia",
+      notePace: "Ritmo necessário: {n} páginas/dia",
+      noteForecast: "Previsão de término: {date}",
+      noteNoTraining: "Dia de descanso — nada programado",
     },
     sheets: {
       save: "Salvar",
@@ -948,6 +1061,9 @@ export const COPY: Record<Lang, Copy> = {
           "Recalculado a cada página que você registra, então a meta acompanha seu progresso real.",
         paceExplainClose: "Entendi",
         paceExplainAria: "Como o ritmo é calculado",
+        paceSubtitle: "Ritmo necessário para terminar seus livros dentro do ano.",
+        paceResultLabel: "Hoje isso dá",
+        paceUnit: "páginas/dia",
         paceFormula: "( Pa + Pp ) ÷ Dr",
         paceLegendCurrent: "páginas que faltam no livro atual",
         paceLegendNext: "páginas dos próximos livros",
