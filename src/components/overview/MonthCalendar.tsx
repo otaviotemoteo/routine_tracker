@@ -24,6 +24,14 @@ const LEVELS = [
   "bg-clover border-clover text-white",
 ];
 
+// Keeps the floating summary inside the calendar: Monday/Tuesday pin left,
+// Saturday/Sunday pin right, the rest centre on their cell.
+function anchor(weekday: number): string {
+  if (weekday <= 2) return "left-0";
+  if (weekday >= 6) return "right-0";
+  return "left-1/2 -translate-x-1/2";
+}
+
 function level(done: number, required: number): number {
   if (done <= 0) return 0;
   const ratio = done / Math.max(1, required);
@@ -70,8 +78,8 @@ export function MonthCalendar({
         {matrix.days.map((day, i) => {
           const future = day.date > today;
           return (
+            <div key={day.date} className="relative flex">
             <button
-              key={day.date}
               type="button"
               onMouseEnter={() => openAt(i)}
               onFocus={() => openAt(i)}
@@ -80,7 +88,7 @@ export function MonthCalendar({
                 done: day.doneCount,
                 total: matrix.requiredCount,
               })}`}
-              className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center leading-none ${
+              className={`w-full aspect-square rounded-lg border-2 flex flex-col items-center justify-center leading-none ${
                 future
                   ? "bg-transparent border-forest/10 text-forest/25"
                   : LEVELS[level(day.doneCount, matrix.requiredCount)]
@@ -99,6 +107,24 @@ export function MonthCalendar({
                 </span>
               )}
             </button>
+
+            {openDay === i && (
+              <div
+                className={`hidden sm:block absolute top-full z-30 mt-1.5 ${anchor(
+                  day.weekday
+                )}`}
+              >
+                <DaySummary
+                  date={day.date}
+                  title={`${dayNames[day.weekday - 1]}, ${day.dayOfMonth}`}
+                  habits={day.habits}
+                  lang={lang}
+                  copy={copy}
+                  floating
+                />
+              </div>
+            )}
+            </div>
           );
         })}
       </div>
@@ -122,7 +148,7 @@ export function MonthCalendar({
       </div>
 
       {open && (
-        <div className="mt-3">
+        <div className="sm:hidden mt-3">
           <DaySummary
             date={open.date}
             title={`${dayNames[open.weekday - 1]}, ${open.dayOfMonth}`}

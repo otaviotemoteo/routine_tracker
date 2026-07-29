@@ -16,9 +16,18 @@ interface WeekGridProps {
   optionalLabel: string;
 }
 
-// Habit × day. Selecting a day rings the whole column and opens its summary
-// underneath — the grid answers "how am I doing" and the summary answers "what
-// happened that day".
+// Keeps the floating summary inside the card: the first and last columns get
+// their edge pinned instead of being centred on a narrow cell.
+function anchor(index: number): string {
+  if (index <= 1) return "left-0";
+  if (index >= 5) return "right-0";
+  return "left-1/2 -translate-x-1/2";
+}
+
+// Habit × day. Selecting a day rings the whole column and opens its summary —
+// floating beside the day on a wide screen, in flow under the grid on a phone.
+// The grid answers "how am I doing"; the summary answers "what happened that
+// day".
 export function WeekGrid({
   week,
   today,
@@ -49,7 +58,9 @@ export function WeekGrid({
       className="bg-white border-2 border-forest rounded-card shadow-hard p-3 sm:p-4"
       onMouseLeave={close}
     >
-      <div className="overflow-x-auto">
+      {/* The table fits from sm up, and the floating summary has to escape this
+          box — an overflow container would clip it. */}
+      <div className="overflow-x-auto sm:overflow-visible">
         <table className="w-full border-collapse">
           <thead>
             <tr>
@@ -57,7 +68,7 @@ export function WeekGrid({
                 {overviewCopy.habitColumn}
               </th>
               {copy.dayLabels.map((label, i) => (
-                <th key={i} scope="col" className="pb-2 px-0.5">
+                <th key={i} scope="col" className="relative pb-2 px-0.5">
                   <button
                     type="button"
                     onMouseEnter={() => open(i)}
@@ -79,6 +90,21 @@ export function WeekGrid({
                       {week.days[i].slice(8, 10)}
                     </span>
                   </button>
+
+                  {openDay === i && (
+                    <div
+                      className={`hidden sm:block absolute top-full z-30 mt-1 ${anchor(i)}`}
+                    >
+                      <DaySummary
+                        date={week.days[i]}
+                        title={`${dayNames[i]}, ${week.days[i].slice(8, 10)}`}
+                        habits={summaryHabits}
+                        lang={lang}
+                        copy={overviewCopy}
+                        floating
+                      />
+                    </div>
+                  )}
                 </th>
               ))}
               <th className="text-right text-[0.6rem] uppercase tracking-wider font-semibold opacity-50 pb-2 pl-1">
@@ -162,7 +188,7 @@ export function WeekGrid({
       </div>
 
       {openDay !== null && (
-        <div className="mt-3">
+        <div className="sm:hidden mt-3">
           <DaySummary
             date={week.days[openDay]}
             title={`${dayNames[openDay]}, ${week.days[openDay].slice(8, 10)}`}
