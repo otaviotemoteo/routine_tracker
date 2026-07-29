@@ -1,5 +1,5 @@
 import type { AuditLookups } from "@/db/queries";
-import type { Copy } from "@/lib/i18n";
+import { format, plural, type Copy } from "@/lib/i18n";
 
 // Turns a habit's `details` into presentation blocks for the Day Audit, so the
 // page can give each shape its own treatment (a list of ticked exercises reads
@@ -12,17 +12,28 @@ function rec(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+export interface AuditValue {
+  label: string;
+  value: string;
+  // Figures are set in mono; names and free text stay in the body face.
+  mono?: boolean;
+}
+
 export type AuditBlock =
   // One fact: label on the left, value on the right.
   | { kind: "row"; label: string; value: string }
+  // A fact whose value is too long to sit on the label's line (a book title).
+  | { kind: "stack"; label: string; value: string }
   // Ticked items with an optional trailing figure (exercises + their scheme).
   | {
       kind: "checklist";
       label: string;
       items: { text: string; meta?: string; done: boolean }[];
     }
-  // Small stat tiles side by side (pages today/total, sleep numbers).
-  | { kind: "tiles"; items: { label: string; value: string }[] }
+  // Equal-width stat tiles filling the row (pages today/total, sleep numbers).
+  | { kind: "tiles"; items: AuditValue[] }
+  // Rows separated by hairlines, each with a pill value (lessons per language).
+  | { kind: "list"; items: AuditValue[] }
   // Pills for a set of things (routine blocks followed).
   | { kind: "chips"; label: string; items: string[] }
   // A 1–5 score, drawn as dots.
@@ -76,16 +87,21 @@ export function describeDetails(
     case "leitura": {
       const title = lookups.books[Number(d.book_id)];
       if (title) {
-        blocks.push({ kind: "row", label: copy.reading.book, value: title });
+        blocks.push({ kind: "stack", label: copy.reading.book, value: title });
       }
-      const tiles: { label: string; value: string }[] = [];
+      const tiles: AuditValue[] = [];
       if (typeof d.pages_read === "number") {
-        tiles.push({ label: copy.reading.today, value: `+${d.pages_read}` });
+        tiles.push({
+          label: copy.reading.today,
+          value: `+${d.pages_read}`,
+          mono: true,
+        });
       }
       if (typeof d.ended_on_page === "number") {
         tiles.push({
           label: copy.reading.total,
           value: String(d.ended_on_page),
+          mono: true,
         });
       }
       if (tiles.length) blocks.push({ kind: "tiles", items: tiles });
@@ -93,16 +109,25 @@ export function describeDetails(
     }
 
     case "sono": {
-      const tiles: { label: string; value: string }[] = [];
+      const tiles: AuditValue[] = [];
       if (typeof d.hours === "number") {
-        tiles.push({ label: copy.sleep.hours, value: `${d.hours}h` });
+        tiles.push({
+          label: copy.sleep.hoursShort,
+          value: `${d.hours}h`,
+          mono: true,
+        });
       }
       tiles.push({
-        label: copy.sleep.wokeUp,
+        label: copy.sleep.wokeShort,
         value: d.woke_up_at_night ? "✓" : "—",
+        mono: true,
       });
       if (typeof d.quality === "number") {
-        tiles.push({ label: copy.sleep.quality, value: `${d.quality}/5` });
+        tiles.push({
+          label: copy.sleep.quality,
+          value: `${d.quality}/5`,
+          mono: true,
+        });
       }
       blocks.push({ kind: "tiles", items: tiles });
       break;
@@ -137,21 +162,23 @@ export function describeDetails(
 
     case "duolingo": {
       if (Array.isArray(d.sessions)) {
+        const items: AuditValue[] = [];
         for (const s of d.sessions) {
           const sr = rec(s);
           const lessons = typeof sr?.lessons === "number" ? sr.lessons : 0;
           if (lessons === 0) continue;
-          blocks.push({
-            kind: "row",
+          items.push({
             label: String(
               lookups.languages[String(sr?.language_slug)] ?? sr?.language_slug
             ),
-            value:
-              lessons === 1
-                ? todayCopy.sumLesson.replace("{n}", String(lessons))
-                : todayCopy.sumLessons.replace("{n}", String(lessons)),
+            value: format(
+              plural(lessons, todayCopy.sumLesson, todayCopy.sumLessons),
+              { n: lessons }
+            ),
+            mono: true,
           });
         }
+        if (items.length) blocks.push({ kind: "list", items });
       }
       break;
     }
@@ -171,12 +198,16 @@ export function describeDetails(
     }
 
     case "hobby": {
-      const tiles: { label: string; value: string }[] = [];
+      const tiles: AuditValue[] = [];
       if (typeof d.activity === "string" && d.activity) {
         tiles.push({ label: copy.hobby.activity, value: d.activity });
       }
       if (typeof d.minutes === "number") {
-        tiles.push({ label: copy.hobby.minutes, value: `${d.minutes} min` });
+        tiles.push({
+          label: copy.hobby.minutes,
+          value: `${d.minutes} min`,
+          mono: true,
+        });
       }
       if (tiles.length) blocks.push({ kind: "tiles", items: tiles });
       break;
