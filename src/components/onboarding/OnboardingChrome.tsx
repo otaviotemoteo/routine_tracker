@@ -2,8 +2,9 @@
 
 import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import type { Copy } from "@/lib/i18n";
 
 // Shared Tailwind class strings so every step's inputs look identical.
@@ -42,6 +43,31 @@ export function OnboardingProgress({ stepNumber, total, label }: ProgressProps) 
         />
       </div>
     </div>
+  );
+}
+
+interface StepTitleProps {
+  children: React.ReactNode;
+  // When present, the title itself carries the way back — no separate link
+  // above it, and nothing to scroll past.
+  backHref?: string;
+  backLabel: string;
+}
+
+export function StepTitle({ children, backHref, backLabel }: StepTitleProps) {
+  return (
+    <h1 className="display-title text-3xl sm:text-4xl flex items-center gap-3">
+      {backHref && (
+        <Link
+          href={backHref}
+          aria-label={backLabel}
+          className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] -ml-2"
+        >
+          <ArrowLeft className="w-7 h-7" aria-hidden />
+        </Link>
+      )}
+      {children}
+    </h1>
   );
 }
 
