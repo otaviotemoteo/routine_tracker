@@ -205,7 +205,6 @@ tracker/
 ├── ARCHITECTURE.md               # ships with the repo (how it's built)
 ├── UX_PRINCIPLES.md              # ships with the repo (how it should behave)
 ├── DATA_DICTIONARY.md            # ships with the repo (every stored field)
-├── CLAUDE.md                     # (gitignored)
 ├── LEARNING_ROADMAP.md           # (gitignored)
 ├── LINKEDIN_POSTS.md             # (gitignored)
 └── BLOCKED.md                    # (gitignored)
@@ -241,5 +240,5 @@ bun run dev
 
 - TypeScript strict, no `any`, interfaces for all props.
 - One commit per file. Conventional Commits (`chore:`, `feat:`, `docs:`). No co-authorship, no push until manual review.
-- `.gitignore` includes: `LEARNING_ROADMAP.md`, `LINKEDIN_POSTS.md`, `CLAUDE.md`, `BLOCKED.md`, `identidade-visual.html`, `.env*`. `ARCHITECTURE.md` ships with the repo on purpose.
+- `.gitignore` includes: `LEARNING_ROADMAP.md`, `LINKEDIN_POSTS.md`, `BLOCKED.md`, `identidade-visual.html`, `.env*`. `ARCHITECTURE.md` ships with the repo on purpose.
 - Local development without Neon: `docker` + `local-neon-http-proxy` (set `NEON_LOCAL_PROXY=true` in `.env.local`) lets the same neon-http driver hit a local Postgres.
