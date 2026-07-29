@@ -98,6 +98,14 @@ export interface Copy {
   dayAudit: { eyebrow: string; notLogged: string; back: string; noneLogged: string };
   daily: {
     start: string;
+    startRemaining: string;
+    review: string;
+    indexTitle: string;
+    indexLead: string;
+    fill: string;
+    edit: string;
+    pending: string;
+    allDone: string;
     eyebrow: string;
     question: string; // {habit}
     stepOf: string; // {current} / {total}
@@ -135,6 +143,20 @@ export interface Copy {
     edit: string;
     configured: string;
     notConfiguredBadge: string;
+    // Card summaries — full sentences, not shorthand like "5/5".
+    sumAllExercises: string;
+    sumExercises: string; // {done} {total}
+    sumPage: string; // {n} — singular
+    sumPages: string; // {n} — plural
+    sumHours: string; // {n}
+    sumAllBlocks: string;
+    sumBlocks: string; // {done} {total}
+    sumAllLanguages: string;
+    sumLesson: string; // {n} — singular
+    sumLessons: string; // {n} — plural
+    sumPractice: string; // {n} — singular
+    sumPractices: string; // {n} — plural
+    sumMinutes: string; // {n}
   };
   sheets: {
     save: string;
@@ -145,6 +167,7 @@ export interface Copy {
     saveError: string;
     workout: {
       plan: string;
+      exercises: string;
       effort: string;
       noPlan: string;
       otherTraining: string;
@@ -156,6 +179,9 @@ export interface Copy {
       pagesRead: string;
       noBook: string;
       of: string;
+      book: string;
+      today: string;
+      total: string;
       finishEstimate: string; // {date}
       finishToday: string;
     };
@@ -259,6 +285,11 @@ export interface Copy {
       paceExplainText: string;
       paceExplainClose: string;
       paceExplainAria: string;
+      paceFormula: string;
+      paceLegendCurrent: string;
+      paceLegendNext: string;
+      paceLegendDays: string;
+      paceLegendResult: string;
       empty: string;
     };
     sleep: { title: string; lead: string; bedtime: string; wake: string };
@@ -363,6 +394,14 @@ export const COPY: Record<Lang, Copy> = {
     },
     daily: {
       start: "Complete daily",
+      startRemaining: "Fill the remaining tasks",
+      review: "Review the day",
+      indexTitle: "Today's check-in",
+      indexLead: "Pick what to fill in — or edit what you already logged.",
+      fill: "Fill in",
+      edit: "Edit",
+      pending: "Not logged yet",
+      allDone: "Everything is logged for today.",
       eyebrow: "Daily check-in",
       question: "Did you do {habit} today?",
       stepOf: "Step {current} of {total}",
@@ -400,6 +439,19 @@ export const COPY: Record<Lang, Copy> = {
       edit: "Edit",
       configured: "configured",
       notConfiguredBadge: "not configured",
+      sumAllExercises: "All exercises done",
+      sumExercises: "{done} of {total} exercises",
+      sumPage: "{n} page read",
+      sumPages: "{n} pages read",
+      sumHours: "{n}h slept",
+      sumAllBlocks: "Whole routine followed",
+      sumBlocks: "{done} of {total} blocks followed",
+      sumAllLanguages: "All languages practiced",
+      sumLesson: "{n} lesson",
+      sumLessons: "{n} lessons",
+      sumPractice: "{n} practice",
+      sumPractices: "{n} practices",
+      sumMinutes: "{n} min",
     },
     sheets: {
       save: "Save",
@@ -410,6 +462,7 @@ export const COPY: Record<Lang, Copy> = {
       saveError: "Couldn't save. Try again.",
       workout: {
         plan: "Today's focus",
+        exercises: "Exercises",
         effort: "Effort",
         noPlan: "No training planned for today.",
         otherTraining: "I did a different training today",
@@ -421,6 +474,9 @@ export const COPY: Record<Lang, Copy> = {
         pagesRead: "Pages read",
         noBook: "No current book. Add one in settings.",
         of: "of",
+        book: "Book",
+        today: "Today",
+        total: "Total",
         finishEstimate: "At this pace you finish this book on {date}",
         finishToday: "That finishes the book!",
       },
@@ -544,9 +600,14 @@ export const COPY: Record<Lang, Copy> = {
           "At this list, you need about {pages} pages/day to finish everything by the end of {year}.",
         paceExplainTitle: "How this is calculated",
         paceExplainText:
-          "Pages still left in the book you're reading, plus every page of the books after it, divided by the days remaining in the year.",
+          "Recalculated every time you save a page, so the target follows your real progress.",
         paceExplainClose: "Got it",
         paceExplainAria: "How the pace is calculated",
+        paceFormula: "( Pc + Pn ) ÷ Dr",
+        paceLegendCurrent: "pages left in the book you're reading",
+        paceLegendNext: "pages in the books after it",
+        paceLegendDays: "days left in the year",
+        paceLegendResult: "pages you need per day",
         empty: "No books yet.",
       },
       sleep: {
@@ -659,6 +720,14 @@ export const COPY: Record<Lang, Copy> = {
     },
     daily: {
       start: "Preencher o dia",
+      startRemaining: "Preencher tarefas restantes",
+      review: "Revisar o dia",
+      indexTitle: "Check-in de hoje",
+      indexLead: "Escolha o que preencher — ou edite o que você já registrou.",
+      fill: "Preencher",
+      edit: "Editar",
+      pending: "Ainda não registrado",
+      allDone: "Tudo registrado por hoje.",
       eyebrow: "Check-in diário",
       question: "Você fez {habit} hoje?",
       stepOf: "Passo {current} de {total}",
@@ -696,6 +765,19 @@ export const COPY: Record<Lang, Copy> = {
       edit: "Editar",
       configured: "configurado",
       notConfiguredBadge: "não configurado",
+      sumAllExercises: "Todos os exercícios feitos",
+      sumExercises: "{done} de {total} exercícios",
+      sumPage: "{n} página lida",
+      sumPages: "{n} páginas lidas",
+      sumHours: "{n}h dormidas",
+      sumAllBlocks: "Rotina inteira seguida",
+      sumBlocks: "{done} de {total} blocos seguidos",
+      sumAllLanguages: "Todos os idiomas praticados",
+      sumLesson: "{n} lição",
+      sumLessons: "{n} lições",
+      sumPractice: "{n} prática",
+      sumPractices: "{n} práticas",
+      sumMinutes: "{n} min",
     },
     sheets: {
       save: "Salvar",
@@ -706,6 +788,7 @@ export const COPY: Record<Lang, Copy> = {
       saveError: "Não deu para salvar. Tente de novo.",
       workout: {
         plan: "Foco de hoje",
+        exercises: "Exercícios",
         effort: "Esforço",
         noPlan: "Nenhum treino planejado para hoje.",
         otherTraining: "Fiz um treino diferente hoje",
@@ -717,6 +800,9 @@ export const COPY: Record<Lang, Copy> = {
         pagesRead: "Páginas lidas",
         noBook: "Nenhum livro atual. Adicione um nas configurações.",
         of: "de",
+        book: "Livro",
+        today: "Hoje",
+        total: "Total",
         finishEstimate: "Nesse ritmo você termina este livro em {date}",
         finishToday: "Isso termina o livro!",
       },
@@ -840,9 +926,14 @@ export const COPY: Record<Lang, Copy> = {
           "Com esta lista, você precisa de cerca de {pages} páginas/dia para terminar tudo até o fim de {year}.",
         paceExplainTitle: "Como esta conta é feita",
         paceExplainText:
-          "As páginas que faltam no livro atual, mais todas as páginas dos livros seguintes, divididas pelos dias restantes do ano.",
+          "Recalculado a cada página que você registra, então a meta acompanha seu progresso real.",
         paceExplainClose: "Entendi",
         paceExplainAria: "Como o ritmo é calculado",
+        paceFormula: "( Pa + Pp ) ÷ Dr",
+        paceLegendCurrent: "páginas que faltam no livro atual",
+        paceLegendNext: "páginas dos próximos livros",
+        paceLegendDays: "dias restantes no ano",
+        paceLegendResult: "páginas por dia necessárias",
         empty: "Nenhum livro ainda.",
       },
       sleep: {
