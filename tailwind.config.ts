@@ -37,9 +37,21 @@ const config: Config = {
           from: { width: "0%" },
           to: { width: "100%" },
         },
+        // Modals arrive and leave with a short rise, so they read as opening
+        // rather than blinking into place.
+        "dialog-in": {
+          from: { opacity: "0", transform: "translateY(8px) scale(0.98)" },
+          to: { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        "dialog-out": {
+          from: { opacity: "1", transform: "translateY(0) scale(1)" },
+          to: { opacity: "0", transform: "translateY(8px) scale(0.98)" },
+        },
       },
       animation: {
         fill: "fill 5s linear forwards",
+        "dialog-in": "dialog-in 150ms ease-out",
+        "dialog-out": "dialog-out 140ms ease-in forwards",
       },
     },
   },
