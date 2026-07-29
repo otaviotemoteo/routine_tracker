@@ -1,5 +1,10 @@
 import { TodayBoard } from "@/components/TodayBoard";
-import { getDayChecks, getDayStreak, getTodayContext } from "@/db/queries";
+import {
+  getDayChecks,
+  getDayStreak,
+  getTodayComparisons,
+  getTodayContext,
+} from "@/db/queries";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { getSetupSummary } from "@/lib/setup-summary";
@@ -13,11 +18,12 @@ export default async function TodayPage() {
   const lang = await getLang();
   const copy = COPY[lang];
   const today = todayInSaoPaulo();
-  const [checks, context, setup, streak] = await Promise.all([
+  const [checks, context, setup, streak, comparisons] = await Promise.all([
     getDayChecks(today),
     getTodayContext(today),
     getSetupSummary(copy.onboarding, copy.today),
     getDayStreak(today),
+    getTodayComparisons(today),
   ]);
 
   // Same source as the Overview note, so the two never disagree. Only the
@@ -44,6 +50,8 @@ export default async function TodayPage() {
         title={copy.today.title}
         eyebrow={formatDayLong(today, lang)}
         streak={streak}
+        today={today}
+        comparisons={comparisons}
         lang={lang}
         copy={copy.today}
         dailyCopy={copy.daily}

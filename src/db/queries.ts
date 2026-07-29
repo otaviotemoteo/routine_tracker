@@ -703,6 +703,101 @@ export async function getDayStreak(today: string): Promise<number> {
   return calcStreak(complete, today);
 }
 
+// The one line of "how does today compare" each Today card is allowed to make.
+// Relative days only, never clock times: `created_at` exists but a row written
+// at 00:30 or edited a week later would misreport when the thing happened.
+export interface TodayComparisons {
+  streak: Record<string, number>; // per slug, current run of done days
+  lastDone: Record<string, string>; // per slug, last done day before today
+  avgSleepHours: number | null; // trailing 7 days
+  avgRoutineBlocks: number | null; // trailing 7 days
+  // Hobby has no configured plan to show, so its card leans on recent history.
+  hobbySessions: number; // trailing 7 days
+  hobbyMinutes: number; // trailing 7 days
+}
+
+const RECENT_WINDOW_DAYS = 7;
+
+export async function getTodayComparisons(
+  today: string
+): Promise<TodayComparisons> {
+  const [doneRows, recentRows] = await Promise.all([
+    db
+      .select({ slug: habits.slug, date: dailyChecks.checkedAt })
+      .from(dailyChecks)
+      .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+      .where(
+        and(
+          eq(dailyChecks.done, true),
+          gte(dailyChecks.checkedAt, addDays(today, -STREAK_WINDOW_DAYS)),
+          lte(dailyChecks.checkedAt, today)
+        )
+      ),
+    db
+      .select({ slug: habits.slug, details: dailyChecks.details })
+      .from(dailyChecks)
+      .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+      .where(
+        and(
+          eq(dailyChecks.done, true),
+          inArray(habits.slug, ["sono", "rotina", "hobby"]),
+          gte(dailyChecks.checkedAt, addDays(today, -RECENT_WINDOW_DAYS)),
+          lte(dailyChecks.checkedAt, addDays(today, -1))
+        )
+      ),
+  ]);
+
+  const datesBySlug = new Map<string, Set<string>>();
+  for (const row of doneRows) {
+    const set = datesBySlug.get(row.slug) ?? new Set<string>();
+    set.add(row.date);
+    datesBySlug.set(row.slug, set);
+  }
+
+  const streak: Record<string, number> = {};
+  const lastDone: Record<string, string> = {};
+  for (const [slug, dates] of datesBySlug) {
+    streak[slug] = calcStreak(dates, today);
+    // "Last time" means the last time before today — a card asking you to log
+    // today shouldn't answer "today".
+    const previous = [...dates].filter((d) => d < today).sort();
+    if (previous.length > 0) lastDone[slug] = previous[previous.length - 1];
+  }
+
+  const average = (values: number[]) =>
+    values.length === 0
+      ? null
+      : values.reduce((sum, v) => sum + v, 0) / values.length;
+
+  const sleepHours: number[] = [];
+  const routineBlockCounts: number[] = [];
+  let hobbySessions = 0;
+  let hobbyMinutes = 0;
+  for (const row of recentRows) {
+    const d = rec(row.details);
+    if (!d) continue;
+    if (row.slug === "sono" && typeof d.hours === "number") {
+      sleepHours.push(d.hours);
+    }
+    if (row.slug === "rotina" && Array.isArray(d.followed_block_ids)) {
+      routineBlockCounts.push(d.followed_block_ids.length);
+    }
+    if (row.slug === "hobby") {
+      hobbySessions += 1;
+      if (typeof d.minutes === "number") hobbyMinutes += d.minutes;
+    }
+  }
+
+  return {
+    streak,
+    lastDone,
+    avgSleepHours: average(sleepHours),
+    avgRoutineBlocks: average(routineBlockCounts),
+    hobbySessions,
+    hobbyMinutes,
+  };
+}
+
 // How many routine blocks and spiritual practices are configured, so a grid
 // cell can say "4/6" rather than "4".
 async function getCellTotals(): Promise<CellTotals> {

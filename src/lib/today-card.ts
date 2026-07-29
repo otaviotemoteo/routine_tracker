@@ -1,16 +1,31 @@
+import { exerciseScheme } from "@/lib/exercise";
 import { format, locale, type Copy, type Lang } from "@/lib/i18n";
+import { relativeDay } from "@/lib/utils";
+import type { TodayComparisons } from "@/db/queries";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
 
 // Everything a Today card shows, in one shape for all seven habits: one big
-// number that carries the point, a line of context under it, and a note pinned
-// to the bottom. Same anatomy everywhere → same height, same reading order.
+// number that carries the point, a tinted panel that stretches to fill whatever
+// height is left, and a note pinned under it. The panel is what absorbs the
+// slack — a card must never pad itself with empty space.
 
 export type CardState = "done" | "pending" | "extra";
+
+// A habit made of parts (exercises, blocks, languages, practices) shows them
+// as a checklist rather than a comma-separated line: the panel has the room,
+// and "which ones" is the question the card is being asked.
+export interface PanelItem {
+  label: string;
+  // Omitted for rows that are figures rather than things to tick off — a
+  // check mark next to "Time this week" would claim it was completed.
+  done?: boolean;
+  detail?: string; // "3×12", "07:00", "2×"
+}
 
 export interface TodayCard {
   state: CardState;
   hero: { value: string; unit: string };
-  context: string | null;
+  panel: { label: string; text?: string; items?: PanelItem[] } | null;
   note: { primary: string; secondary?: string } | null;
 }
 
@@ -27,11 +42,22 @@ function rec(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+// "6h40" — the shape sleep figures take everywhere on this screen.
+function hoursLabel(hours: number): string {
+  const whole = Math.floor(hours);
+  const minutes = Math.round((hours - whole) * 60);
+  return minutes === 0
+    ? `${whole}h`
+    : `${whole}h${String(minutes).padStart(2, "0")}`;
+}
+
 export function buildTodayCard(
   check: CheckWithHabit,
   context: TodayContext,
   copy: Copy["today"],
   lang: Lang,
+  today: string,
+  comparisons: TodayComparisons,
   pace?: ReadingPace
 ): TodayCard {
   const d = rec(check.details);
@@ -40,7 +66,17 @@ export function buildTodayCard(
       ? "extra"
       : "done"
     : "pending";
-  const pendingNote = { primary: copy.notePending };
+
+  const ago = relativeDay(comparisons.lastDone[check.slug], today, {
+    today: copy.agoToday,
+    yesterday: copy.agoYesterday,
+    daysAgo: copy.agoDays,
+    never: copy.agoNever,
+  });
+  // A one-day "streak" is just today — only a real run is worth a line.
+  const streak = comparisons.streak[check.slug] ?? 0;
+  const streakLine = streak >= 2 ? streak : null;
+  const panelLabel = check.done ? copy.panelLogged : copy.panelPlanned;
 
   switch (check.slug) {
     case "treino": {
@@ -64,19 +100,38 @@ export function buildTodayCard(
           value: planned ? `${done}/${planned}` : String(done),
           unit: copy.unitExercises,
         },
-        context: day
-          ? sets > 0
-            ? format(copy.ctxSets, { focus: day.focus, sets })
-            : day.focus
-          : context.plan
-            ? copy.noteNoTraining
-            : copy.ctxNoPlan,
-        note:
-          typeof d?.effort === "number"
-            ? { primary: format(copy.noteEffort, { value: d.effort }) }
-            : check.done
-              ? null
-              : pendingNote,
+        panel: day
+          ? {
+              label: panelLabel,
+              text:
+                sets > 0
+                  ? format(copy.ctxSets, { focus: day.focus, sets })
+                  : day.focus,
+              // The plan's exercises, ticked off against what was logged.
+              items: day.exercises.map((exercise) => ({
+                label: exercise.name,
+                done: completed.some(
+                  (e) => rec(e)?.name === exercise.name && rec(e)?.done === true
+                ),
+                detail: exerciseScheme(exercise) || undefined,
+              })),
+            }
+          : {
+              label: panelLabel,
+              text: context.plan ? copy.noteNoTraining : copy.ctxNoPlan,
+            },
+        note: check.done
+          ? typeof d?.effort === "number"
+            ? {
+                primary: format(copy.noteEffort, { value: d.effort }),
+                secondary: streakLine
+                  ? format(copy.noteStreakDays, { n: streakLine })
+                  : undefined,
+              }
+            : streakLine
+              ? { primary: format(copy.noteStreakDays, { n: streakLine }) }
+              : null
+          : { primary: format(copy.noteLastWorkout, { ago }) },
       };
     }
 
@@ -87,44 +142,65 @@ export function buildTodayCard(
         typeof d?.ended_on_page === "number"
           ? d.ended_on_page
           : (book?.currentPage ?? 0);
+      // Pending, the panel says where today's reading should land rather than
+      // restating where the bookmark already is.
+      const target =
+        !check.done && book && pace
+          ? format(copy.ctxReadTo, {
+              title: book.title,
+              n: pace.perDay,
+              page: page + pace.perDay,
+            })
+          : book
+            ? format(copy.ctxBookPage, {
+                title: book.title,
+                page,
+                total: book.totalPages,
+              })
+            : copy.ctxNoBook;
       return {
         state,
         hero: { value: String(pages), unit: copy.unitPagesToday },
-        context: book
-          ? format(copy.ctxBookPage, {
-              title: book.title,
-              page,
-              total: book.totalPages,
-            })
-          : copy.ctxNoBook,
+        panel: { label: panelLabel, text: target },
         note: pace
           ? {
               primary: format(copy.notePace, { n: pace.perDay }),
-              secondary: pace.forecast
-                ? format(copy.noteForecast, { date: pace.forecast })
-                : undefined,
+              secondary: check.done
+                ? pace.forecast
+                  ? format(copy.noteForecast, { date: pace.forecast })
+                  : undefined
+                : format(copy.noteLastRead, { ago }),
             }
-          : check.done
-            ? null
-            : pendingNote,
+          : null,
       };
     }
 
     case "sono": {
       const hours = typeof d?.hours === "number" ? d.hours : null;
       const target = context.sleepTarget;
+      const weekAvg =
+        comparisons.avgSleepHours === null
+          ? undefined
+          : format(copy.noteWeekAvgSleep, {
+              value: hoursLabel(comparisons.avgSleepHours),
+            });
       return {
         state,
         hero: {
-          value: hours !== null ? `${hours}h` : "—",
+          value: hours !== null ? hoursLabel(hours) : "—",
           unit: copy.unitSlept,
         },
-        context: target
-          ? format(copy.ctxSleepTarget, {
-              from: target.bedtime,
-              to: target.wakeTime,
-            })
-          : copy.ctxNothingSet,
+        // Always the target: the app stores how long you slept, not when you
+        // went to bed, so "logged 23:40 – 06:50" would be invented.
+        panel: {
+          label: copy.panelTarget,
+          text: target
+            ? format(copy.ctxSleepTarget, {
+                from: target.bedtime,
+                to: target.wakeTime,
+              })
+            : copy.ctxNothingSet,
+        },
         note: check.done
           ? {
               primary:
@@ -133,14 +209,12 @@ export function buildTodayCard(
                   : d?.woke_up_at_night
                     ? copy.noteWokeUp
                     : copy.noteSleptThrough,
-              secondary:
-                typeof d?.quality === "number"
-                  ? d?.woke_up_at_night
-                    ? copy.noteWokeUp
-                    : copy.noteSleptThrough
-                  : undefined,
+              secondary: weekAvg,
             }
-          : pendingNote,
+          : {
+              primary: copy.noteLogOnWaking,
+              secondary: weekAvg,
+            },
       };
     }
 
@@ -153,26 +227,46 @@ export function buildTodayCard(
         typeof d?.struggled_block_id === "number"
           ? context.routineBlocks.find((b) => b.id === d.struggled_block_id)
           : undefined;
+      const avgBlocks =
+        comparisons.avgRoutineBlocks === null || total === 0
+          ? null
+          : format(copy.noteAvgBlocks, {
+              done: Math.round(comparisons.avgRoutineBlocks),
+              total,
+            });
       return {
         state,
         hero: {
           value: total ? `${followed}/${total}` : String(followed),
           unit: copy.unitBlocks,
         },
-        context: total
-          ? context.routineBlocks.map((b) => b.activity).join(", ")
-          : copy.ctxNothingSet,
-        note: hardest
+        panel: total
           ? {
-              primary: format(copy.noteHardest, { block: hardest.activity }),
-              secondary:
-                typeof d?.struggle_note === "string" && d.struggle_note
-                  ? format(copy.noteStruggle, { note: d.struggle_note })
-                  : undefined,
+              label: panelLabel,
+              items: context.routineBlocks.map((block) => ({
+                label: block.activity,
+                done: Array.isArray(d?.followed_block_ids)
+                  ? d!.followed_block_ids.includes(block.id)
+                  : false,
+                detail: block.startTime,
+              })),
             }
-          : check.done
-            ? null
-            : pendingNote,
+          : { label: panelLabel, text: copy.ctxNothingSet },
+        note: check.done
+          ? hardest
+            ? {
+                primary: format(copy.noteHardest, { block: hardest.activity }),
+                secondary:
+                  typeof d?.struggle_note === "string" && d.struggle_note
+                    ? format(copy.noteStruggle, { note: d.struggle_note })
+                    : (avgBlocks ?? undefined),
+              }
+            : avgBlocks
+              ? { primary: avgBlocks }
+              : null
+          : avgBlocks
+            ? { primary: avgBlocks }
+            : { primary: format(copy.noteLastTime, { ago }) },
       };
     }
 
@@ -195,18 +289,40 @@ export function buildTodayCard(
           value: String(practiced.length),
           unit: copy.unitLanguages,
         },
-        context: context.languages.length
-          ? context.languages.map((l) => l.name).join(", ")
-          : copy.ctxNothingSet,
-        note: totalLessons
+        panel: context.languages.length
           ? {
-              primary: uniform
-                ? format(copy.noteLessonsEach, {
-                    n: Number(practiced[0]?.lessons ?? 0),
-                  })
-                : format(copy.noteLessonsTotal, { n: totalLessons }),
+              label: panelLabel,
+              items: context.languages.map((language) => {
+                const lessons = sessions.find(
+                  (s) => s?.language_slug === language.slug
+                )?.lessons;
+                const count = typeof lessons === "number" ? lessons : 0;
+                return {
+                  label: language.name,
+                  done: count > 0,
+                  detail: count > 0 ? `${count}×` : undefined,
+                };
+              }),
             }
-          : pendingNote,
+          : { label: panelLabel, text: copy.ctxNothingSet },
+        note: check.done
+          ? totalLessons
+            ? {
+                primary: uniform
+                  ? format(copy.noteLessonsEach, {
+                      n: Number(practiced[0]?.lessons ?? 0),
+                    })
+                  : format(copy.noteLessonsTotal, { n: totalLessons }),
+                secondary: streakLine
+                  ? format(copy.noteStreakKept, { n: streakLine })
+                  : undefined,
+              }
+            : streakLine
+              ? { primary: format(copy.noteStreakKept, { n: streakLine }) }
+              : null
+          : streakLine
+            ? { primary: format(copy.noteStreakAtRisk, { n: streakLine }) }
+            : { primary: format(copy.noteLastTime, { ago }) },
       };
     }
 
@@ -225,33 +341,70 @@ export function buildTodayCard(
           value: String(done.length),
           unit: format(copy.unitOfPractices, { total: context.practices.length }),
         },
-        context: context.practices.length
-          ? context.practices.map((p) => p.name).join(", ")
-          : copy.ctxNothingSet,
-        note: names
-          ? { primary: format(copy.notePracticesDone, { names }) }
-          : pendingNote,
+        panel: context.practices.length
+          ? {
+              label: panelLabel,
+              items: context.practices.map((practice) => {
+                const logged = done.find((p) => String(p?.slug) === practice.slug);
+                const count = logged && typeof logged.count === "number"
+                  ? logged.count
+                  : undefined;
+                return {
+                  label: practice.name,
+                  done: Boolean(logged),
+                  detail: count ? `${count}×` : undefined,
+                };
+              }),
+            }
+          : { label: panelLabel, text: copy.ctxNothingSet },
+        note: check.done
+          ? names
+            ? {
+                primary: format(copy.notePracticesDone, { names }),
+                secondary: streakLine
+                  ? format(copy.noteStreakDays, { n: streakLine })
+                  : undefined,
+              }
+            : null
+          : { primary: format(copy.noteLastTime, { ago }) },
       };
     }
 
     case "hobby": {
-      const minutes = typeof d?.minutes === "number" ? d.minutes : null;
+      const minutes = typeof d?.minutes === "number" ? d.minutes : 0;
       const activity =
         typeof d?.activity === "string" && d.activity ? d.activity : null;
       return {
         state,
         hero: {
-          value: minutes !== null ? String(minutes) : "—",
+          value: String(minutes),
           unit: activity
             ? format(copy.unitMinutesOf, { activity })
             : copy.unitMinutes,
         },
-        // The activity already rides in the unit — repeating it adds nothing.
-        context: null,
-        note: {
-          primary: copy.noteOptional,
-          secondary: copy.noteOptionalSub,
+        // Hobby has nothing configured to plan against, so its panel reports
+        // the week instead of restating the optional rule twice.
+        panel: {
+          label: copy.panelOptional,
+          text: copy.noteOptionalSub,
+          items: comparisons.hobbySessions
+            ? [
+                {
+                  label: copy.hobbyWeekSessions,
+                  detail: String(comparisons.hobbySessions),
+                },
+                {
+                  label: copy.hobbyWeekMinutes,
+                  detail: `${comparisons.hobbyMinutes} min`,
+                },
+              ]
+            : undefined,
         },
+        note: check.done
+          ? streakLine
+            ? { primary: format(copy.noteStreakDays, { n: streakLine }) }
+            : null
+          : { primary: format(copy.noteLastTime, { ago }) },
       };
     }
 
@@ -259,8 +412,8 @@ export function buildTodayCard(
       return {
         state,
         hero: { value: check.done ? "✓" : "—", unit: "" },
-        context: null,
-        note: check.done ? null : pendingNote,
+        panel: null,
+        note: null,
       };
   }
 }
@@ -282,4 +435,3 @@ export function forecastFinishDate(
     month: "long",
   }).format(finish);
 }
-

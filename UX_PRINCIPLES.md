@@ -67,9 +67,23 @@ settle decisions that were already made, not re-open them.
   derived from the *same* record: the workout card reads the plan day that was
   actually logged (`details.plan_day_id`), not the one scheduled for today.
 - **Say each thing once per card.** If the hero already says "60 min of
-  guitar", the context line is `null` — not "Guitar" again.
-- **Cards in a grid are the same height.** `grid-auto-rows: 1fr` plus `h-full`
-  and `mt-auto` on the note, so notes line up and no card looks unfinished.
+  guitar", the panel doesn't repeat "Guitar"; it explains the optional rule.
+- **Cards in a grid are the same height** (`grid-auto-rows: 1fr` + `h-full`),
+  and **one band absorbs that height** — the tinted context panel, via
+  `flex-1 min-h-0`. Pinning a note with `mt-auto` and letting the middle go
+  empty is what makes a pending card look broken: on the first visit of the
+  day all seven are pending, so seven holes open at once.
+- **The panel's eyebrow states the mode, not the metric.** `LOGGED` /
+  `PLANNED` / `TARGET` / `OPTIONAL`, chosen by state — a "BLOCKS FOLLOWED"
+  label directly under a "4/6 blocks followed" hero says nothing new.
+- **A pending card still has content.** It shows the plan (today's session,
+  the pages that reach the target page, the sleep window) plus one comparison
+  line — the streak at risk, or when you last did it. The status pill carries
+  "not logged yet"; the card body doesn't need to repeat it.
+- **Comparisons stay as coarse as the data.** Days are stored as São Paulo
+  calendar days, so cards say "yesterday" and "3 days ago" (`relativeDay()`),
+  never a clock time reconstructed from `created_at`. A streak line appears
+  only from two days up.
 - **A period is named once.** The Overview header carries the date range as its
   eyebrow and the prev/next arrows sit on the title itself
   (`src/components/overview/PeriodHeader.tsx`) — a separate nav row repeating

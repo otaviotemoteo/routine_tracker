@@ -6,7 +6,7 @@
 // them at UTC noon, which keeps the calendar day stable regardless of the
 // server's local timezone or DST shifts.
 
-import { locale, type Lang } from "@/lib/i18n";
+import { format, locale, type Lang } from "@/lib/i18n";
 
 const SAO_PAULO_TZ = "America/Sao_Paulo";
 
@@ -78,6 +78,31 @@ export function calcStreak(
     day = addDays(day, -1);
   }
   return streak;
+}
+
+// Days between two calendar days, positive when `from` is in the past.
+// Mental test: daysBetween("2026-07-19", "2026-07-21") = 2.
+export function daysBetween(from: string, to: string): number {
+  return Math.round(
+    (toUTCNoon(to).getTime() - toUTCNoon(from).getTime()) / 86_400_000
+  );
+}
+
+// "yesterday" / "3 days ago" — how a Today card refers to the last time a
+// habit was done. Deliberately coarse: the app stores calendar days, not clock
+// times, so anything finer would be invented.
+// Mental test: today = "2026-07-21" → "2026-07-20" is "yesterday",
+// "2026-07-18" is "3 days ago", undefined is "never".
+export function relativeDay(
+  date: string | undefined,
+  today: string,
+  copy: { today: string; yesterday: string; daysAgo: string; never: string }
+): string {
+  if (!date) return copy.never;
+  const days = daysBetween(date, today);
+  if (days <= 0) return copy.today;
+  if (days === 1) return copy.yesterday;
+  return format(copy.daysAgo, { n: days });
 }
 
 // Mental test: daysInMonth("2026-02") = 28, daysInMonth("2024-02") = 29,

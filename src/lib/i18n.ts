@@ -190,9 +190,17 @@ export interface Copy {
     unitOfPractices: string; // {total}
     unitMinutesOf: string; // {activity}
     unitMinutes: string;
-    // Card context lines
+    // Eyebrow on the card's context panel, picked by state
+    panelLogged: string;
+    panelPlanned: string;
+    panelTarget: string;
+    panelOptional: string;
+    hobbyWeekSessions: string;
+    hobbyWeekMinutes: string;
+    // Card context panel text
     ctxSets: string; // {focus} {sets}
     ctxBookPage: string; // {title} {page} {total}
+    ctxReadTo: string; // {title} {n} {page}
     ctxSleepTarget: string; // {from} {to}
     ctxNoPlan: string;
     ctxNoBook: string;
@@ -207,12 +215,26 @@ export interface Copy {
     noteLessonsEach: string; // {n}
     noteLessonsTotal: string; // {n}
     notePracticesDone: string; // {names}
-    notePending: string;
     noteOptional: string;
     noteOptionalSub: string;
     notePace: string; // {n}
     noteForecast: string; // {date}
     noteNoTraining: string;
+    // The card's one comparison line
+    noteStreakDays: string; // {n}
+    noteStreakKept: string; // {n}
+    noteStreakAtRisk: string; // {n}
+    noteLastWorkout: string; // {ago}
+    noteLastRead: string; // {ago}
+    noteLastTime: string; // {ago}
+    noteWeekAvgSleep: string; // {value}
+    noteAvgBlocks: string; // {done} {total}
+    noteLogOnWaking: string;
+    // relativeDay() vocabulary
+    agoToday: string;
+    agoYesterday: string;
+    agoDays: string; // {n}
+    agoNever: string;
   };
   sheets: {
     save: string;
@@ -556,9 +578,16 @@ export const COPY: Record<Lang, Copy> = {
       unitOfPractices: "of {total} practices",
       unitMinutesOf: "min of {activity}",
       unitMinutes: "minutes",
+      panelLogged: "logged",
+      panelPlanned: "planned",
+      panelTarget: "target",
+      panelOptional: "optional",
+      hobbyWeekSessions: "Sessions this week",
+      hobbyWeekMinutes: "Time this week",
       ctxSets: "{focus} · {sets} sets",
       ctxBookPage: "{title} · page {page} of {total}",
-      ctxSleepTarget: "Target {from} – {to}",
+      ctxReadTo: "{title} · {n} pages to reach page {page}",
+      ctxSleepTarget: "Sleep {from} – {to}",
       ctxNoPlan: "No training planned for today",
       ctxNoBook: "No book being read",
       ctxNothingSet: "Not set up yet",
@@ -571,12 +600,24 @@ export const COPY: Record<Lang, Copy> = {
       noteLessonsEach: "{n} lesson in each language",
       noteLessonsTotal: "{n} lessons in total",
       notePracticesDone: "Done: {names}",
-      notePending: "Nothing logged today yet",
       noteOptional: "Optional habit",
       noteOptionalSub: "Doesn't count toward the day's progress",
       notePace: "Required pace: {n} pages/day",
       noteForecast: "Finishing this book on {date}",
       noteNoTraining: "Rest day — nothing scheduled",
+      noteStreakDays: "{n}-day streak",
+      noteStreakKept: "{n}-day streak kept",
+      noteStreakAtRisk: "{n}-day streak at risk",
+      noteLastWorkout: "Last workout: {ago}",
+      noteLastRead: "Last read: {ago}",
+      noteLastTime: "Last time: {ago}",
+      noteWeekAvgSleep: "This week's average: {value}",
+      noteAvgBlocks: "Average: {done} of {total} blocks a day",
+      noteLogOnWaking: "Log it when you wake up",
+      agoToday: "today",
+      agoYesterday: "yesterday",
+      agoDays: "{n} days ago",
+      agoNever: "never",
     },
     sheets: {
       save: "Save",
@@ -950,9 +991,16 @@ export const COPY: Record<Lang, Copy> = {
       unitOfPractices: "de {total} práticas",
       unitMinutesOf: "min de {activity}",
       unitMinutes: "minutos",
+      panelLogged: "registrado",
+      panelPlanned: "planejado",
+      panelTarget: "meta",
+      panelOptional: "opcional",
+      hobbyWeekSessions: "Sessões nesta semana",
+      hobbyWeekMinutes: "Tempo nesta semana",
       ctxSets: "{focus} · {sets} séries",
       ctxBookPage: "{title} · página {page} de {total}",
-      ctxSleepTarget: "Meta {from} – {to}",
+      ctxReadTo: "{title} · {n} páginas para chegar na {page}",
+      ctxSleepTarget: "Dormir {from} – {to}",
       ctxNoPlan: "Nenhum treino planejado para hoje",
       ctxNoBook: "Nenhum livro em leitura",
       ctxNothingSet: "Ainda não configurado",
@@ -965,12 +1013,24 @@ export const COPY: Record<Lang, Copy> = {
       noteLessonsEach: "{n} lição em cada idioma",
       noteLessonsTotal: "{n} lições no total",
       notePracticesDone: "Feitas: {names}",
-      notePending: "Ainda sem registro hoje",
       noteOptional: "Hábito opcional",
       noteOptionalSub: "Não entra no progresso do dia",
       notePace: "Ritmo necessário: {n} páginas/dia",
       noteForecast: "Previsão de término: {date}",
       noteNoTraining: "Dia de descanso — nada programado",
+      noteStreakDays: "Sequência de {n} dias",
+      noteStreakKept: "Ofensiva de {n} dias mantida",
+      noteStreakAtRisk: "Ofensiva de {n} dias em risco",
+      noteLastWorkout: "Último treino: {ago}",
+      noteLastRead: "Última leitura: {ago}",
+      noteLastTime: "Última vez: {ago}",
+      noteWeekAvgSleep: "Média da semana: {value}",
+      noteAvgBlocks: "Média: {done} de {total} blocos por dia",
+      noteLogOnWaking: "Registre ao acordar",
+      agoToday: "hoje",
+      agoYesterday: "ontem",
+      agoDays: "há {n} dias",
+      agoNever: "nunca",
     },
     sheets: {
       save: "Salvar",

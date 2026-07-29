@@ -6,6 +6,7 @@ import { DAILY_STEPS } from "@/lib/daily";
 import type { Copy, Lang } from "@/lib/i18n";
 import type { ReadingPace } from "@/lib/today-card";
 import type { PaceValues } from "@/lib/setup-summary";
+import type { TodayComparisons } from "@/db/queries";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
 
 interface TodayBoardProps {
@@ -14,6 +15,8 @@ interface TodayBoardProps {
   title: string;
   eyebrow: string;
   streak: number;
+  today: string;
+  comparisons: TodayComparisons;
   lang: Lang;
   copy: Copy["today"];
   dailyCopy: Copy["daily"];
@@ -31,6 +34,8 @@ export function TodayBoard({
   title,
   eyebrow,
   streak,
+  today,
+  comparisons,
   lang,
   copy,
   dailyCopy,
@@ -108,11 +113,13 @@ export function TodayBoard({
               : dailyCopy.startRemaining}
         </Link>
 
-        {/* auto-fit + 1fr rows: cards share a height whatever they contain. */}
+        {/* auto-fit + 1fr rows: cards share a height whatever they contain.
+            250px keeps this to two columns inside max-w-3xl — at three, a name
+            like "Espiritualidade" has no room left beside its status pill. */}
         <ul
           className="grid gap-3.5 sm:gap-4 list-none"
           style={{
-            gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
             gridAutoRows: "1fr",
           }}
         >
@@ -124,6 +131,8 @@ export function TodayBoard({
                 lang={lang}
                 copy={copy}
                 readingCopy={readingCopy}
+                today={today}
+                comparisons={comparisons}
                 pace={check.slug === "leitura" ? pace : undefined}
                 paceValues={check.slug === "leitura" ? paceValues : undefined}
               />
