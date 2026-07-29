@@ -58,8 +58,9 @@ export function HabitCard({
   const barMax = Math.max(0, ...allItems.map((item) => item.bar ?? 0));
   // The card is a fixed frame. Show what fits and say how much didn't, rather
   // than letting one long list set the height of every card on the board.
-  const items = allItems.slice(0, MAX_PANEL_ITEMS);
+  const items = allItems.slice(0, card.panel?.maxItems ?? MAX_PANEL_ITEMS);
   const hiddenItems = allItems.length - items.length;
+  const grid = card.panel?.itemsLayout === "grid";
 
   const pill = {
     done: { label: copy.pillDone, className: "text-clover bg-mint" },
@@ -131,14 +132,16 @@ export function HabitCard({
             </span>
           )}
           {card.panel.meter && (
-            <div className="mt-0.5">
+            // Caption beside the bar, not under it — a line saved is a book
+            // that still fits in the queue below.
+            <div className="flex items-center gap-2">
               <div
                 role="progressbar"
                 aria-valuenow={card.panel.meter.value}
                 aria-valuemin={0}
                 aria-valuemax={card.panel.meter.max}
                 aria-label={card.panel.meter.caption}
-                className="h-2 rounded-full bg-forest/10 overflow-hidden"
+                className="flex-1 h-2 rounded-full bg-forest/10 overflow-hidden"
               >
                 <div
                   className="h-full rounded-full bg-clover"
@@ -152,28 +155,13 @@ export function HabitCard({
                   }}
                 />
               </div>
-              <p className="font-mono text-[0.62rem] font-bold opacity-55 mt-1">
+              <span className="shrink-0 font-mono text-[0.62rem] font-bold opacity-55">
                 {card.panel.meter.caption}
-              </p>
+              </span>
             </div>
           )}
 
           {card.panel.bars && <PanelChart bars={card.panel.bars} />}
-
-          {card.panel.stats && (
-            <div className="flex gap-4 mt-auto pt-1">
-              {card.panel.stats.map((stat) => (
-                <div key={stat.label} className="min-w-0">
-                  <p className="font-mono font-bold text-xl leading-none">
-                    {stat.value}
-                  </p>
-                  <p className="text-[0.62rem] font-semibold uppercase tracking-wider opacity-50 mt-1 leading-tight">
-                    {stat.label}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
 
           {card.panel.itemsLabel && (
             <span
@@ -184,7 +172,81 @@ export function HabitCard({
               {card.panel.itemsLabel}
             </span>
           )}
-          {items.length > 0 && (
+
+          {card.panel.stats && (
+            // Same tiles as the grid layout, carrying figures instead of a
+            // check — so the four cards without a list still rhyme.
+            <div className="grid grid-cols-2 gap-1.5 flex-1 content-start">
+              {card.panel.stats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className={`rounded-lg px-2.5 py-2 ${
+                    pending ? "bg-straw/15" : "bg-forest/[0.06]"
+                  }`}
+                >
+                  <p className="font-mono font-bold text-xl leading-none">
+                    {stat.value}
+                  </p>
+                  <p className="text-[0.58rem] font-semibold uppercase tracking-wider opacity-50 mt-1.5 leading-tight">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {items.length > 0 && grid && (
+            // A tile per item, two across — the odd one out spans the row so
+            // the grid never ends on a hole.
+            <ul className="grid grid-cols-2 gap-1.5 list-none min-h-0 flex-1 content-start">
+              {items.map((item, i) => (
+                <li
+                  key={item.label}
+                  className={`rounded-lg px-2.5 py-2 flex flex-col gap-1.5 ${
+                    i === items.length - 1 && items.length % 2 === 1
+                      ? "col-span-2"
+                      : ""
+                  } ${
+                    item.done
+                      ? "bg-clover/15"
+                      : pending
+                        ? "bg-straw/15"
+                        : "bg-forest/[0.06]"
+                  }`}
+                >
+                  <span
+                    className={`text-[0.7rem] font-semibold leading-tight truncate ${
+                      item.done ? "" : "opacity-60"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {item.done ? (
+                      <Check
+                        className="w-3.5 h-3.5 shrink-0 text-clover"
+                        strokeWidth={3.5}
+                        aria-hidden
+                      />
+                    ) : (
+                      <Clock
+                        className="w-3.5 h-3.5 shrink-0 text-straw"
+                        strokeWidth={3}
+                        aria-hidden
+                      />
+                    )}
+                    {item.detail && (
+                      <span className="font-mono text-[0.65rem] font-bold opacity-50">
+                        {item.detail}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {items.length > 0 && !grid && (
             <ul className="flex flex-col gap-1 list-none min-h-0">
               {items.map((item) => (
                 <li
