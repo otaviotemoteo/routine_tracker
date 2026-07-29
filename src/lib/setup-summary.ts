@@ -21,6 +21,15 @@ export type SetupSection =
   | "duolingo"
   | "spirituality";
 
+// The three numbers behind the reading pace, so the dialog can show its own
+// arithmetic instead of just describing it.
+export interface PaceValues {
+  currentBookLeft: number; // Pa
+  nextBooksPages: number; // Pp
+  daysLeft: number; // Dr
+  perDay: number;
+}
+
 export interface SetupRow {
   section: SetupSection;
   label: string;
@@ -31,6 +40,8 @@ export interface SetupRow {
   // "warn" = something still needs the user's attention (straw), "info" = a
   // healthy stat (clover).
   hintTone?: "info" | "warn";
+  // Reading only, and only when the pace is real.
+  paceValues?: PaceValues;
 }
 
 export async function getSetupSummary(
@@ -52,6 +63,7 @@ export async function getSetupSummary(
   // otherwise it quotes a target computed from books the user hasn't added yet.
   let readingHint: string | undefined;
   let readingTone: "info" | "warn" | undefined;
+  let paceValues: PaceValues | undefined;
   const missingBooks = goal ? goal.targetBooks - books.length : 0;
   if (todayCopy && missingBooks > 0) {
     readingHint = format(
@@ -60,14 +72,24 @@ export async function getSetupSummary(
     );
     readingTone = "warn";
   } else if (todayCopy) {
-    const remainingPages = books
-      .filter((b) => b.status === "reading" || b.status === "queued")
+    const unread = books.filter(
+      (b) => b.status === "reading" || b.status === "queued"
+    );
+    // Split the two halves of the formula: what's left in the book being read,
+    // and everything waiting after it.
+    const currentBookLeft = unread
+      .filter((b) => b.status === "reading")
       .reduce((sum, b) => sum + Math.max(0, b.totalPages - b.currentPage), 0);
+    const nextBooksPages = unread
+      .filter((b) => b.status !== "reading")
+      .reduce((sum, b) => sum + Math.max(0, b.totalPages - b.currentPage), 0);
+    const remainingPages = currentBookLeft + nextBooksPages;
     if (remainingPages > 0) {
-      readingHint = format(todayCopy.pace, {
-        n: readingPace(remainingPages, daysLeftInYear(today)),
-      });
+      const daysLeft = daysLeftInYear(today);
+      const perDay = readingPace(remainingPages, daysLeft);
+      readingHint = format(todayCopy.pace, { n: perDay });
       readingTone = "info";
+      paceValues = { currentBookLeft, nextBooksPages, daysLeft, perDay };
     }
   }
 
@@ -85,6 +107,7 @@ export async function getSetupSummary(
       value: goal ? `${goal.targetBooks} ${copy.reading.goalUnit}` : null,
       hint: readingHint,
       hintTone: readingTone,
+      paceValues,
     },
     {
       section: "sleep",
