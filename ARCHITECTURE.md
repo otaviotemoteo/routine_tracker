@@ -169,9 +169,9 @@ English is the default; Portuguese is one tap away from the selector in the top-
 
 ## Quality & UX Process
 
-Development runs as an autonomous loop (see `CLAUDE.md`): assess state → build phase → verify (`tsc --noEmit`, lint, dev server) → **UI/UX review** → commit → document → repeat.
+Development runs as a loop: assess state → build a phase → verify (`tsc --noEmit`, lint, dev server) → **UI/UX review** → commit → document → repeat.
 
-Every phase that touches the interface is audited against two skill checklists — `ui-ux-pro-max-skill` (GitHub) and the local `revenue-centric-design` skill — covering visual hierarchy, toggle affordance, empty/loading/error states, mobile legibility, and the first-run experience (login → empty Today → first check). "It works" is not "it's good"; the loop iterates until the checklist passes.
+Every phase that touches the interface is audited against a checklist covering visual hierarchy, toggle affordance, empty/loading/error states, mobile legibility, and the first-run experience (login → empty Today → first check). "It works" is not "it's good"; the loop iterates until the checklist passes.
 
 **`UX_PRINCIPLES.md` is the standing output of that process** — the rules real usage has already settled (status vs. editing, how pending looks, guarded navigation, prefill and collapse, copy and a11y), each tied to the code that implements it, plus a checklist for new screens. Read it before building a screen; add to it when a review decides something new.
 
@@ -190,7 +190,7 @@ The loop stops only when every phase is complete and audited. What remains is th
 - TypeScript strict mode; `any` is forbidden — if it seems necessary, the design is wrong.
 - Interfaces for all component props.
 - One commit per file, Conventional Commits (`chore:` / `feat:` / `fix:` / `docs:`), no co-authorship, no push before manual review.
-- Personal gitignored files: `CLAUDE.md` (autonomous execution prompt), `LEARNING_ROADMAP.md` (guided codebase reading order, updated as files are created), `LINKEDIN_POSTS.md` (post ideas), `identidade-visual.html` (design system preview).
+- Personal gitignored files: `LEARNING_ROADMAP.md` (guided codebase reading order, updated as files are created), `LINKEDIN_POSTS.md` (post ideas), `identidade-visual.html` (design system preview).
 
 ## Export & AI contract (v2)
 
