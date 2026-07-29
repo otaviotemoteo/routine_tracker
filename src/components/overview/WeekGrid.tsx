@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { DaySummary } from "./DaySummary";
 import { useDaySelection } from "./use-day-selection";
 import { habitIcon } from "@/lib/icons";
@@ -16,12 +17,10 @@ interface WeekGridProps {
   optionalLabel: string;
 }
 
-// Keeps the floating summary inside the card: the first and last columns get
-// their edge pinned instead of being centred on a narrow cell.
+// Beside the cell you're pointing at, on whichever side keeps the summary
+// inside the card. The later columns flip to the left.
 function anchor(index: number): string {
-  if (index <= 1) return "left-0";
-  if (index >= 5) return "right-0";
-  return "left-1/2 -translate-x-1/2";
+  return index >= 4 ? "right-full mr-2" : "left-full ml-2";
 }
 
 // Habit × day. Selecting a day rings the whole column and opens its summary —
@@ -38,6 +37,9 @@ export function WeekGrid({
   optionalLabel,
 }: WeekGridProps) {
   const { openDay, open, toggle, close } = useDaySelection();
+  // The summary describes a column, but it hangs off the cell you're actually
+  // pointing at — anchoring it to the header would park it above your cursor.
+  const [openRow, setOpenRow] = useState(0);
 
   const required = week.habits.filter((h) => !h.optional);
   const optional = week.habits.filter((h) => h.optional);
@@ -68,11 +70,17 @@ export function WeekGrid({
                 {overviewCopy.habitColumn}
               </th>
               {copy.dayLabels.map((label, i) => (
-                <th key={i} scope="col" className="relative pb-2 px-0.5">
+                <th key={i} scope="col" className="pb-2 px-0.5">
                   <button
                     type="button"
-                    onMouseEnter={() => open(i)}
-                    onFocus={() => open(i)}
+                    onMouseEnter={() => {
+                      open(i);
+                      setOpenRow(0);
+                    }}
+                    onFocus={() => {
+                      open(i);
+                      setOpenRow(0);
+                    }}
                     onClick={() => toggle(i)}
                     aria-label={`${dayNames[i]} ${week.days[i].slice(8, 10)}`}
                     className={`w-full flex flex-col items-center leading-none ${
@@ -90,21 +98,6 @@ export function WeekGrid({
                       {week.days[i].slice(8, 10)}
                     </span>
                   </button>
-
-                  {openDay === i && (
-                    <div
-                      className={`hidden sm:block absolute top-full z-30 mt-1 ${anchor(i)}`}
-                    >
-                      <DaySummary
-                        date={week.days[i]}
-                        title={`${dayNames[i]}, ${week.days[i].slice(8, 10)}`}
-                        habits={summaryHabits}
-                        lang={lang}
-                        copy={overviewCopy}
-                        floating
-                      />
-                    </div>
-                  )}
                 </th>
               ))}
               <th className="text-right text-[0.6rem] uppercase tracking-wider font-semibold opacity-50 pb-2 pl-1">
@@ -113,7 +106,7 @@ export function WeekGrid({
             </tr>
           </thead>
           <tbody>
-            {rows.map((habit) => {
+            {rows.map((habit, row) => {
               const Icon = habitIcon(habit.slug);
               return (
                 <tr
@@ -139,11 +132,17 @@ export function WeekGrid({
                   {habit.cells.map((cell, i) => {
                     const future = week.days[i] > today;
                     return (
-                      <td key={i} className="px-0.5 py-1">
+                      <td key={i} className="relative px-0.5 py-1">
                         <button
                           type="button"
-                          onMouseEnter={() => open(i)}
-                          onFocus={() => open(i)}
+                          onMouseEnter={() => {
+                            open(i);
+                            setOpenRow(row);
+                          }}
+                          onFocus={() => {
+                            open(i);
+                            setOpenRow(row);
+                          }}
                           onClick={() => toggle(i)}
                           aria-label={`${habitName(lang, habit.slug, habit.name)}, ${dayNames[i]}: ${
                             cell.done
@@ -164,6 +163,21 @@ export function WeekGrid({
                         >
                           {cell.done ? (cell.partial ? "~" : "✓") : "—"}
                         </button>
+
+                        {openDay === i && openRow === row && (
+                          <div
+                            className={`hidden sm:block absolute top-1/2 -translate-y-1/2 z-30 ${anchor(i)}`}
+                          >
+                            <DaySummary
+                              date={week.days[i]}
+                              title={`${dayNames[i]}, ${week.days[i].slice(8, 10)}`}
+                              habits={summaryHabits}
+                              lang={lang}
+                              copy={overviewCopy}
+                              floating
+                            />
+                          </div>
+                        )}
                       </td>
                     );
                   })}

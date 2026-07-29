@@ -24,12 +24,10 @@ const LEVELS = [
   "bg-clover border-clover text-white",
 ];
 
-// Keeps the floating summary inside the calendar: Monday/Tuesday pin left,
-// Saturday/Sunday pin right, the rest centre on their cell.
+// Beside the day, not under it — and on whichever side keeps the summary
+// inside the calendar. Later weekdays flip to the left.
 function anchor(weekday: number): string {
-  if (weekday <= 2) return "left-0";
-  if (weekday >= 6) return "right-0";
-  return "left-1/2 -translate-x-1/2";
+  return weekday >= 5 ? "right-full mr-2" : "left-full ml-2";
 }
 
 function level(done: number, required: number): number {
@@ -110,7 +108,7 @@ export function MonthCalendar({
 
             {openDay === i && (
               <div
-                className={`hidden sm:block absolute top-full z-30 mt-1.5 ${anchor(
+                className={`hidden sm:block absolute top-1/2 -translate-y-1/2 z-30 ${anchor(
                   day.weekday
                 )}`}
               >
