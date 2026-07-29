@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { inputClass, OnboardingFooter } from "./OnboardingChrome";
+import { inputClass, OnboardingFooter, StepTitle } from "./OnboardingChrome";
 import type { Copy } from "@/lib/i18n";
 
 interface SleepStepProps {
@@ -14,6 +14,7 @@ interface SleepStepProps {
   initialBedtime: string;
   initialWake: string;
   requireDirtyToSave?: boolean;
+  titleBackHref?: string;
 }
 
 // Controlled (rather than defaultValue) so dirty-tracking can compare against
@@ -28,6 +29,7 @@ export function SleepStep({
   initialBedtime,
   initialWake,
   requireDirtyToSave,
+  titleBackHref,
 }: SleepStepProps) {
   const [bedtime, setBedtime] = useState(initialBedtime);
   const [wakeTime, setWakeTime] = useState(initialWake);
@@ -36,7 +38,9 @@ export function SleepStep({
   return (
     <form action={action}>
       <input type="hidden" name="next" value={next} />
-      <h1 className="display-title text-3xl sm:text-4xl">{copy.sleep.title}</h1>
+      <StepTitle backHref={titleBackHref} backLabel={copy.back}>
+        {copy.sleep.title}
+      </StepTitle>
       <p className="mt-2 opacity-75">{copy.sleep.lead}</p>
 
       <div className="flex gap-4 mt-6 flex-wrap">

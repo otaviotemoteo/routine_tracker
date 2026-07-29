@@ -6,6 +6,7 @@ import {
   ghostButton,
   inputClass,
   OnboardingFooter,
+  StepTitle,
 } from "./OnboardingChrome";
 import type { Copy } from "@/lib/i18n";
 
@@ -24,6 +25,7 @@ interface SpiritualityStepProps {
   copy: Copy["onboarding"];
   initialPractices: PracticeDraft[];
   requireDirtyToSave?: boolean;
+  titleBackHref?: string;
 }
 
 const defaultPractices = (): PracticeDraft[] => [
@@ -39,6 +41,7 @@ export function SpiritualityStep({
   copy,
   initialPractices,
   requireDirtyToSave,
+  titleBackHref,
 }: SpiritualityStepProps) {
   const [rows, setRows] = useState<PracticeDraft[]>(
     initialPractices.length ? initialPractices : defaultPractices()
@@ -60,9 +63,9 @@ export function SpiritualityStep({
     <form action={action}>
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="data" value={serialized} />
-      <h1 className="display-title text-3xl sm:text-4xl">
+      <StepTitle backHref={titleBackHref} backLabel={copy.back}>
         {copy.spirituality.title}
-      </h1>
+      </StepTitle>
       <p className="mt-2 opacity-75">{copy.spirituality.lead}</p>
 
       <ul className="flex flex-col gap-3 mt-6 list-none">

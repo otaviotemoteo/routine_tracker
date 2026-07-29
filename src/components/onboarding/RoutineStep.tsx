@@ -6,6 +6,7 @@ import {
   ghostButton,
   inputClass,
   OnboardingFooter,
+  StepTitle,
 } from "./OnboardingChrome";
 import { CollapsedCard } from "./CollapsedCard";
 import type { Copy } from "@/lib/i18n";
@@ -26,6 +27,7 @@ interface RoutineStepProps {
   copy: Copy["onboarding"];
   initialBlocks: RoutineBlockDraft[];
   requireDirtyToSave?: boolean;
+  titleBackHref?: string;
 }
 
 const defaultBlocks = (): RoutineBlockDraft[] => [
@@ -54,6 +56,7 @@ export function RoutineStep({
   copy,
   initialBlocks,
   requireDirtyToSave,
+  titleBackHref,
 }: RoutineStepProps) {
   const [blocks, setBlocks] = useState<RoutineBlockDraft[]>(
     initialBlocks.length ? initialBlocks : defaultBlocks()
@@ -108,7 +111,9 @@ export function RoutineStep({
     <form action={action}>
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="data" value={serialized} />
-      <h1 className="display-title text-3xl sm:text-4xl">{copy.routine.title}</h1>
+      <StepTitle backHref={titleBackHref} backLabel={copy.back}>
+        {copy.routine.title}
+      </StepTitle>
       <p className="mt-2 opacity-75">{copy.routine.lead}</p>
 
       <ul className="flex flex-col gap-3 mt-6 list-none">

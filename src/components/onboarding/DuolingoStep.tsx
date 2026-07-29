@@ -6,6 +6,7 @@ import {
   ghostButton,
   inputClass,
   OnboardingFooter,
+  StepTitle,
 } from "./OnboardingChrome";
 import type { Copy } from "@/lib/i18n";
 
@@ -18,6 +19,7 @@ interface DuolingoStepProps {
   copy: Copy["onboarding"];
   initialLanguages: string[];
   requireDirtyToSave?: boolean;
+  titleBackHref?: string;
 }
 
 const defaultNames = (): string[] => [""];
@@ -31,6 +33,7 @@ export function DuolingoStep({
   copy,
   initialLanguages,
   requireDirtyToSave,
+  titleBackHref,
 }: DuolingoStepProps) {
   const [names, setNames] = useState<string[]>(
     initialLanguages.length ? initialLanguages : defaultNames()
@@ -48,7 +51,9 @@ export function DuolingoStep({
     <form action={action}>
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="data" value={serialized} />
-      <h1 className="display-title text-3xl sm:text-4xl">{copy.duolingo.title}</h1>
+      <StepTitle backHref={titleBackHref} backLabel={copy.back}>
+        {copy.duolingo.title}
+      </StepTitle>
       <p className="mt-2 opacity-75">{copy.duolingo.lead}</p>
 
       <ul className="flex flex-col gap-3 mt-6 list-none">

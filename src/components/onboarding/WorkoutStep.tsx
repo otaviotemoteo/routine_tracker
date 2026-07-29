@@ -7,6 +7,7 @@ import {
   ghostButton,
   inputClass,
   OnboardingFooter,
+  StepTitle,
 } from "./OnboardingChrome";
 import { CollapsedCard } from "./CollapsedCard";
 import type { ExerciseKind, PlannedExercise } from "@/db/schema";
@@ -29,6 +30,7 @@ interface WorkoutStepProps {
   initialName: string;
   initialDays: WorkoutDayDraft[];
   requireDirtyToSave?: boolean;
+  titleBackHref?: string;
 }
 
 const emptyExercise = (): PlannedExercise => ({ name: "", kind: "reps" });
@@ -48,6 +50,7 @@ export function WorkoutStep({
   initialName,
   initialDays,
   requireDirtyToSave,
+  titleBackHref,
 }: WorkoutStepProps) {
   const [name, setName] = useState(initialName);
   const [days, setDays] = useState<WorkoutDayDraft[]>(
@@ -143,7 +146,9 @@ export function WorkoutStep({
     <form action={action}>
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="data" value={serialized} />
-      <h1 className="display-title text-3xl sm:text-4xl">{copy.workout.title}</h1>
+      <StepTitle backHref={titleBackHref} backLabel={copy.back}>
+        {copy.workout.title}
+      </StepTitle>
       <p className="mt-2 opacity-75">{copy.workout.lead}</p>
 
       <label className="block mt-6 mb-1.5 font-semibold text-sm">

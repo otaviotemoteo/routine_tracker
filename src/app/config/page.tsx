@@ -70,21 +70,6 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
           <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-5">
             {copy.config.title}
           </h1>
-        </>
-      ) : (
-        // Editing one area: a back link right at the top, so returning doesn't
-        // mean scrolling past the whole form.
-        <Link
-          href={origin}
-          className="inline-flex items-center gap-2 min-h-[44px] font-semibold mb-2"
-        >
-          <ArrowLeft className="w-5 h-5" aria-hidden />
-          {copy.review.sections[section]}
-        </Link>
-      )}
-
-      {section === null ? (
-        <>
           <p className="opacity-75 mb-6">{copy.config.lead}</p>
           <ul className="flex flex-col gap-3 list-none">
             {(await getSetupSummary(copy)).map((row) => (
@@ -126,6 +111,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               submitLabel={submit}
               copy={copy}
               requireDirtyToSave
+              titleBackHref={origin}
               {...(await workoutInitial())}
             />
           )}
@@ -137,6 +123,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               submitLabel={submit}
               copy={copy}
               requireDirtyToSave
+              titleBackHref={origin}
               {...(await readingInitial())}
             />
           )}
@@ -148,6 +135,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               submitLabel={submit}
               copy={copy}
               requireDirtyToSave
+              titleBackHref={origin}
               {...(await sleepInitial())}
             />
           )}
@@ -159,6 +147,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               submitLabel={submit}
               copy={copy}
               requireDirtyToSave
+              titleBackHref={origin}
               initialBlocks={await routineInitial()}
             />
           )}
@@ -170,6 +159,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               submitLabel={submit}
               copy={copy}
               requireDirtyToSave
+              titleBackHref={origin}
               initialLanguages={await duolingoInitial()}
             />
           )}
@@ -181,6 +171,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               submitLabel={submit}
               copy={copy}
               requireDirtyToSave
+              titleBackHref={origin}
               initialPractices={await spiritualityInitial()}
             />
           )}
