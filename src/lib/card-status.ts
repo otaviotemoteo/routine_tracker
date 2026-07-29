@@ -17,7 +17,9 @@ export function cardStatus(
   if (check.done) {
     return {
       done: true,
-      detail: summarizeDetails(check.slug, check.details) ?? copy.doneLabel,
+      detail:
+        summarizeDetails(check.slug, check.details, context, copy) ??
+        copy.doneLabel,
     };
   }
   return { done: false, detail: plannedToday(check.slug, context, copy) };

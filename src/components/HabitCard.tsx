@@ -1,4 +1,5 @@
 import { Check, Clock } from "lucide-react";
+import { PaceInfo } from "@/components/PaceInfo";
 import { habitIcon } from "@/lib/icons";
 import { habitName, type Copy, type Lang } from "@/lib/i18n";
 import { cardStatus } from "@/lib/card-status";
@@ -9,12 +10,24 @@ interface HabitCardProps {
   context: TodayContext;
   lang: Lang;
   copy: Copy["today"];
+  readingCopy: Copy["onboarding"]["reading"];
+  // Pages/day needed to finish the reading list this year — shown on the
+  // reading card so the target lives where the habit does.
+  pacePerDay?: number;
+  paceNote?: string;
 }
 
 // Read-only status card: says whether the habit is done and what it logged, or
 // what today expects of it. All logging happens in the guided flow (/day), so
 // this card has no controls — and no client JS.
-export function HabitCard({ check, context, lang, copy }: HabitCardProps) {
+export function HabitCard({
+  check,
+  context,
+  lang,
+  copy,
+  readingCopy,
+  paceNote,
+}: HabitCardProps) {
   const Icon = habitIcon(check.slug);
   const name = habitName(lang, check.slug, check.name);
   const status = cardStatus(check, context, copy);
@@ -56,10 +69,8 @@ export function HabitCard({ check, context, lang, copy }: HabitCardProps) {
 
       {status.detail && (
         <p
-          className={`text-xs mt-0.5 ${
-            check.done
-              ? "font-mono font-bold text-clover"
-              : "opacity-70 leading-snug"
+          className={`text-xs mt-0.5 leading-snug ${
+            check.done ? "font-semibold text-clover" : "opacity-70"
           }`}
         >
           {status.detail}
@@ -69,6 +80,13 @@ export function HabitCard({ check, context, lang, copy }: HabitCardProps) {
       {check.optional && (
         <p className="text-[0.68rem] font-semibold uppercase tracking-[0.12em] opacity-60 mt-1">
           {copy.optional}
+        </p>
+      )}
+
+      {paceNote && (
+        <p className="flex items-center gap-1.5 text-[0.7rem] leading-snug mt-2 pt-2 border-t-2 border-dashed border-sand">
+          <span className="flex-1 opacity-70">{paceNote}</span>
+          <PaceInfo copy={readingCopy} />
         </p>
       )}
     </div>
