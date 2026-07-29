@@ -1,43 +1,91 @@
-// One-line badge for a habit card when it has saved details. Symbols (p/h/min)
-// read the same in both languages, so no i18n is needed here.
+import { format, plural, type Copy } from "@/lib/i18n";
+import type { TodayContext } from "@/types/habit";
+
+// What a logged habit actually amounted to, as a sentence. Shorthand like
+// "5/5" or "+9p" is compact but needs decoding — these read at a glance.
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
-export function summarizeDetails(slug: string, details: unknown): string | null {
+export function summarizeDetails(
+  slug: string,
+  details: unknown,
+  context: TodayContext,
+  copy: Copy["today"]
+): string | null {
   const d = asRecord(details);
   if (!d) return null;
 
   switch (slug) {
-    case "leitura":
-      return typeof d.pages_read === "number" ? `+${d.pages_read} p` : null;
-    case "sono":
-      return typeof d.hours === "number" ? `${d.hours} h` : null;
     case "treino": {
-      if (!Array.isArray(d.completed)) return null;
-      const done = d.completed.filter(
-        (e) => asRecord(e)?.done === true
-      ).length;
-      return `${done}/${d.completed.length}`;
+      if (!Array.isArray(d.completed) || d.completed.length === 0) return null;
+      const total = d.completed.length;
+      const done = d.completed.filter((e) => asRecord(e)?.done === true).length;
+      return done === total
+        ? copy.sumAllExercises
+        : format(copy.sumExercises, { done, total });
     }
-    case "rotina":
-      return Array.isArray(d.followed_block_ids)
-        ? `${d.followed_block_ids.length}`
+
+    case "leitura": {
+      if (typeof d.pages_read !== "number") return null;
+      return format(plural(d.pages_read, copy.sumPage, copy.sumPages), {
+        n: d.pages_read,
+      });
+    }
+
+    case "sono":
+      return typeof d.hours === "number"
+        ? format(copy.sumHours, { n: d.hours })
         : null;
+
+    case "rotina": {
+      if (!Array.isArray(d.followed_block_ids)) return null;
+      const done = d.followed_block_ids.length;
+      // The plan is the day's blocks; fall back to what was logged if the
+      // routine has since changed.
+      const total = Math.max(context.routineBlocks.length, done);
+      if (total === 0) return null;
+      return done === total
+        ? copy.sumAllBlocks
+        : format(copy.sumBlocks, { done, total });
+    }
+
     case "duolingo": {
       if (!Array.isArray(d.sessions)) return null;
-      const total = d.sessions.reduce<number>((sum, s) => {
-        const lessons = asRecord(s)?.lessons;
+      const sessions = d.sessions.map(asRecord);
+      const total = sessions.reduce<number>((sum, s) => {
+        const lessons = s?.lessons;
         return sum + (typeof lessons === "number" ? lessons : 0);
       }, 0);
-      return `${total} ✓`;
+      if (total === 0) return null;
+      const practiced = sessions.filter(
+        (s) => typeof s?.lessons === "number" && s.lessons > 0
+      ).length;
+      // Every configured language got at least one lesson.
+      if (practiced > 1 && practiced === context.languages.length) {
+        return copy.sumAllLanguages;
+      }
+      return format(plural(total, copy.sumLesson, copy.sumLessons), { n: total });
     }
-    case "espiritualidade":
-      return Array.isArray(d.practices) ? `${d.practices.length}` : null;
-    case "hobby":
-      if (typeof d.minutes === "number") return `${d.minutes} min`;
-      return typeof d.activity === "string" && d.activity ? d.activity : null;
+
+    case "espiritualidade": {
+      if (!Array.isArray(d.practices) || d.practices.length === 0) return null;
+      const n = d.practices.length;
+      return format(plural(n, copy.sumPractice, copy.sumPractices), { n });
+    }
+
+    case "hobby": {
+      const activity =
+        typeof d.activity === "string" && d.activity ? d.activity : null;
+      const minutes =
+        typeof d.minutes === "number"
+          ? format(copy.sumMinutes, { n: d.minutes })
+          : null;
+      if (activity && minutes) return `${activity} · ${minutes}`;
+      return activity ?? minutes;
+    }
+
     default:
       return null;
   }
