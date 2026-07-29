@@ -82,6 +82,7 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
       <ActivitiesSection
         rows={await getSetupSummary(copy.onboarding, copy.today)}
         copy={copy.today}
+        readingCopy={copy.onboarding.reading}
       />
     </main>
   );
