@@ -22,13 +22,16 @@ import {
   calcStreak,
   daysInMonth,
   isoWeekday,
+  todayInSaoPaulo,
 } from "@/lib/utils";
 import { exerciseScheme } from "@/lib/exercise";
+import { cellValue, type CellTotals } from "@/lib/cell-value";
 import type {
   CheckWithHabit,
   MonthData,
   MonthHabitStats,
   TodayContext,
+  WeekCell,
   WeekData,
   WeekHabitRow,
 } from "@/types/habit";
@@ -700,6 +703,118 @@ export async function getDayStreak(today: string): Promise<number> {
   return calcStreak(complete, today);
 }
 
+// How many routine blocks and spiritual practices are configured, so a grid
+// cell can say "4/6" rather than "4".
+async function getCellTotals(): Promise<CellTotals> {
+  const [routineBlockCount, practiceCount] = await Promise.all([
+    db.$count(routineBlocks),
+    db.$count(spiritualPractices),
+  ]);
+  return { routineBlocks: routineBlockCount, practices: practiceCount };
+}
+
+export interface MonthMatrixDay {
+  date: string;
+  dayOfMonth: number;
+  weekday: number; // ISO 1..7
+  doneCount: number; // required habits only — the heat level
+  // Per-habit outcome for the tooltip, in habit order.
+  habits: { slug: string; name: string; done: boolean; value: string | null }[];
+}
+
+export interface MonthMatrix {
+  month: string;
+  days: MonthMatrixDay[];
+  requiredCount: number;
+}
+
+// Every day of the month with its per-habit outcome — feeds both the calendar
+// heat and the tooltip, so they can never disagree.
+export async function getMonthMatrix(month: string): Promise<MonthMatrix> {
+  const total = daysInMonth(month);
+  const first = `${month}-01`;
+  const last = `${month}-${String(total).padStart(2, "0")}`;
+
+  const [allHabits, rows, totals] = await Promise.all([
+    db.select().from(habits).orderBy(asc(habits.id)),
+    db
+      .select({
+        habitId: dailyChecks.habitId,
+        checkedAt: dailyChecks.checkedAt,
+        done: dailyChecks.done,
+        details: dailyChecks.details,
+      })
+      .from(dailyChecks)
+      .where(
+        and(gte(dailyChecks.checkedAt, first), lte(dailyChecks.checkedAt, last))
+      ),
+    getCellTotals(),
+  ]);
+
+  const byHabitDay = new Map<string, { done: boolean; details: unknown }>();
+  for (const row of rows) {
+    byHabitDay.set(`${row.habitId}:${row.checkedAt}`, {
+      done: row.done,
+      details: row.details,
+    });
+  }
+
+  const days: MonthMatrixDay[] = Array.from({ length: total }, (_, i) => {
+    const date = `${month}-${String(i + 1).padStart(2, "0")}`;
+    const perHabit = allHabits.map((h) => {
+      const entry = byHabitDay.get(`${h.id}:${date}`);
+      const done = entry?.done ?? false;
+      return {
+        slug: h.slug,
+        name: h.name,
+        done,
+        value: cellValue(h.slug, entry?.details, done, totals)?.label ?? null,
+        optional: h.optional,
+      };
+    });
+    return {
+      date,
+      dayOfMonth: i + 1,
+      weekday: isoWeekday(date),
+      doneCount: perHabit.filter((p) => p.done && !p.optional).length,
+      habits: perHabit.map(({ slug, name, done, value }) => ({
+        slug,
+        name,
+        done,
+        value,
+      })),
+    };
+  });
+
+  return {
+    month,
+    days,
+    requiredCount: allHabits.filter((h) => !h.optional).length,
+  };
+}
+
+// Done-days per habit for a month — used for the consistency panel's
+// "vs. previous month" delta.
+export async function getMonthDoneCounts(
+  month: string
+): Promise<Record<string, number>> {
+  const first = `${month}-01`;
+  const last = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+  const rows = await db
+    .select({ slug: habits.slug, count: sql<number>`count(*)`.as("count") })
+    .from(dailyChecks)
+    .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .where(
+      and(
+        eq(dailyChecks.done, true),
+        gte(dailyChecks.checkedAt, first),
+        lte(dailyChecks.checkedAt, last)
+      )
+    )
+    .groupBy(habits.slug);
+  return Object.fromEntries(rows.map((r) => [r.slug, Number(r.count)]));
+}
+
 export interface MonthDetailStats {
   sleep: { avgHours: number | null; nights: number };
   reading: { totalPages: number };
@@ -802,34 +917,61 @@ export async function getMonthDetailStats(
 // not done — the week view never creates rows.
 export async function getWeekData(start: string): Promise<WeekData> {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
-  const [allHabits, doneRows] = await Promise.all([
+  // Only the days that have happened count towards the percentage — a habit
+  // done on all three days so far is at 100%, not 43%.
+  const today = todayInSaoPaulo();
+  const elapsed = days.filter((d) => d <= today).length || 7;
+  // Details come along so each cell can carry its own figure ("9 pg", "4/6")
+  // instead of a bare tick.
+  const [allHabits, rows, totals] = await Promise.all([
     db.select().from(habits).orderBy(asc(habits.id)),
     db
-      .select({ habitId: dailyChecks.habitId, checkedAt: dailyChecks.checkedAt })
+      .select({
+        habitId: dailyChecks.habitId,
+        checkedAt: dailyChecks.checkedAt,
+        done: dailyChecks.done,
+        details: dailyChecks.details,
+      })
       .from(dailyChecks)
       .where(
         and(
           gte(dailyChecks.checkedAt, start),
-          lte(dailyChecks.checkedAt, days[6]),
-          eq(dailyChecks.done, true)
+          lte(dailyChecks.checkedAt, days[6])
         )
       ),
+    getCellTotals(),
   ]);
 
-  const doneByHabit = new Map<number, Set<string>>();
-  for (const row of doneRows) {
-    const set = doneByHabit.get(row.habitId) ?? new Set<string>();
-    set.add(row.checkedAt);
-    doneByHabit.set(row.habitId, set);
+  const byHabitDay = new Map<string, { done: boolean; details: unknown }>();
+  for (const row of rows) {
+    byHabitDay.set(`${row.habitId}:${row.checkedAt}`, {
+      done: row.done,
+      details: row.details,
+    });
   }
 
-  const habitRows: WeekHabitRow[] = allHabits.map((h) => ({
-    habitId: h.id,
-    name: h.name,
-    slug: h.slug,
-    optional: h.optional,
-    done: days.map((d) => doneByHabit.get(h.id)?.has(d) ?? false),
-  }));
+  const habitRows: WeekHabitRow[] = allHabits.map((h) => {
+    const cells: WeekCell[] = days.map((day) => {
+      const entry = byHabitDay.get(`${h.id}:${day}`);
+      const done = entry?.done ?? false;
+      const value = cellValue(h.slug, entry?.details, done, totals);
+      return {
+        done,
+        value: value?.label ?? null,
+        partial: done && (value?.partial ?? false),
+      };
+    });
+    const doneCount = cells.filter((c) => c.done).length;
+    return {
+      habitId: h.id,
+      name: h.name,
+      slug: h.slug,
+      optional: h.optional,
+      done: cells.map((c) => c.done),
+      cells,
+      percent: Math.round((doneCount / elapsed) * 100),
+    };
+  });
 
   // Best/worst of the week among REQUIRED habits only (README Decision 6);
   // null when nothing was checked in the week at all.

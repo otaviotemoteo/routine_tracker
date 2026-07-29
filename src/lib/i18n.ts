@@ -86,14 +86,31 @@ export interface Copy {
     title: string;
     weekTab: string;
     monthTab: string;
-    summary: {
-      title: string;
-      avgSleep: string;
-      totalPages: string;
-      workout: string;
-      lessons: string;
-      practices: string;
-    };
+    weekTitle: string;
+    monthTitle: string;
+    monthDays: string; // {n}
+    adherence: string;
+    recordsDone: string;
+    daysAtLeast: string; // {min}
+    nightsLogged: string; // {n}
+    habitColumn: string;
+    weekdaysLong: string[]; // Mon..Sun, ISO order (7)
+    consistency: string;
+    vsPrevious: string;
+    less: string;
+    more: string;
+    bestDay: string;
+    bestDayNote: string; // {done} {total}
+    weakest: string;
+    weakestNote: string; // {done} {total}
+    readingCard: string;
+    readingPages: string; // {n}
+    readingPerDay: string; // {perDay} {goal}
+    recordsAvg: string; // {n}
+    avgSleepCard: string;
+    seeDay: string;
+    dayOf: string; // {n} {done} {total}
+    nothingLogged: string;
   };
   dayAudit: { eyebrow: string; notLogged: string; back: string; noneLogged: string };
   daily: {
@@ -426,14 +443,39 @@ export const COPY: Record<Lang, Copy> = {
       title: "Overview",
       weekTab: "Week",
       monthTab: "Month",
-      summary: {
-        title: "This month",
-        avgSleep: "Avg sleep",
-        totalPages: "Pages read",
-        workout: "Workout done",
-        lessons: "Lessons",
-        practices: "Practices",
-      },
+      weekTitle: "This week",
+      monthTitle: "This month",
+      monthDays: "{n} days",
+      adherence: "adherence",
+      recordsDone: "records done",
+      daysAtLeast: "days with {min}+",
+      nightsLogged: "{n} nights logged",
+      habitColumn: "habit",
+      weekdaysLong: [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+      ],
+      consistency: "Consistency per habit",
+      vsPrevious: "vs. last month",
+      less: "less",
+      more: "more",
+      bestDay: "Best day",
+      bestDayNote: "{done} of {total} habits",
+      weakest: "Weak point",
+      weakestNote: "{done} of {total} days",
+      readingCard: "Reading",
+      readingPages: "{n} pages",
+      readingPerDay: "{perDay}/day \u00b7 target {goal}",
+      recordsAvg: "average of {n} a day",
+      avgSleepCard: "Avg sleep",
+      seeDay: "See day",
+      dayOf: "{done}/{total} done",
+      nothingLogged: "Nothing logged",
     },
     dayAudit: {
       eyebrow: "Day audit",
@@ -795,14 +837,39 @@ export const COPY: Record<Lang, Copy> = {
       title: "Visão geral",
       weekTab: "Semana",
       monthTab: "Mês",
-      summary: {
-        title: "Neste mês",
-        avgSleep: "Sono médio",
-        totalPages: "Páginas lidas",
-        workout: "Treino feito",
-        lessons: "Lições",
-        practices: "Práticas",
-      },
+      weekTitle: "Esta semana",
+      monthTitle: "Este mês",
+      monthDays: "{n} dias",
+      adherence: "aderência",
+      recordsDone: "registros feitos",
+      daysAtLeast: "dias com {min}+",
+      nightsLogged: "{n} noites registradas",
+      habitColumn: "hábito",
+      weekdaysLong: [
+        "Segunda",
+        "Terça",
+        "Quarta",
+        "Quinta",
+        "Sexta",
+        "Sábado",
+        "Domingo",
+      ],
+      consistency: "Consistência por hábito",
+      vsPrevious: "vs. mês anterior",
+      less: "menos",
+      more: "mais",
+      bestDay: "Melhor dia",
+      bestDayNote: "{done} de {total} hábitos",
+      weakest: "Ponto fraco",
+      weakestNote: "{done} de {total} dias",
+      readingCard: "Leitura",
+      readingPages: "{n} páginas",
+      readingPerDay: "{perDay}/dia \u00b7 meta {goal}",
+      recordsAvg: "média de {n} por dia",
+      avgSleepCard: "Sono médio",
+      seeDay: "Ver dia",
+      dayOf: "{done}/{total} feitos",
+      nothingLogged: "Nada registrado",
     },
     dayAudit: {
       eyebrow: "Registro do dia",

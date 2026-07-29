@@ -1,0 +1,177 @@
+"use client";
+
+import { DaySummary } from "./DaySummary";
+import { useDaySelection } from "./use-day-selection";
+import { habitIcon } from "@/lib/icons";
+import { habitName, type Copy, type Lang } from "@/lib/i18n";
+import type { WeekData } from "@/types/habit";
+
+interface WeekGridProps {
+  week: WeekData;
+  today: string;
+  lang: Lang;
+  copy: Copy["week"];
+  overviewCopy: Copy["overview"];
+  dayNames: string[]; // full weekday names, Monday-first
+  optionalLabel: string;
+}
+
+// Habit × day. Selecting a day rings the whole column and opens its summary
+// underneath — the grid answers "how am I doing" and the summary answers "what
+// happened that day".
+export function WeekGrid({
+  week,
+  today,
+  lang,
+  copy,
+  overviewCopy,
+  dayNames,
+  optionalLabel,
+}: WeekGridProps) {
+  const { openDay, open, toggle, close } = useDaySelection();
+
+  const required = week.habits.filter((h) => !h.optional);
+  const optional = week.habits.filter((h) => h.optional);
+  const rows = [...required, ...optional];
+
+  const summaryHabits =
+    openDay === null
+      ? []
+      : week.habits.map((h) => ({
+          slug: h.slug,
+          name: h.name,
+          done: h.cells[openDay].done,
+          value: h.cells[openDay].value,
+        }));
+
+  return (
+    <div
+      className="bg-white border-2 border-forest rounded-card shadow-hard p-3 sm:p-4"
+      onMouseLeave={close}
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="text-left text-[0.6rem] uppercase tracking-wider font-semibold opacity-50 pb-2">
+                {overviewCopy.habitColumn}
+              </th>
+              {copy.dayLabels.map((label, i) => (
+                <th key={i} scope="col" className="pb-2 px-0.5">
+                  <button
+                    type="button"
+                    onMouseEnter={() => open(i)}
+                    onFocus={() => open(i)}
+                    onClick={() => toggle(i)}
+                    aria-label={`${dayNames[i]} ${week.days[i].slice(8, 10)}`}
+                    className={`w-full flex flex-col items-center leading-none ${
+                      week.days[i] === today
+                        ? "text-clover"
+                        : openDay === i
+                          ? "text-forest"
+                          : "text-forest/45"
+                    }`}
+                  >
+                    <span className="text-[0.55rem] font-bold uppercase tracking-wide">
+                      {label}
+                    </span>
+                    <span className="font-mono text-[0.7rem] font-bold mt-0.5">
+                      {week.days[i].slice(8, 10)}
+                    </span>
+                  </button>
+                </th>
+              ))}
+              <th className="text-right text-[0.6rem] uppercase tracking-wider font-semibold opacity-50 pb-2 pl-1">
+                %
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((habit) => {
+              const Icon = habitIcon(habit.slug);
+              return (
+                <tr
+                  key={habit.habitId}
+                  className="border-t-2 border-dashed border-sand"
+                >
+                  <td className="py-1 pr-2">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <Icon
+                        aria-hidden
+                        className="w-3.5 h-3.5 shrink-0 opacity-60"
+                      />
+                      <span className="text-[0.7rem] font-semibold truncate max-w-[7rem]">
+                        {habitName(lang, habit.slug, habit.name)}
+                      </span>
+                      {habit.optional && (
+                        <span className="shrink-0 text-[0.5rem] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-sand text-forest/60">
+                          {optionalLabel}
+                        </span>
+                      )}
+                    </span>
+                  </td>
+                  {habit.cells.map((cell, i) => {
+                    const future = week.days[i] > today;
+                    return (
+                      <td key={i} className="px-0.5 py-1">
+                        <button
+                          type="button"
+                          onMouseEnter={() => open(i)}
+                          onFocus={() => open(i)}
+                          onClick={() => toggle(i)}
+                          aria-label={`${habitName(lang, habit.slug, habit.name)}, ${dayNames[i]}: ${
+                            cell.done
+                              ? (cell.value ?? copy.done)
+                              : future
+                                ? copy.noRecordYet
+                                : copy.notDone
+                          }`}
+                          className={`w-full h-[26px] rounded-md border text-[0.6rem] font-mono font-bold flex items-center justify-center transition-shadow ${
+                            cell.done
+                              ? cell.partial
+                                ? "bg-straw/35 border-straw/50 text-forest"
+                                : "bg-clover border-clover text-white"
+                              : future
+                                ? "bg-sand/25 border-transparent text-transparent"
+                                : "bg-sand border-forest/10 text-forest/40"
+                          } ${openDay === i ? "ring-2 ring-forest ring-offset-1" : ""}`}
+                        >
+                          {cell.done ? (cell.partial ? "~" : "✓") : "—"}
+                        </button>
+                      </td>
+                    );
+                  })}
+                  <td className="text-right pl-1">
+                    <span
+                      className={`font-mono text-[0.7rem] font-bold ${
+                        habit.percent >= 70
+                          ? "text-clover"
+                          : habit.percent >= 40
+                            ? "opacity-60"
+                            : "text-straw"
+                      }`}
+                    >
+                      {habit.percent}%
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {openDay !== null && (
+        <div className="mt-3">
+          <DaySummary
+            date={week.days[openDay]}
+            title={`${dayNames[openDay]}, ${week.days[openDay].slice(8, 10)}`}
+            habits={summaryHabits}
+            lang={lang}
+            copy={overviewCopy}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

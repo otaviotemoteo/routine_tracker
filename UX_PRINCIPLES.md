@@ -56,6 +56,41 @@ settle decisions that were already made, not re-open them.
 - **Signature styling is structural, not decorative:** hard offset shadows
   (`4px 4px 0`, never blurred), 2px borders, small-caps serif display type.
 
+## Hierarchy inside a card
+
+- **One number is the point.** Every Today card has the same anatomy — status
+  pill, a big mono **hero** number with its unit, a muted context line, and a
+  tinted note pinned to the bottom (`src/lib/today-card.ts`,
+  `src/components/HabitCard.tsx`). The eye should land on "9 · pages read
+  today" before it reads anything else.
+- **The hero and the context must never contradict each other.** They're
+  derived from the *same* record: the workout card reads the plan day that was
+  actually logged (`details.plan_day_id`), not the one scheduled for today.
+- **Say each thing once per card.** If the hero already says "60 min of
+  guitar", the context line is `null` — not "Guitar" again.
+- **Cards in a grid are the same height.** `grid-auto-rows: 1fr` plus `h-full`
+  and `mt-auto` on the note, so notes line up and no card looks unfinished.
+- **A period is named once.** The Overview header carries the date range as its
+  eyebrow and the prev/next arrows sit on the title itself
+  (`src/components/overview/PeriodHeader.tsx`) — a separate nav row repeating
+  the same label is just clutter.
+
+## Dense views
+
+- **A grid cell shows state; the tooltip shows the figures.** Week cells are
+  clover ✓ / straw `~` / sand `—` / blank for the future; selecting a day rings
+  the column and opens a dark tooltip listing every habit with its short value
+  and a `See day →` link into the audit (`DayTooltip`).
+- **Hover is never the only way in.** The same cells open on click/tap, take
+  focus, and close on Escape (`use-day-selection.ts`) — the phone is the
+  primary device.
+- **"Partial" only applies where there's a plan to fall short of.** 3 of 5
+  exercises is partial; one prayer out of three configured practices is not —
+  the practices are a menu, not a checklist (`src/lib/cell-value.ts`).
+- **A heat scale needs a legend and a real ramp.** Five steps that move in fill
+  *and* darkness, labelled LESS→MORE, with each day also printing `n/6` so the
+  colour never has to be decoded.
+
 ## Feedback
 
 - **Every async action reports itself.** Save buttons show a spinner and
@@ -147,6 +182,10 @@ settle decisions that were already made, not re-open them.
   same formula, set in large mono type with its terms spelled out
   (`src/components/PaceInfo.tsx`). One shared island, so a server-rendered card
   can still explain itself.
+- **Show the numbers behind the formula, not just its shape.** `( Pa + Pp ) ÷
+  Dr` teaches nothing on its own; each term is colour-coded and its legend row
+  carries the user's *actual* figure, ending in a straw "today that's 5
+  pages/day" line. The reader can check the arithmetic themselves.
 - **A derived number sits in a straw note**, not a mint one: it's guidance to
   act on, not a completed state.
 - **Group to create hierarchy.** Repeated control rows (per-language steppers)
@@ -209,8 +248,12 @@ settle decisions that were already made, not re-open them.
   never a database default — a check saved at 22:00 must not land on tomorrow
   (`todayInSaoPaulo()`).
 - **Rules that don't punish:** a streak counts from yesterday (an unchecked
-  today never zeroes it); monthly adherence divides by *elapsed* days, not the
-  whole month; optional habits count nowhere.
+  today never zeroes it); adherence divides by *elapsed* days — a habit kept
+  all three days of a Wednesday week is at 100%, not 43% — and optional habits
+  count nowhere.
+- **Two figures side by side must not be the same figure twice.** Overview's
+  month header already states adherence, so the summary cards spend their space
+  on reading, sleep and the weak point instead of restating `120 of 174`.
 - **Show a target only when it's real.** While the book list is incomplete,
   show what's missing instead of a pace computed from books that don't exist
   yet.
@@ -230,3 +273,5 @@ settle decisions that were already made, not re-open them.
 - [ ] Can unsaved work be lost by a mis-tap? (Guard it.)
 - [ ] After a write, will the next screen show fresh data?
 - [ ] Empty state: does it say what to do and link there?
+- [ ] Does each card lead with one number, and do sibling cards match in height?
+- [ ] Is anything hover-only also reachable by tap, focus and Escape?

@@ -58,6 +58,15 @@ export interface CheckWithHabit {
   optional: boolean;
 }
 
+export interface WeekCell {
+  done: boolean;
+  // Short label for the grid/tooltip ("9 pg", "4/6"); null when nothing was
+  // logged that day.
+  value: string | null;
+  // Logged but short of the plan — shown in straw rather than clover.
+  partial: boolean;
+}
+
 export interface WeekHabitRow {
   habitId: number;
   name: string;
@@ -66,6 +75,9 @@ export interface WeekHabitRow {
   // Monday-first, aligned with WeekData.days; a day with no row in the
   // database counts as not done.
   done: boolean[];
+  cells: WeekCell[];
+  // Share of the week's days this habit was done, 0–100.
+  percent: number;
 }
 
 export interface WeekData {
