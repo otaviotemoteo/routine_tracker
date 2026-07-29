@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingChrome";
 import { DailyStep } from "@/components/daily/DailyStep";
 import { DailyIndex } from "@/components/daily/DailyIndex";
@@ -40,7 +42,14 @@ export default async function DayPage({ searchParams }: DayPageProps) {
     return (
       <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-8 pb-24">
         <p className="eyebrow">{copy.daily.eyebrow}</p>
-        <h1 className="display-title text-3xl sm:text-4xl mt-2 mb-2">
+        <h1 className="display-title text-3xl sm:text-4xl mt-2 mb-2 flex items-center gap-3">
+          <Link
+            href="/"
+            aria-label={copy.daily.back}
+            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] -ml-2"
+          >
+            <ArrowLeft className="w-7 h-7" aria-hidden />
+          </Link>
           {copy.daily.indexTitle}
         </h1>
         <p className="opacity-75 mb-6">

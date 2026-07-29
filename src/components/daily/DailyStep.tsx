@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { SHEET_BODIES } from "@/components/sheets";
 import { format, habitName, type Copy, type Lang } from "@/lib/i18n";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
@@ -63,7 +63,16 @@ export function DailyStep({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
-        <h1 className="display-title text-3xl sm:text-4xl">
+        <h1 className="display-title text-3xl sm:text-4xl flex items-center gap-3">
+          {/* Up to the day's areas. The footer's Back steps to the previous
+              habit; this leaves the flow entirely. */}
+          <Link
+            href="/day"
+            aria-label={copy.back}
+            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] -ml-2"
+          >
+            <ArrowLeft className="w-7 h-7" aria-hidden />
+          </Link>
           {format(copy.question, { habit: name })}
         </h1>
         {check.done && (
