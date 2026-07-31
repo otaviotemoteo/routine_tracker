@@ -56,7 +56,11 @@ export function MonthCalendar({
   return (
     <div
       className="bg-white border-2 border-forest rounded-card shadow-hard p-3 sm:p-4"
-      onMouseLeave={close}
+      // Mouse only: a tap that "leaves" the card would close the summary it
+      // just opened.
+      onPointerLeave={(event) => {
+        if (event.pointerType === "mouse") close();
+      }}
     >
       <div className="grid grid-cols-7 gap-1.5 mb-1.5">
         {dayLabels.map((label, i) => (
@@ -74,14 +78,17 @@ export function MonthCalendar({
           <span key={`lead-${i}`} aria-hidden />
         ))}
         {matrix.days.map((day, i) => {
-          const future = day.date > today;
+          // Outside the record — not yet, or before the first check ever made.
+          const future = !day.tracked;
           return (
             <div key={day.date} className="relative flex">
             <button
               type="button"
-              onMouseEnter={() => openAt(i)}
-              onFocus={() => openAt(i)}
-              onClick={() => toggle(i)}
+              onPointerEnter={(event) => {
+                if (event.pointerType === "mouse" && day.tracked) openAt(i);
+              }}
+              onFocus={() => day.tracked && openAt(i)}
+              onClick={() => day.tracked && toggle(i)}
               aria-label={`${day.dayOfMonth} — ${format(copy.dayOf, {
                 done: day.doneCount,
                 total: matrix.requiredCount,
