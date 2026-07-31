@@ -6,6 +6,9 @@ interface ConsistencyPanelProps {
   habits: MonthHabitStats[];
   // Done-days per slug last month, for the delta column.
   previous: Record<string, number>;
+  // False when last month is entirely before the first record — "+9" against a
+  // month that was never tracked reads as progress that didn't happen.
+  comparable: boolean;
   lang: Lang;
   copy: Copy["overview"];
 }
@@ -15,6 +18,7 @@ interface ConsistencyPanelProps {
 export function ConsistencyPanel({
   habits,
   previous,
+  comparable,
   lang,
   copy,
 }: ConsistencyPanelProps) {
@@ -29,9 +33,11 @@ export function ConsistencyPanel({
         <h3 className="text-[0.6rem] uppercase tracking-wider font-semibold opacity-50">
           {copy.consistency}
         </h3>
-        <span className="text-[0.6rem] uppercase tracking-wider font-semibold opacity-35">
-          {copy.vsPrevious}
-        </span>
+        {comparable && (
+          <span className="text-[0.6rem] uppercase tracking-wider font-semibold opacity-35">
+            {copy.vsPrevious}
+          </span>
+        )}
       </div>
 
       <ul className="flex flex-col gap-2.5 list-none">
@@ -61,17 +67,19 @@ export function ConsistencyPanel({
               <span className="w-12 shrink-0 text-right font-mono text-[0.7rem] font-bold">
                 {habit.doneCount}/{habit.countedDays}
               </span>
-              <span
-                className={`w-7 shrink-0 text-right font-mono text-[0.65rem] font-bold ${
-                  delta > 0
-                    ? "text-clover"
-                    : delta < 0
-                      ? "text-straw"
-                      : "opacity-30"
-                }`}
-              >
-                {delta > 0 ? `+${delta}` : delta < 0 ? delta : "—"}
-              </span>
+              {comparable && (
+                <span
+                  className={`w-7 shrink-0 text-right font-mono text-[0.65rem] font-bold ${
+                    delta > 0
+                      ? "text-clover"
+                      : delta < 0
+                        ? "text-straw"
+                        : "opacity-30"
+                  }`}
+                >
+                  {delta > 0 ? `+${delta}` : delta < 0 ? delta : "—"}
+                </span>
+              )}
             </li>
           );
         })}
