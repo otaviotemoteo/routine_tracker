@@ -20,6 +20,7 @@ import {
   addDays,
   calcMonthAdherence,
   calcStreak,
+  countTrackedDays,
   daysInMonth,
   isoWeekday,
   todayInSaoPaulo,
@@ -842,6 +843,15 @@ export async function getTodayComparisons(
   };
 }
 
+// The first day anything was ever logged. Everything before it is outside the
+// record, not a run of missed days — so it never lands in a denominator.
+export async function getTrackingStart(): Promise<string | null> {
+  const [row] = await db
+    .select({ first: sql<string | null>`min(${dailyChecks.checkedAt})` })
+    .from(dailyChecks);
+  return row?.first ?? null;
+}
+
 // How many routine blocks and spiritual practices are configured, so a grid
 // cell can say "4/6" rather than "4".
 async function getCellTotals(): Promise<CellTotals> {
@@ -856,6 +866,9 @@ export interface MonthMatrixDay {
   date: string;
   dayOfMonth: number;
   weekday: number; // ISO 1..7
+  // Inside the record: on or after the first ever check, and already past.
+  // Days outside it are blanks, not misses.
+  tracked: boolean;
   doneCount: number; // required habits only — the heat level
   // Per-habit outcome for the tooltip, in habit order.
   habits: { slug: string; name: string; done: boolean; value: string | null }[];
@@ -865,6 +878,8 @@ export interface MonthMatrix {
   month: string;
   days: MonthMatrixDay[];
   requiredCount: number;
+  // Days of this month inside the record — the adherence denominator.
+  countedDays: number;
 }
 
 // Every day of the month with its per-habit outcome — feeds both the calendar
@@ -874,7 +889,8 @@ export async function getMonthMatrix(month: string): Promise<MonthMatrix> {
   const first = `${month}-01`;
   const last = `${month}-${String(total).padStart(2, "0")}`;
 
-  const [allHabits, rows, totals] = await Promise.all([
+  const today = todayInSaoPaulo();
+  const [allHabits, rows, totals, trackingStart] = await Promise.all([
     db.select().from(habits).orderBy(asc(habits.id)),
     db
       .select({
@@ -888,6 +904,7 @@ export async function getMonthMatrix(month: string): Promise<MonthMatrix> {
         and(gte(dailyChecks.checkedAt, first), lte(dailyChecks.checkedAt, last))
       ),
     getCellTotals(),
+    getTrackingStart(),
   ]);
 
   const byHabitDay = new Map<string, { done: boolean; details: unknown }>();
@@ -915,6 +932,7 @@ export async function getMonthMatrix(month: string): Promise<MonthMatrix> {
       date,
       dayOfMonth: i + 1,
       weekday: isoWeekday(date),
+      tracked: date <= today && (!trackingStart || date >= trackingStart),
       doneCount: perHabit.filter((p) => p.done && !p.optional).length,
       habits: perHabit.map(({ slug, name, done, value }) => ({
         slug,
@@ -929,6 +947,7 @@ export async function getMonthMatrix(month: string): Promise<MonthMatrix> {
     month,
     days,
     requiredCount: allHabits.filter((h) => !h.optional).length,
+    countedDays: countTrackedDays(first, last, today, trackingStart),
   };
 }
 
@@ -1056,13 +1075,10 @@ export async function getMonthDetailStats(
 // not done — the week view never creates rows.
 export async function getWeekData(start: string): Promise<WeekData> {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
-  // Only the days that have happened count towards the percentage — a habit
-  // done on all three days so far is at 100%, not 43%.
   const today = todayInSaoPaulo();
-  const elapsed = days.filter((d) => d <= today).length || 7;
   // Details come along so each cell can carry its own figure ("9 pg", "4/6")
   // instead of a bare tick.
-  const [allHabits, rows, totals] = await Promise.all([
+  const [allHabits, rows, totals, trackingStart] = await Promise.all([
     db.select().from(habits).orderBy(asc(habits.id)),
     db
       .select({
@@ -1079,7 +1095,12 @@ export async function getWeekData(start: string): Promise<WeekData> {
         )
       ),
     getCellTotals(),
+    getTrackingStart(),
   ]);
+
+  // Only days that have happened AND are inside the record count towards the
+  // percentage: a habit kept on all three days so far reads 100%, not 43%.
+  const countedDays = countTrackedDays(days[0], days[6], today, trackingStart);
 
   const byHabitDay = new Map<string, { done: boolean; details: unknown }>();
   for (const row of rows) {
@@ -1108,7 +1129,8 @@ export async function getWeekData(start: string): Promise<WeekData> {
       optional: h.optional,
       done: cells.map((c) => c.done),
       cells,
-      percent: Math.round((doneCount / elapsed) * 100),
+      percent:
+        countedDays === 0 ? 0 : Math.round((doneCount / countedDays) * 100),
     };
   });
 
@@ -1123,7 +1145,18 @@ export async function getWeekData(start: string): Promise<WeekData> {
     worstSlug = required[counts.indexOf(Math.min(...counts))].slug;
   }
 
-  return { start, days, habits: habitRows, bestSlug, worstSlug };
+  return {
+    start,
+    days,
+    habits: habitRows,
+    countedDays,
+    // A day the record doesn't cover yet has nothing to report.
+    tracked: days.map(
+      (d) => d <= today && (!trackingStart || d >= trackingStart)
+    ),
+    bestSlug,
+    worstSlug,
+  };
 }
 
 // Adherence % (README Decision 5) + current streak (Decision 4) per habit.
@@ -1136,7 +1169,7 @@ export async function getMonthData(
 ): Promise<MonthData> {
   const first = `${month}-01`;
   const last = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
-  const [allHabits, monthRows, streakRows] = await Promise.all([
+  const [allHabits, monthRows, streakRows, trackingStart] = await Promise.all([
     db.select().from(habits).orderBy(asc(habits.id)),
     db
       .select({ habitId: dailyChecks.habitId, checkedAt: dailyChecks.checkedAt })
@@ -1152,6 +1185,7 @@ export async function getMonthData(
       .select({ habitId: dailyChecks.habitId, checkedAt: dailyChecks.checkedAt })
       .from(dailyChecks)
       .where(and(eq(dailyChecks.done, true), lte(dailyChecks.checkedAt, today))),
+    getTrackingStart(),
   ]);
 
   const doneInMonth = new Map<number, number>();
@@ -1169,7 +1203,8 @@ export async function getMonthData(
     const adherence = calcMonthAdherence(
       month,
       today,
-      doneInMonth.get(h.id) ?? 0
+      doneInMonth.get(h.id) ?? 0,
+      trackingStart
     );
     return {
       habitId: h.id,
