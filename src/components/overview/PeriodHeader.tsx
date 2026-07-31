@@ -12,8 +12,10 @@ interface PeriodHeaderProps {
   eyebrow: string;
   title: string;
   stats: Stat[];
-  prevHref: string;
-  nextHref: string;
+  // Omitted when there is nothing that way: no records before the first one,
+  // and no point walking into a future that can't have any.
+  prevHref?: string;
+  nextHref?: string;
   prevAriaLabel: string;
   nextAriaLabel: string;
   // "Back to the current period"; the link is omitted when already there.
@@ -29,6 +31,11 @@ const toneClass = {
 
 const navButton =
   "min-h-[44px] min-w-[44px] shrink-0 inline-flex items-center justify-center rounded-full border-2 border-forest bg-white shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm";
+
+// Kept in the layout so the title doesn't shift, but flat and inert — there is
+// nothing that way to go to.
+const disabledNavButton =
+  "min-h-[44px] min-w-[44px] shrink-0 inline-flex items-center justify-center rounded-full border-2 border-forest/15 text-forest/25";
 
 // Which period you're looking at, how to move between them, and its two
 // headline figures — the same anatomy Today uses, so the app reads
@@ -62,15 +69,27 @@ export function PeriodHeader({
 
       <div className="flex items-end justify-between gap-4 flex-wrap mt-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Link href={prevHref} aria-label={prevAriaLabel} className={navButton}>
-            <ChevronLeft aria-hidden className="w-5 h-5" />
-          </Link>
+          {prevHref ? (
+            <Link href={prevHref} aria-label={prevAriaLabel} className={navButton}>
+              <ChevronLeft aria-hidden className="w-5 h-5" />
+            </Link>
+          ) : (
+            <span aria-hidden className={disabledNavButton}>
+              <ChevronLeft className="w-5 h-5" />
+            </span>
+          )}
           <h2 className="display-title text-3xl sm:text-4xl px-1 truncate">
             {title}
           </h2>
-          <Link href={nextHref} aria-label={nextAriaLabel} className={navButton}>
-            <ChevronRight aria-hidden className="w-5 h-5" />
-          </Link>
+          {nextHref ? (
+            <Link href={nextHref} aria-label={nextAriaLabel} className={navButton}>
+              <ChevronRight aria-hidden className="w-5 h-5" />
+            </Link>
+          ) : (
+            <span aria-hidden className={disabledNavButton}>
+              <ChevronRight className="w-5 h-5" />
+            </span>
+          )}
         </div>
 
         <div className="shrink-0 flex items-center gap-3 bg-white border-2 border-forest rounded-card px-3.5 py-2.5 shadow-hard">
