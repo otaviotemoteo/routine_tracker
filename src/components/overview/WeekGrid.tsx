@@ -58,7 +58,11 @@ export function WeekGrid({
   return (
     <div
       className="bg-white border-2 border-forest rounded-card shadow-hard p-3 sm:p-4"
-      onMouseLeave={close}
+      // Mouse only: a tap that "leaves" the card would close the summary it
+      // just opened.
+      onPointerLeave={(event) => {
+        if (event.pointerType === "mouse") close();
+      }}
     >
       {/* The table fits from sm up, and the floating summary has to escape this
           box — an overflow container would clip it. */}
@@ -73,15 +77,22 @@ export function WeekGrid({
                 <th key={i} scope="col" className="pb-2 px-0.5">
                   <button
                     type="button"
-                    onMouseEnter={() => {
+                    onPointerEnter={(event) => {
+                      if (event.pointerType !== "mouse" || !week.tracked[i])
+                        return;
                       open(i);
                       setOpenRow(0);
                     }}
                     onFocus={() => {
+                      if (!week.tracked[i]) return;
                       open(i);
                       setOpenRow(0);
                     }}
-                    onClick={() => toggle(i)}
+                    onClick={() => {
+                      if (!week.tracked[i]) return;
+                      setOpenRow(0);
+                      toggle(i);
+                    }}
                     aria-label={`${dayNames[i]} ${week.days[i].slice(8, 10)}`}
                     className={`w-full flex flex-col items-center leading-none ${
                       week.days[i] === today
@@ -130,20 +141,28 @@ export function WeekGrid({
                     </span>
                   </td>
                   {habit.cells.map((cell, i) => {
-                    const future = week.days[i] > today;
+                    // Outside the record — not yet, or before the first check.
+                    const future = !week.tracked[i];
                     return (
                       <td key={i} className="relative px-0.5 py-1">
                         <button
                           type="button"
-                          onMouseEnter={() => {
+                          onPointerEnter={(event) => {
+                            if (event.pointerType !== "mouse" || !week.tracked[i])
+                              return;
                             open(i);
                             setOpenRow(row);
                           }}
                           onFocus={() => {
+                            if (!week.tracked[i]) return;
                             open(i);
                             setOpenRow(row);
                           }}
-                          onClick={() => toggle(i)}
+                          onClick={() => {
+                            if (!week.tracked[i]) return;
+                            setOpenRow(row);
+                            toggle(i);
+                          }}
                           aria-label={`${habitName(lang, habit.slug, habit.name)}, ${dayNames[i]}: ${
                             cell.done
                               ? (cell.value ?? copy.done)
