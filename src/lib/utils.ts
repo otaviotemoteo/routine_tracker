@@ -160,20 +160,31 @@ export function formatMonthLabel(month: string, lang: Lang): string {
 export function calcMonthAdherence(
   month: string,
   today: string,
-  doneCount: number
+  doneCount: number,
+  trackingStart?: string | null
 ): { doneCount: number; countedDays: number; percent: number } {
-  const currentMonth = today.slice(0, 7);
-  let countedDays: number;
-  if (month === currentMonth) {
-    countedDays = Number(today.slice(8, 10));
-  } else if (month > currentMonth) {
-    countedDays = 0;
-  } else {
-    countedDays = daysInMonth(month);
-  }
+  const first = `${month}-01`;
+  const last = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+  const countedDays = countTrackedDays(first, last, today, trackingStart);
   const percent =
     countedDays === 0 ? 0 : Math.round((doneCount / countedDays) * 100);
   return { doneCount, countedDays, percent };
+}
+
+// How many days of a period actually count: the ones that have happened AND
+// are on or after the day tracking began. A month half of which predates the
+// first record isn't 50% adherent — those days were never in play.
+// Mental test: today = "2026-07-29", start = "2026-07-21", month of July →
+// 9 days (21st through 29th), not 29.
+export function countTrackedDays(
+  from: string,
+  to: string,
+  today: string,
+  trackingStart?: string | null
+): number {
+  const first = trackingStart && trackingStart > from ? trackingStart : from;
+  const last = today < to ? today : to;
+  return last < first ? 0 : daysBetween(first, last) + 1;
 }
 
 // ─── v2 derived metrics (computed, never stored) ─────────────────────────────
