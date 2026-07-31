@@ -12,6 +12,7 @@ import {
   getMonthDetailStats,
   getMonthDoneCounts,
   getMonthMatrix,
+  getTrackingStart,
   getWeekData,
 } from "@/db/queries";
 import { getLang } from "@/lib/get-lang";
@@ -45,7 +46,10 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
 
   // Also feeds the week's reading card, so the pages/day it reports is measured
   // against the same target the reading dialog explains.
-  const setup = await getSetupSummary(copy.onboarding, copy.today);
+  const [setup, trackingStart] = await Promise.all([
+    getSetupSummary(copy.onboarding, copy.today),
+    getTrackingStart(),
+  ]);
   const paceGoal = setup.find((row) => row.section === "reading")?.paceValues
     ?.perDay;
 
@@ -65,9 +69,16 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
           today={today}
           period={period}
           paceGoal={paceGoal}
+          trackingStart={trackingStart}
         />
       ) : (
-        <MonthView lang={lang} copy={copy} today={today} period={period} />
+        <MonthView
+          lang={lang}
+          copy={copy}
+          today={today}
+          period={period}
+          trackingStart={trackingStart}
+        />
       )}
 
       {/* Editable setup, below the frequency views. */}
@@ -148,12 +159,14 @@ async function WeekView({
   today,
   period,
   paceGoal,
+  trackingStart,
 }: {
   lang: Lang;
   copy: (typeof COPY)[Lang];
   today: string;
   period?: string;
   paceGoal?: number;
+  trackingStart: string | null;
 }) {
   const currentStart = weekStartMonday(today);
   const start =
@@ -163,17 +176,21 @@ async function WeekView({
   const week = await getWeekData(start);
   const label = `${formatShortDayMonth(start, lang)} – ${formatShortDayMonth(addDays(start, 6), lang)}`;
 
-  // Adherence counts only the days that have happened — a Tuesday shouldn't
-  // read as 28% just because Wednesday hasn't arrived.
+  // Adherence counts only the days inside the record — a Tuesday shouldn't
+  // read as 28% because Wednesday hasn't arrived, and the days before the very
+  // first check were never missed.
   const required = week.habits.filter((h) => !h.optional);
-  const elapsed = week.days.filter((d) => d <= today).length;
-  const slots = required.length * elapsed;
+  const slots = required.length * week.countedDays;
   const done = required.reduce(
-    (sum, h) => sum + h.cells.filter((c, i) => c.done && week.days[i] <= today).length,
+    (sum, h) => sum + h.cells.filter((c, i) => c.done && week.tracked[i]).length,
     0
   );
   const adherence = slots === 0 ? 0 : Math.round((done / slots) * 100);
   const empty = week.habits.every((h) => h.done.every((d) => !d));
+  // Nothing to walk into: the week after this one hasn't started, and there
+  // are no records before the first.
+  const nextStart = addDays(start, 7);
+  const prevEnd = addDays(start, -1);
 
   return (
     <div className="flex flex-col gap-5">
@@ -194,8 +211,16 @@ async function WeekView({
             label: copy.overview.recordsDone,
           },
         ]}
-        prevHref={`/overview?view=week&period=${addDays(start, -7)}`}
-        nextHref={`/overview?view=week&period=${addDays(start, 7)}`}
+        prevHref={
+          trackingStart && prevEnd < trackingStart
+            ? undefined
+            : `/overview?view=week&period=${addDays(start, -7)}`
+        }
+        nextHref={
+          nextStart > today
+            ? undefined
+            : `/overview?view=week&period=${nextStart}`
+        }
         prevAriaLabel={copy.week.prevAria}
         nextAriaLabel={copy.week.nextAria}
         currentLabel={copy.week.current}
@@ -231,11 +256,13 @@ async function MonthView({
   copy,
   today,
   period,
+  trackingStart,
 }: {
   lang: Lang;
   copy: (typeof COPY)[Lang];
   today: string;
   period?: string;
+  trackingStart: string | null;
 }) {
   const currentMonth = today.slice(0, 7);
   const month =
@@ -248,7 +275,7 @@ async function MonthView({
   ]);
 
   const required = data.habits.filter((h) => !h.optional);
-  const elapsed = matrix.days.filter((d) => d.date <= today).length;
+  const elapsed = matrix.countedDays;
   const slots = required.length * elapsed;
   const done = required.reduce((sum, h) => sum + h.doneCount, 0);
   const adherence = slots === 0 ? 0 : Math.round((done / slots) * 100);
@@ -256,7 +283,7 @@ async function MonthView({
   // built around; strict 6-of-6 days are already visible as the darkest cells.
   const goodDayFloor = Math.max(1, matrix.requiredCount - 1);
   const goodDays = matrix.days.filter(
-    (d) => d.date <= today && d.doneCount >= goodDayFloor
+    (d) => d.tracked && d.doneCount >= goodDayFloor
   ).length;
   const empty = data.habits.every((h) => h.doneCount === 0);
 
@@ -314,8 +341,16 @@ async function MonthView({
             label: format(copy.overview.daysAtLeast, { min: goodDayFloor }),
           },
         ]}
-        prevHref={`/overview?view=month&period=${addMonths(month, -1)}`}
-        nextHref={`/overview?view=month&period=${addMonths(month, 1)}`}
+        prevHref={
+          trackingStart && addMonths(month, -1) < trackingStart.slice(0, 7)
+            ? undefined
+            : `/overview?view=month&period=${addMonths(month, -1)}`
+        }
+        nextHref={
+          addMonths(month, 1) > currentMonth
+            ? undefined
+            : `/overview?view=month&period=${addMonths(month, 1)}`
+        }
         prevAriaLabel={copy.month.prevAria}
         nextAriaLabel={copy.month.nextAria}
         currentLabel={copy.month.current}
@@ -341,6 +376,9 @@ async function MonthView({
       <ConsistencyPanel
         habits={data.habits}
         previous={previous}
+        comparable={
+          !trackingStart || addMonths(month, -1) >= trackingStart.slice(0, 7)
+        }
         lang={lang}
         copy={copy.overview}
       />
