@@ -86,6 +86,10 @@ export interface WeekData {
   start: string; // always a Monday
   days: string[]; // 7 dates, Monday through Sunday
   habits: WeekHabitRow[];
+  // Days of this week that have happened AND are on or after the first ever
+  // record — the denominator, and the days worth opening a summary for.
+  countedDays: number;
+  tracked: boolean[];
   // Slugs of the best/worst required habit of the week (optional habits are
   // excluded per README Decision 6); null when the week has no checks at all.
   bestSlug: string | null;
