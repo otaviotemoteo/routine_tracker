@@ -26,6 +26,7 @@ import {
   spiritualityInitial,
   workoutInitial,
 } from "@/lib/onboarding-prefill";
+import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ interface ConfigPageProps {
 // reached from its Activities section (`?from=overview`) — since that's the
 // screen the change is meant to be seen on. The same server actions write.
 export default async function ConfigPage({ searchParams }: ConfigPageProps) {
+  const userId = await requireUserId();
   const lang = await getLang();
   const copy = COPY[lang].onboarding;
   const { section: raw, from } = await searchParams;
@@ -72,7 +74,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
           </h1>
           <p className="opacity-75 mb-6">{copy.config.lead}</p>
           <ul className="flex flex-col gap-3 list-none">
-            {(await getSetupSummary(copy)).map((row) => (
+            {(await getSetupSummary(userId, copy)).map((row) => (
               <li key={row.section}>
                 <Link
                   href={`/config?section=${row.section}`}
@@ -112,7 +114,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               copy={copy}
               requireDirtyToSave
               titleBackHref={origin}
-              {...(await workoutInitial())}
+              {...(await workoutInitial(userId))}
             />
           )}
           {section === "reading" && (
@@ -124,7 +126,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               copy={copy}
               requireDirtyToSave
               titleBackHref={origin}
-              {...(await readingInitial())}
+              {...(await readingInitial(userId))}
             />
           )}
           {section === "sleep" && (
@@ -136,7 +138,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               copy={copy}
               requireDirtyToSave
               titleBackHref={origin}
-              {...(await sleepInitial())}
+              {...(await sleepInitial(userId))}
             />
           )}
           {section === "routine" && (
@@ -148,7 +150,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               copy={copy}
               requireDirtyToSave
               titleBackHref={origin}
-              initialBlocks={await routineInitial()}
+              initialBlocks={await routineInitial(userId)}
             />
           )}
           {section === "duolingo" && (
@@ -160,7 +162,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               copy={copy}
               requireDirtyToSave
               titleBackHref={origin}
-              initialLanguages={await duolingoInitial()}
+              initialLanguages={await duolingoInitial(userId)}
             />
           )}
           {section === "spirituality" && (
@@ -172,7 +174,7 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               copy={copy}
               requireDirtyToSave
               titleBackHref={origin}
-              initialPractices={await spiritualityInitial()}
+              initialPractices={await spiritualityInitial(userId)}
             />
           )}
         </>
