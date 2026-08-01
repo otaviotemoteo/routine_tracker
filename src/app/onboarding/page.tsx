@@ -35,6 +35,7 @@ import {
   workoutInitial,
 } from "@/lib/onboarding-prefill";
 import { getSetupSummary } from "@/lib/setup-summary";
+import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ interface OnboardingPageProps {
 export default async function OnboardingPage({
   searchParams,
 }: OnboardingPageProps) {
+  const userId = await requireUserId();
   const lang = await getLang();
   const copy = COPY[lang].onboarding;
   const step = resolveStep((await searchParams).step);
@@ -79,7 +81,7 @@ export default async function OnboardingPage({
           skipHref={next}
           submitLabel={submit}
           copy={copy}
-          {...(await workoutInitial())}
+          {...(await workoutInitial(userId))}
         />
       )}
 
@@ -91,7 +93,7 @@ export default async function OnboardingPage({
           skipHref={next}
           submitLabel={submit}
           copy={copy}
-          {...(await readingInitial())}
+          {...(await readingInitial(userId))}
         />
       )}
 
@@ -103,7 +105,7 @@ export default async function OnboardingPage({
           skipHref={next}
           submitLabel={submit}
           copy={copy}
-          {...(await sleepInitial())}
+          {...(await sleepInitial(userId))}
         />
       )}
 
@@ -115,7 +117,7 @@ export default async function OnboardingPage({
           skipHref={next}
           submitLabel={submit}
           copy={copy}
-          initialBlocks={await routineInitial()}
+          initialBlocks={await routineInitial(userId)}
         />
       )}
 
@@ -127,7 +129,7 @@ export default async function OnboardingPage({
           skipHref={next}
           submitLabel={submit}
           copy={copy}
-          initialLanguages={await duolingoInitial()}
+          initialLanguages={await duolingoInitial(userId)}
         />
       )}
 
@@ -139,7 +141,7 @@ export default async function OnboardingPage({
           skipHref={next}
           submitLabel={submit}
           copy={copy}
-          initialPractices={await spiritualityInitial()}
+          initialPractices={await spiritualityInitial(userId)}
         />
       )}
 
@@ -147,7 +149,7 @@ export default async function OnboardingPage({
         <ReviewStep
           copy={copy}
           backHref={back}
-          rows={(await getSetupSummary(copy)).map((row) => ({
+          rows={(await getSetupSummary(userId, copy)).map((row) => ({
             label: row.label,
             value: row.value,
             editHref: stepHref(row.section),
