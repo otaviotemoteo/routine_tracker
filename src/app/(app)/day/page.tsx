@@ -15,6 +15,7 @@ import {
   TOTAL_DAILY_STEPS,
 } from "@/lib/daily";
 import { todayInSaoPaulo } from "@/lib/utils";
+import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -25,14 +26,15 @@ interface DayPageProps {
 // The guided "Complete daily" flow: one habit per step, prefilled from the
 // user's configured goals (same mechanics as the onboarding wizard).
 export default async function DayPage({ searchParams }: DayPageProps) {
+  const userId = await requireUserId();
   const lang = await getLang();
   const copy = COPY[lang];
   const today = todayInSaoPaulo();
   const rawStep = (await searchParams).step;
 
   const [checks, context] = await Promise.all([
-    getDayChecks(today),
-    getTodayContext(today),
+    getDayChecks(userId, today),
+    getTodayContext(userId, today),
   ]);
 
   // No step named: show the day's areas so the user can pick what's left
