@@ -16,6 +16,7 @@ import {
   getWeekData,
 } from "@/db/queries";
 import { getLang } from "@/lib/get-lang";
+import { requireUserId } from "@/lib/session";
 import { COPY, format, habitName, type Lang } from "@/lib/i18n";
 import {
   addDays,
@@ -38,6 +39,7 @@ interface OverviewPageProps {
 // period nav are plain <Link>s, so switching is a client transition, never a
 // full reload.
 export default async function OverviewPage({ searchParams }: OverviewPageProps) {
+  const userId = await requireUserId();
   const lang = await getLang();
   const copy = COPY[lang];
   const today = todayInSaoPaulo();
@@ -47,8 +49,8 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
   // Also feeds the week's reading card, so the pages/day it reports is measured
   // against the same target the reading dialog explains.
   const [setup, trackingStart] = await Promise.all([
-    getSetupSummary(copy.onboarding, copy.today),
-    getTrackingStart(),
+    getSetupSummary(userId, copy.onboarding, copy.today),
+    getTrackingStart(userId),
   ]);
   const paceGoal = setup.find((row) => row.section === "reading")?.paceValues
     ?.perDay;
@@ -64,6 +66,7 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
 
       {view === "week" ? (
         <WeekView
+          userId={userId}
           lang={lang}
           copy={copy}
           today={today}
@@ -73,6 +76,7 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
         />
       ) : (
         <MonthView
+          userId={userId}
           lang={lang}
           copy={copy}
           today={today}
@@ -154,6 +158,7 @@ function weekCards(
 }
 
 async function WeekView({
+  userId,
   lang,
   copy,
   today,
@@ -161,6 +166,7 @@ async function WeekView({
   paceGoal,
   trackingStart,
 }: {
+  userId: number;
   lang: Lang;
   copy: (typeof COPY)[Lang];
   today: string;
@@ -173,7 +179,7 @@ async function WeekView({
     period && /^\d{4}-\d{2}-\d{2}$/.test(period) && !Number.isNaN(Date.parse(period))
       ? weekStartMonday(period)
       : currentStart;
-  const week = await getWeekData(start);
+  const week = await getWeekData(userId, start);
   const label = `${formatShortDayMonth(start, lang)} – ${formatShortDayMonth(addDays(start, 6), lang)}`;
 
   // Adherence counts only the days inside the record — a Tuesday shouldn't
@@ -252,12 +258,14 @@ async function WeekView({
 }
 
 async function MonthView({
+  userId,
   lang,
   copy,
   today,
   period,
   trackingStart,
 }: {
+  userId: number;
   lang: Lang;
   copy: (typeof COPY)[Lang];
   today: string;
@@ -268,10 +276,10 @@ async function MonthView({
   const month =
     period && /^\d{4}-(0[1-9]|1[0-2])$/.test(period) ? period : currentMonth;
   const [data, stats, matrix, previous] = await Promise.all([
-    getMonthData(month, today),
-    getMonthDetailStats(month),
-    getMonthMatrix(month),
-    getMonthDoneCounts(addMonths(month, -1)),
+    getMonthData(userId, month, today),
+    getMonthDetailStats(userId, month),
+    getMonthMatrix(userId, month),
+    getMonthDoneCounts(userId, addMonths(month, -1)),
   ]);
 
   const required = data.habits.filter((h) => !h.optional);
