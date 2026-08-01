@@ -53,30 +53,36 @@ const checkWithHabitColumns = {
 // INSERT is a single atomic statement and ON CONFLICT DO NOTHING leans on the
 // UNIQUE(habit_id, checked_at) constraint, so concurrent first-loads of the
 // same day are safe (the neon-http driver has no interactive transactions).
-export async function getDayChecks(date: string): Promise<CheckWithHabit[]> {
+export async function getDayChecks(
+  userId: number,
+  date: string
+): Promise<CheckWithHabit[]> {
   const allHabits = await db.select().from(habits).orderBy(asc(habits.id));
   if (allHabits.length > 0) {
     await db
       .insert(dailyChecks)
-      .values(allHabits.map((h) => ({ habitId: h.id, checkedAt: date })))
+      .values(allHabits.map((h) => ({ userId, habitId: h.id, checkedAt: date })))
       .onConflictDoNothing();
   }
   return db
     .select(checkWithHabitColumns)
     .from(dailyChecks)
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
-    .where(eq(dailyChecks.checkedAt, date))
+    .where(and(eq(dailyChecks.userId, userId), eq(dailyChecks.checkedAt, date)))
     .orderBy(asc(habits.id));
 }
 
+// Every id-addressed write carries the user in its WHERE clause: an id from
+// somebody else's account simply matches no row, rather than being mutated.
 export async function toggleCheck(
+  userId: number,
   id: number,
   done: boolean
 ): Promise<CheckWithHabit | null> {
   const [updated] = await db
     .update(dailyChecks)
     .set({ done, updatedAt: new Date() })
-    .where(eq(dailyChecks.id, id))
+    .where(and(eq(dailyChecks.id, id), eq(dailyChecks.userId, userId)))
     .returning({ id: dailyChecks.id, habitId: dailyChecks.habitId });
   if (!updated) return null;
   const [row] = await db
@@ -90,17 +96,20 @@ export async function toggleCheck(
 // Everything the Today detail sheets need, resolved for the given day: the
 // active plan's day for today's weekday, the current book, the sleep default,
 // today's routine blocks, active languages and practices.
-export async function getTodayContext(date: string): Promise<TodayContext> {
+export async function getTodayContext(
+  userId: number,
+  date: string
+): Promise<TodayContext> {
   const weekday = isoWeekday(date);
   const [plan, book, sleep, blocks, langs, practices, allBooks] =
     await Promise.all([
-      getActiveWorkoutPlan(),
-      getCurrentBook(),
-      getSleepTarget(),
-      listRoutineBlocks(true),
-      listLanguages(true),
-      listSpiritualPractices(true),
-      listBooks(),
+      getActiveWorkoutPlan(userId),
+      getCurrentBook(userId),
+      getSleepTarget(userId),
+      listRoutineBlocks(userId, true),
+      listLanguages(userId, true),
+      listSpiritualPractices(userId, true),
+      listBooks(userId),
     ]);
   const planDays =
     plan?.days.map((d) => ({
@@ -154,13 +163,14 @@ export async function getTodayContext(date: string): Promise<TodayContext> {
 // When a reading detail is saved, advance the book's current_page and flip it
 // to "done" if the last page was reached (spec: mark finished → next book).
 export async function applyReadingProgress(
+  userId: number,
   bookId: number,
   endedOnPage: number,
   date: string
 ) {
-  const book = await getBookById(bookId);
+  const book = await getBookById(userId, bookId);
   if (!book) return;
-  const patch: Parameters<typeof updateBook>[1] = {
+  const patch: Parameters<typeof updateBook>[2] = {
     currentPage: Math.max(book.currentPage, endedOnPage),
   };
   if (!book.startedAt) patch.startedAt = date;
@@ -170,23 +180,27 @@ export async function applyReadingProgress(
   } else if (book.status === "queued") {
     patch.status = "reading";
   }
-  await updateBook(bookId, patch);
+  await updateBook(userId, bookId, patch);
 }
 
 // The habit slug for a check id — the API needs it to pick the Zod schema
-// before validating incoming details.
-export async function getCheckHabitSlug(id: number): Promise<string | null> {
+// before validating incoming details. Null for a check that isn't yours.
+export async function getCheckHabitSlug(
+  userId: number,
+  id: number
+): Promise<string | null> {
   const [row] = await db
     .select({ slug: habits.slug })
     .from(dailyChecks)
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
-    .where(eq(dailyChecks.id, id));
+    .where(and(eq(dailyChecks.id, id), eq(dailyChecks.userId, userId)));
   return row?.slug ?? null;
 }
 
 // Per-habit save from the Today sheet: details (already Zod-validated at the
 // API layer) + note + done, in one write.
 export async function saveCheckDetails(
+  userId: number,
   id: number,
   input: { done: boolean; details?: unknown; note?: string | null }
 ): Promise<CheckWithHabit | null> {
@@ -198,7 +212,7 @@ export async function saveCheckDetails(
       note: input.note ?? null,
       updatedAt: new Date(),
     })
-    .where(eq(dailyChecks.id, id))
+    .where(and(eq(dailyChecks.id, id), eq(dailyChecks.userId, userId)))
     .returning({ id: dailyChecks.id });
   if (!updated) return null;
   const [row] = await db
@@ -217,11 +231,11 @@ export interface WorkoutPlanDayInput {
   exercises: PlannedExercise[];
 }
 
-export async function getActiveWorkoutPlan() {
+export async function getActiveWorkoutPlan(userId: number) {
   const [plan] = await db
     .select()
     .from(workoutPlans)
-    .where(eq(workoutPlans.active, true))
+    .where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.active, true)))
     .orderBy(desc(workoutPlans.version))
     .limit(1);
   if (!plan) return null;
@@ -233,26 +247,32 @@ export async function getActiveWorkoutPlan() {
   return { ...plan, days };
 }
 
-export function listWorkoutPlanVersions() {
-  return db.select().from(workoutPlans).orderBy(asc(workoutPlans.version));
+export function listWorkoutPlanVersions(userId: number) {
+  return db
+    .select()
+    .from(workoutPlans)
+    .where(eq(workoutPlans.userId, userId))
+    .orderBy(asc(workoutPlans.version));
 }
 
 // Editing a plan = a NEW immutable version (spec): bump version, deactivate the
 // old active one, insert the new plan + its days. History is preserved.
 export async function saveWorkoutPlan(
+  userId: number,
   name: string,
   days: WorkoutPlanDayInput[]
 ) {
   const [{ max }] = await db
     .select({ max: sql<number>`coalesce(max(${workoutPlans.version}), 0)` })
-    .from(workoutPlans);
+    .from(workoutPlans)
+    .where(eq(workoutPlans.userId, userId));
   await db
     .update(workoutPlans)
     .set({ active: false })
-    .where(eq(workoutPlans.active, true));
+    .where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.active, true)));
   const [plan] = await db
     .insert(workoutPlans)
-    .values({ version: Number(max) + 1, name, active: true })
+    .values({ userId, version: Number(max) + 1, name, active: true })
     .returning();
   if (days.length > 0) {
     await db
@@ -262,50 +282,68 @@ export async function saveWorkoutPlan(
   return plan;
 }
 
-export async function getReadingGoal(year: number) {
+export async function getReadingGoal(userId: number, year: number) {
   const [goal] = await db
     .select()
     .from(readingGoals)
-    .where(eq(readingGoals.year, year));
+    .where(and(eq(readingGoals.userId, userId), eq(readingGoals.year, year)));
   return goal ?? null;
 }
 
-export async function upsertReadingGoal(year: number, targetBooks: number) {
+export async function upsertReadingGoal(
+  userId: number,
+  year: number,
+  targetBooks: number
+) {
   await db
     .insert(readingGoals)
-    .values({ year, targetBooks })
-    .onConflictDoUpdate({ target: readingGoals.year, set: { targetBooks } });
+    .values({ userId, year, targetBooks })
+    .onConflictDoUpdate({
+      target: [readingGoals.userId, readingGoals.year],
+      set: { targetBooks },
+    });
 }
 
-export function listBooks() {
-  return db.select().from(books).orderBy(asc(books.position));
+export function listBooks(userId: number) {
+  return db
+    .select()
+    .from(books)
+    .where(eq(books.userId, userId))
+    .orderBy(asc(books.position));
 }
 
-export async function getBookById(id: number) {
-  const [book] = await db.select().from(books).where(eq(books.id, id));
-  return book ?? null;
-}
-
-export async function getCurrentBook() {
+export async function getBookById(userId: number, id: number) {
   const [book] = await db
     .select()
     .from(books)
-    .where(eq(books.status, "reading"))
+    .where(and(eq(books.id, id), eq(books.userId, userId)));
+  return book ?? null;
+}
+
+export async function getCurrentBook(userId: number) {
+  const [book] = await db
+    .select()
+    .from(books)
+    .where(and(eq(books.userId, userId), eq(books.status, "reading")))
     .orderBy(asc(books.position))
     .limit(1);
   return book ?? null;
 }
 
-export async function createBook(input: {
-  title: string;
-  author?: string | null;
-  totalPages: number;
-  position: number;
-  status?: string;
-}) {
+export async function createBook(
+  userId: number,
+  input: {
+    title: string;
+    author?: string | null;
+    totalPages: number;
+    position: number;
+    status?: string;
+  }
+) {
   const [book] = await db
     .insert(books)
     .values({
+      userId,
       title: input.title,
       author: input.author ?? null,
       totalPages: input.totalPages,
@@ -322,6 +360,7 @@ export async function createBook(input: {
 // done/abandoned status are never deleted — past `details.book_id` references
 // them. Used by the reading onboarding/config step.
 export async function saveReadingList(
+  userId: number,
   rows: {
     id?: number;
     title: string;
@@ -338,7 +377,11 @@ export async function saveReadingList(
     .select({ id: books.id })
     .from(books)
     .where(
-      and(eq(books.currentPage, 0), inArray(books.status, ["queued", "reading"]))
+      and(
+        eq(books.userId, userId),
+        eq(books.currentPage, 0),
+        inArray(books.status, ["queued", "reading"])
+      )
     );
   const toDelete = stale
     .map((s) => s.id)
@@ -357,14 +400,18 @@ export async function saveReadingList(
       position: row.position,
     };
     if (row.id) {
-      await db.update(books).set(values).where(eq(books.id, row.id));
+      await db
+        .update(books)
+        .set(values)
+        .where(and(eq(books.id, row.id), eq(books.userId, userId)));
     } else {
-      await db.insert(books).values(values);
+      await db.insert(books).values({ userId, ...values });
     }
   }
 }
 
 export async function updateBook(
+  userId: number,
   id: number,
   patch: Partial<{
     status: string;
@@ -374,19 +421,27 @@ export async function updateBook(
     position: number;
   }>
 ) {
-  await db.update(books).set(patch).where(eq(books.id, id));
+  await db
+    .update(books)
+    .set(patch)
+    .where(and(eq(books.id, id), eq(books.userId, userId)));
 }
 
-export function listRoutineBlocks(activeOnly = true) {
-  const query = db.select().from(routineBlocks);
-  return activeOnly
-    ? query.where(eq(routineBlocks.active, true)).orderBy(asc(routineBlocks.position))
-    : query.orderBy(asc(routineBlocks.position));
+export function listRoutineBlocks(userId: number, activeOnly = true) {
+  const where = activeOnly
+    ? and(eq(routineBlocks.userId, userId), eq(routineBlocks.active, true))
+    : eq(routineBlocks.userId, userId);
+  return db
+    .select()
+    .from(routineBlocks)
+    .where(where)
+    .orderBy(asc(routineBlocks.position));
 }
 
 // Replace the active routine: deactivate the current blocks (never delete —
 // past `details` reference their ids) and insert the new set.
 export async function replaceRoutineBlocks(
+  userId: number,
   blocks: {
     startTime: string;
     endTime: string;
@@ -398,35 +453,46 @@ export async function replaceRoutineBlocks(
   await db
     .update(routineBlocks)
     .set({ active: false })
-    .where(eq(routineBlocks.active, true));
+    .where(and(eq(routineBlocks.userId, userId), eq(routineBlocks.active, true)));
   if (blocks.length > 0) {
-    await db.insert(routineBlocks).values(blocks);
+    await db.insert(routineBlocks).values(blocks.map((b) => ({ userId, ...b })));
   }
 }
 
-export function listSpiritualPractices(activeOnly = true) {
-  const query = db.select().from(spiritualPractices);
-  return activeOnly
-    ? query
-        .where(eq(spiritualPractices.active, true))
-        .orderBy(asc(spiritualPractices.position))
-    : query.orderBy(asc(spiritualPractices.position));
+export function listSpiritualPractices(userId: number, activeOnly = true) {
+  const where = activeOnly
+    ? and(
+        eq(spiritualPractices.userId, userId),
+        eq(spiritualPractices.active, true)
+      )
+    : eq(spiritualPractices.userId, userId);
+  return db
+    .select()
+    .from(spiritualPractices)
+    .where(where)
+    .orderBy(asc(spiritualPractices.position));
 }
 
 // Upsert practices by slug (stable identifier) and deactivate any not present.
 export async function replaceSpiritualPractices(
+  userId: number,
   practices: { name: string; slug: string; countable: boolean; position: number }[]
 ) {
   await db
     .update(spiritualPractices)
     .set({ active: false })
-    .where(eq(spiritualPractices.active, true));
+    .where(
+      and(
+        eq(spiritualPractices.userId, userId),
+        eq(spiritualPractices.active, true)
+      )
+    );
   for (const p of practices) {
     await db
       .insert(spiritualPractices)
-      .values({ ...p, active: true })
+      .values({ userId, ...p, active: true })
       .onConflictDoUpdate({
-        target: spiritualPractices.slug,
+        target: [spiritualPractices.userId, spiritualPractices.slug],
         set: {
           name: p.name,
           countable: p.countable,
@@ -437,60 +503,69 @@ export async function replaceSpiritualPractices(
   }
 }
 
-export function listLanguages(activeOnly = true) {
-  const query = db.select().from(languages);
-  return activeOnly
-    ? query.where(eq(languages.active, true))
-    : query;
+export function listLanguages(userId: number, activeOnly = true) {
+  const where = activeOnly
+    ? and(eq(languages.userId, userId), eq(languages.active, true))
+    : eq(languages.userId, userId);
+  return db.select().from(languages).where(where);
 }
 
 export async function replaceLanguages(
+  userId: number,
   items: { name: string; slug: string }[]
 ) {
   await db
     .update(languages)
     .set({ active: false })
-    .where(eq(languages.active, true));
+    .where(and(eq(languages.userId, userId), eq(languages.active, true)));
   for (const l of items) {
     await db
       .insert(languages)
-      .values({ ...l, active: true })
+      .values({ userId, ...l, active: true })
       .onConflictDoUpdate({
-        target: languages.slug,
+        target: [languages.userId, languages.slug],
         set: { name: l.name, active: true },
       });
   }
 }
 
-export async function getSleepTarget() {
-  const [target] = await db.select().from(sleepTargets).limit(1);
+export async function getSleepTarget(userId: number) {
+  const [target] = await db
+    .select()
+    .from(sleepTargets)
+    .where(eq(sleepTargets.userId, userId))
+    .limit(1);
   return target ?? null;
 }
 
 // Single-row upsert: update the existing target or insert the first one.
-export async function upsertSleepTarget(bedtime: string, wakeTime: string) {
-  const existing = await getSleepTarget();
+export async function upsertSleepTarget(
+  userId: number,
+  bedtime: string,
+  wakeTime: string
+) {
+  const existing = await getSleepTarget(userId);
   if (existing) {
     await db
       .update(sleepTargets)
       .set({ bedtime, wakeTime })
       .where(eq(sleepTargets.id, existing.id));
   } else {
-    await db.insert(sleepTargets).values({ bedtime, wakeTime });
+    await db.insert(sleepTargets).values({ userId, bedtime, wakeTime });
   }
 }
 
-// Onboarding gate: is anything the user must configure present? Seeded
+// Onboarding gate: has this account configured anything yet? Seeded
 // spiritual-practice defaults are excluded (they always exist), so the check
 // looks only at tables the user actively fills.
-export async function isConfigured(): Promise<boolean> {
+export async function isConfigured(userId: number): Promise<boolean> {
   const [wp, bk, rb, rg, lg, st] = await Promise.all([
-    db.$count(workoutPlans),
-    db.$count(books),
-    db.$count(routineBlocks),
-    db.$count(readingGoals),
-    db.$count(languages),
-    db.$count(sleepTargets),
+    db.$count(workoutPlans, eq(workoutPlans.userId, userId)),
+    db.$count(books, eq(books.userId, userId)),
+    db.$count(routineBlocks, eq(routineBlocks.userId, userId)),
+    db.$count(readingGoals, eq(readingGoals.userId, userId)),
+    db.$count(languages, eq(languages.userId, userId)),
+    db.$count(sleepTargets, eq(sleepTargets.userId, userId)),
   ]);
   return wp + bk + rb + rg + lg + st > 0;
 }
@@ -498,7 +573,7 @@ export async function isConfigured(): Promise<boolean> {
 // Canonical dataset export for a date range — the exact payload a future AI
 // analysis consumes (see DATA_DICTIONARY.md). Entities carry full history
 // (all workout-plan versions); days hold per-habit {done, details, note}.
-export async function getExport(from: string, to: string) {
+export async function getExport(userId: number, from: string, to: string) {
   const [
     plans,
     planDays,
@@ -510,14 +585,49 @@ export async function getExport(from: string, to: string) {
     sleep,
     checkRows,
   ] = await Promise.all([
-    db.select().from(workoutPlans).orderBy(asc(workoutPlans.version)),
-    db.select().from(workoutPlanDays).orderBy(asc(workoutPlanDays.weekday)),
-    db.select().from(books).orderBy(asc(books.position)),
-    db.select().from(readingGoals).orderBy(asc(readingGoals.year)),
-    db.select().from(routineBlocks).orderBy(asc(routineBlocks.position)),
-    db.select().from(spiritualPractices).orderBy(asc(spiritualPractices.position)),
-    db.select().from(languages).orderBy(asc(languages.id)),
-    db.select().from(sleepTargets),
+    db
+      .select()
+      .from(workoutPlans)
+      .where(eq(workoutPlans.userId, userId))
+      .orderBy(asc(workoutPlans.version)),
+    db
+      .select({
+        id: workoutPlanDays.id,
+        planId: workoutPlanDays.planId,
+        weekday: workoutPlanDays.weekday,
+        focus: workoutPlanDays.focus,
+        exercises: workoutPlanDays.exercises,
+      })
+      .from(workoutPlanDays)
+      .innerJoin(workoutPlans, eq(workoutPlanDays.planId, workoutPlans.id))
+      .where(eq(workoutPlans.userId, userId))
+      .orderBy(asc(workoutPlanDays.weekday)),
+    db
+      .select()
+      .from(books)
+      .where(eq(books.userId, userId))
+      .orderBy(asc(books.position)),
+    db
+      .select()
+      .from(readingGoals)
+      .where(eq(readingGoals.userId, userId))
+      .orderBy(asc(readingGoals.year)),
+    db
+      .select()
+      .from(routineBlocks)
+      .where(eq(routineBlocks.userId, userId))
+      .orderBy(asc(routineBlocks.position)),
+    db
+      .select()
+      .from(spiritualPractices)
+      .where(eq(spiritualPractices.userId, userId))
+      .orderBy(asc(spiritualPractices.position)),
+    db
+      .select()
+      .from(languages)
+      .where(eq(languages.userId, userId))
+      .orderBy(asc(languages.id)),
+    db.select().from(sleepTargets).where(eq(sleepTargets.userId, userId)),
     db
       .select({
         date: dailyChecks.checkedAt,
@@ -528,7 +638,13 @@ export async function getExport(from: string, to: string) {
       })
       .from(dailyChecks)
       .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
-      .where(and(gte(dailyChecks.checkedAt, from), lte(dailyChecks.checkedAt, to)))
+      .where(
+        and(
+          eq(dailyChecks.userId, userId),
+          gte(dailyChecks.checkedAt, from),
+          lte(dailyChecks.checkedAt, to)
+        )
+      )
       .orderBy(asc(dailyChecks.checkedAt), asc(habits.id)),
   ]);
 
@@ -634,23 +750,33 @@ export interface AuditLookups {
 // Id/slug → display-name maps so the Day Audit can render details
 // human-readably (book title, plan focus, block activity, language/practice
 // names). Includes inactive rows so historical references still resolve.
-export async function getAuditLookups(): Promise<AuditLookups> {
+export async function getAuditLookups(userId: number): Promise<AuditLookups> {
   const [bks, planDays, blocks, langs, pracs] = await Promise.all([
-    db.select({ id: books.id, title: books.title }).from(books),
+    db
+      .select({ id: books.id, title: books.title })
+      .from(books)
+      .where(eq(books.userId, userId)),
     db
       .select({
         id: workoutPlanDays.id,
         focus: workoutPlanDays.focus,
         exercises: workoutPlanDays.exercises,
       })
-      .from(workoutPlanDays),
+      .from(workoutPlanDays)
+      .innerJoin(workoutPlans, eq(workoutPlanDays.planId, workoutPlans.id))
+      .where(eq(workoutPlans.userId, userId)),
     db
       .select({ id: routineBlocks.id, activity: routineBlocks.activity })
-      .from(routineBlocks),
-    db.select({ slug: languages.slug, name: languages.name }).from(languages),
+      .from(routineBlocks)
+      .where(eq(routineBlocks.userId, userId)),
+    db
+      .select({ slug: languages.slug, name: languages.name })
+      .from(languages)
+      .where(eq(languages.userId, userId)),
     db
       .select({ slug: spiritualPractices.slug, name: spiritualPractices.name })
-      .from(spiritualPractices),
+      .from(spiritualPractices)
+      .where(eq(spiritualPractices.userId, userId)),
   ]);
   return {
     books: Object.fromEntries(bks.map((b) => [b.id, b.title])),
@@ -669,12 +795,15 @@ export async function getAuditLookups(): Promise<AuditLookups> {
 
 // Read-only day fetch for the Day Audit (never lazily creates rows, unlike
 // getDayChecks — a past day being viewed shouldn't materialize empty checks).
-export function getDayChecksReadonly(date: string): Promise<CheckWithHabit[]> {
+export function getDayChecksReadonly(
+  userId: number,
+  date: string
+): Promise<CheckWithHabit[]> {
   return db
     .select(checkWithHabitColumns)
     .from(dailyChecks)
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
-    .where(eq(dailyChecks.checkedAt, date))
+    .where(and(eq(dailyChecks.userId, userId), eq(dailyChecks.checkedAt, date)))
     .orderBy(asc(habits.id));
 }
 
@@ -684,7 +813,10 @@ export function getDayChecksReadonly(date: string): Promise<CheckWithHabit[]> {
 // than that is beyond what this screen needs to say.
 const STREAK_WINDOW_DAYS = 180;
 
-export async function getDayStreak(today: string): Promise<number> {
+export async function getDayStreak(
+  userId: number,
+  today: string
+): Promise<number> {
   const requiredCount = await db.$count(habits, eq(habits.optional, false));
   if (requiredCount === 0) return 0;
 
@@ -697,6 +829,7 @@ export async function getDayStreak(today: string): Promise<number> {
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
     .where(
       and(
+        eq(dailyChecks.userId, userId),
         eq(dailyChecks.done, true),
         eq(habits.optional, false),
         gte(dailyChecks.checkedAt, addDays(today, -STREAK_WINDOW_DAYS)),
@@ -732,6 +865,7 @@ export interface TodayComparisons {
 const RECENT_WINDOW_DAYS = 7;
 
 export async function getTodayComparisons(
+  userId: number,
   today: string
 ): Promise<TodayComparisons> {
   const [doneRows, recentRows] = await Promise.all([
@@ -741,6 +875,7 @@ export async function getTodayComparisons(
       .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
       .where(
         and(
+          eq(dailyChecks.userId, userId),
           eq(dailyChecks.done, true),
           gte(dailyChecks.checkedAt, addDays(today, -STREAK_WINDOW_DAYS)),
           lte(dailyChecks.checkedAt, today)
@@ -756,6 +891,7 @@ export async function getTodayComparisons(
       .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
       .where(
         and(
+          eq(dailyChecks.userId, userId),
           eq(dailyChecks.done, true),
           inArray(habits.slug, [
             "sono",
@@ -845,19 +981,20 @@ export async function getTodayComparisons(
 
 // The first day anything was ever logged. Everything before it is outside the
 // record, not a run of missed days — so it never lands in a denominator.
-export async function getTrackingStart(): Promise<string | null> {
+export async function getTrackingStart(userId: number): Promise<string | null> {
   const [row] = await db
     .select({ first: sql<string | null>`min(${dailyChecks.checkedAt})` })
-    .from(dailyChecks);
+    .from(dailyChecks)
+    .where(eq(dailyChecks.userId, userId));
   return row?.first ?? null;
 }
 
 // How many routine blocks and spiritual practices are configured, so a grid
 // cell can say "4/6" rather than "4".
-async function getCellTotals(): Promise<CellTotals> {
+async function getCellTotals(userId: number): Promise<CellTotals> {
   const [routineBlockCount, practiceCount] = await Promise.all([
-    db.$count(routineBlocks),
-    db.$count(spiritualPractices),
+    db.$count(routineBlocks, eq(routineBlocks.userId, userId)),
+    db.$count(spiritualPractices, eq(spiritualPractices.userId, userId)),
   ]);
   return { routineBlocks: routineBlockCount, practices: practiceCount };
 }
@@ -884,7 +1021,10 @@ export interface MonthMatrix {
 
 // Every day of the month with its per-habit outcome — feeds both the calendar
 // heat and the tooltip, so they can never disagree.
-export async function getMonthMatrix(month: string): Promise<MonthMatrix> {
+export async function getMonthMatrix(
+  userId: number,
+  month: string
+): Promise<MonthMatrix> {
   const total = daysInMonth(month);
   const first = `${month}-01`;
   const last = `${month}-${String(total).padStart(2, "0")}`;
@@ -901,10 +1041,14 @@ export async function getMonthMatrix(month: string): Promise<MonthMatrix> {
       })
       .from(dailyChecks)
       .where(
-        and(gte(dailyChecks.checkedAt, first), lte(dailyChecks.checkedAt, last))
+        and(
+          eq(dailyChecks.userId, userId),
+          gte(dailyChecks.checkedAt, first),
+          lte(dailyChecks.checkedAt, last)
+        )
       ),
-    getCellTotals(),
-    getTrackingStart(),
+    getCellTotals(userId),
+    getTrackingStart(userId),
   ]);
 
   const byHabitDay = new Map<string, { done: boolean; details: unknown }>();
@@ -954,6 +1098,7 @@ export async function getMonthMatrix(month: string): Promise<MonthMatrix> {
 // Done-days per habit for a month — used for the consistency panel's
 // "vs. previous month" delta.
 export async function getMonthDoneCounts(
+  userId: number,
   month: string
 ): Promise<Record<string, number>> {
   const first = `${month}-01`;
@@ -964,6 +1109,7 @@ export async function getMonthDoneCounts(
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
     .where(
       and(
+        eq(dailyChecks.userId, userId),
         eq(dailyChecks.done, true),
         gte(dailyChecks.checkedAt, first),
         lte(dailyChecks.checkedAt, last)
@@ -990,6 +1136,7 @@ function rec(value: unknown): Record<string, unknown> | null {
 // Per-area rich summaries for the month view, aggregated from the JSONB details
 // in JS (simpler than JSONB SQL at this scale — ≤ 7 rows/day).
 export async function getMonthDetailStats(
+  userId: number,
   month: string
 ): Promise<MonthDetailStats> {
   const first = `${month}-01`;
@@ -1000,6 +1147,7 @@ export async function getMonthDetailStats(
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
     .where(
       and(
+        eq(dailyChecks.userId, userId),
         gte(dailyChecks.checkedAt, first),
         lte(dailyChecks.checkedAt, last),
         isNotNull(dailyChecks.details)
@@ -1073,7 +1221,10 @@ export async function getMonthDetailStats(
 
 // 7 days × 7 habits starting at a Monday. Days with no row simply count as
 // not done — the week view never creates rows.
-export async function getWeekData(start: string): Promise<WeekData> {
+export async function getWeekData(
+  userId: number,
+  start: string
+): Promise<WeekData> {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   const today = todayInSaoPaulo();
   // Details come along so each cell can carry its own figure ("9 pg", "4/6")
@@ -1090,12 +1241,13 @@ export async function getWeekData(start: string): Promise<WeekData> {
       .from(dailyChecks)
       .where(
         and(
+          eq(dailyChecks.userId, userId),
           gte(dailyChecks.checkedAt, start),
           lte(dailyChecks.checkedAt, days[6])
         )
       ),
-    getCellTotals(),
-    getTrackingStart(),
+    getCellTotals(userId),
+    getTrackingStart(userId),
   ]);
 
   // Only days that have happened AND are inside the record count towards the
@@ -1164,6 +1316,7 @@ export async function getWeekData(start: string): Promise<WeekData> {
 // to today regardless of which month is being viewed — fine at this scale
 // (7 habits, one row per habit per day).
 export async function getMonthData(
+  userId: number,
   month: string,
   today: string
 ): Promise<MonthData> {
@@ -1176,6 +1329,7 @@ export async function getMonthData(
       .from(dailyChecks)
       .where(
         and(
+          eq(dailyChecks.userId, userId),
           gte(dailyChecks.checkedAt, first),
           lte(dailyChecks.checkedAt, last),
           eq(dailyChecks.done, true)
@@ -1184,8 +1338,14 @@ export async function getMonthData(
     db
       .select({ habitId: dailyChecks.habitId, checkedAt: dailyChecks.checkedAt })
       .from(dailyChecks)
-      .where(and(eq(dailyChecks.done, true), lte(dailyChecks.checkedAt, today))),
-    getTrackingStart(),
+      .where(
+        and(
+          eq(dailyChecks.userId, userId),
+          eq(dailyChecks.done, true),
+          lte(dailyChecks.checkedAt, today)
+        )
+      ),
+    getTrackingStart(userId),
   ]);
 
   const doneInMonth = new Map<number, number>();
