@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getExport } from "@/db/queries";
+import { getUserId } from "@/lib/session";
 
 const dateSchema = z.string().date();
 
@@ -8,6 +9,10 @@ const dateSchema = z.string().date();
 // (behind auth like everything else). Feeds the year-end AI analysis; see
 // DATA_DICTIONARY.md for the field semantics.
 export async function GET(request: Request) {
+  const userId = await getUserId();
+  if (userId === null) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
   const params = new URL(request.url).searchParams;
   const from = dateSchema.safeParse(params.get("from"));
   const to = dateSchema.safeParse(params.get("to"));
@@ -26,7 +31,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await getExport(from.data, to.data);
+    const data = await getExport(userId, from.data, to.data);
     return NextResponse.json(data);
   } catch {
     return NextResponse.json(
