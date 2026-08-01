@@ -11,8 +11,8 @@ import {
 } from "@/db/queries";
 import { daysLeftInYear, todayInSaoPaulo } from "@/lib/utils";
 
-export async function workoutInitial() {
-  const plan = await getActiveWorkoutPlan();
+export async function workoutInitial(userId: number) {
+  const plan = await getActiveWorkoutPlan(userId);
   return {
     initialName: plan?.name ?? "",
     initialDays:
@@ -24,11 +24,11 @@ export async function workoutInitial() {
   };
 }
 
-export async function readingInitial() {
+export async function readingInitial(userId: number) {
   const today = todayInSaoPaulo();
   const [goal, books] = await Promise.all([
-    getReadingGoal(Number(today.slice(0, 4))),
-    listBooks(),
+    getReadingGoal(userId, Number(today.slice(0, 4))),
+    listBooks(userId),
   ]);
   return {
     daysLeft: daysLeftInYear(today),
@@ -45,16 +45,16 @@ export async function readingInitial() {
   };
 }
 
-export async function sleepInitial() {
-  const target = await getSleepTarget();
+export async function sleepInitial(userId: number) {
+  const target = await getSleepTarget(userId);
   return {
     initialBedtime: target?.bedtime.slice(0, 5) ?? "23:00",
     initialWake: target?.wakeTime.slice(0, 5) ?? "06:30",
   };
 }
 
-export async function routineInitial() {
-  const blocks = await listRoutineBlocks();
+export async function routineInitial(userId: number) {
+  const blocks = await listRoutineBlocks(userId);
   return blocks.map((b) => ({
     startTime: b.startTime.slice(0, 5),
     endTime: b.endTime.slice(0, 5),
@@ -63,12 +63,12 @@ export async function routineInitial() {
   }));
 }
 
-export async function duolingoInitial() {
-  return (await listLanguages()).map((l) => l.name);
+export async function duolingoInitial(userId: number) {
+  return (await listLanguages(userId)).map((l) => l.name);
 }
 
-export async function spiritualityInitial() {
-  return (await listSpiritualPractices()).map((p) => ({
+export async function spiritualityInitial(userId: number) {
+  return (await listSpiritualPractices(userId)).map((p) => ({
     name: p.name,
     slug: p.slug,
     countable: p.countable,
