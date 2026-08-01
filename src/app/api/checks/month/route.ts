@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getMonthData } from "@/db/queries";
 import { todayInSaoPaulo } from "@/lib/utils";
+import { getUserId } from "@/lib/session";
 
 const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 
 // GET /api/checks/month?month=YYYY-MM — adherence % over ELAPSED days
 // (README Decision 5) + current streak per habit (Decision 4).
 export async function GET(request: Request) {
+  const userId = await getUserId();
+  if (userId === null) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
   const monthParam = new URL(request.url).searchParams.get("month");
 
   const parsed = monthSchema.safeParse(monthParam);
@@ -19,7 +24,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const month = await getMonthData(parsed.data, todayInSaoPaulo());
+    const month = await getMonthData(userId, parsed.data, todayInSaoPaulo());
     return NextResponse.json(month);
   } catch {
     return NextResponse.json(
