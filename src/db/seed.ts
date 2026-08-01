@@ -56,22 +56,7 @@ async function seed(): Promise<void> {
         set: { name: habit.name, icon: habit.icon, optional: habit.optional },
       });
   }
-  for (const practice of SEED_PRACTICES) {
-    await db
-      .insert(spiritualPractices)
-      .values({ ...practice, active: true })
-      .onConflictDoUpdate({
-        target: spiritualPractices.slug,
-        set: {
-          name: practice.name,
-          countable: practice.countable,
-          position: practice.position,
-        },
-      });
-  }
-  console.log(
-    `Seeded ${SEED_HABITS.length} habits and ${SEED_PRACTICES.length} spiritual practices (upsert by slug).`
-  );
+  console.log(`Seeded ${SEED_HABITS.length} habits (upsert by slug).`);
 }
 
 seed().catch((err) => {
