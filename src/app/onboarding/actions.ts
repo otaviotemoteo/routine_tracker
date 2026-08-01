@@ -15,6 +15,7 @@ import {
 import type { PlannedExercise } from "@/db/schema";
 import { ONBOARDED_COOKIE, slugify } from "@/lib/onboarding";
 import { todayInSaoPaulo } from "@/lib/utils";
+import { requireUserId } from "@/lib/session";
 
 // Each step form carries a hidden `next` = where to go after saving:
 // the following wizard step (onboarding) or back to /config. Only same-origin
@@ -34,6 +35,7 @@ function parseJsonArray(formData: FormData): unknown[] {
 }
 
 export async function saveWorkoutStep(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
   const name = String(formData.get("planName") || "").trim() || "Meu plano";
   const days = parseJsonArray(formData)
     .map((d) => d as Record<string, unknown>)
@@ -46,14 +48,15 @@ export async function saveWorkoutStep(formData: FormData): Promise<void> {
         : [],
     }))
     .filter((d) => d.weekday >= 1 && d.weekday <= 7);
-  if (days.length > 0) await saveWorkoutPlan(name, days);
+  if (days.length > 0) await saveWorkoutPlan(userId, name, days);
   redirect(safeNext(formData));
 }
 
 export async function saveReadingStep(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
   const target = Number(formData.get("targetBooks"));
   if (Number.isFinite(target) && target > 0) {
-    await upsertReadingGoal(Number(todayInSaoPaulo().slice(0, 4)), target);
+    await upsertReadingGoal(userId, Number(todayInSaoPaulo().slice(0, 4)), target);
   }
   const rows = parseJsonArray(formData)
     .map((b) => b as Record<string, unknown>)
@@ -87,20 +90,22 @@ export async function saveReadingStep(formData: FormData): Promise<void> {
       seenReading = true;
     }
   }
-  await saveReadingList(books);
+  await saveReadingList(userId, books);
   redirect(safeNext(formData));
 }
 
 export async function saveSleepStep(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
   const bedtime = String(formData.get("bedtime") || "").trim();
   const wake = String(formData.get("wakeTime") || "").trim();
   if (/^\d{2}:\d{2}$/.test(bedtime) && /^\d{2}:\d{2}$/.test(wake)) {
-    await upsertSleepTarget(bedtime, wake);
+    await upsertSleepTarget(userId, bedtime, wake);
   }
   redirect(safeNext(formData));
 }
 
 export async function saveRoutineStep(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
   const blocks = parseJsonArray(formData)
     .map((b) => b as Record<string, unknown>)
     .filter(
@@ -119,22 +124,24 @@ export async function saveRoutineStep(formData: FormData): Promise<void> {
       position: i,
     }))
     .filter((b) => b.weekdays.length > 0);
-  await replaceRoutineBlocks(blocks);
+  await replaceRoutineBlocks(userId, blocks);
   redirect(safeNext(formData));
 }
 
 export async function saveDuolingoStep(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
   const seen = new Set<string>();
   const items = parseJsonArray(formData)
     .map((l) => String((l as Record<string, unknown>).name ?? "").trim())
     .filter(Boolean)
     .map((name) => ({ name, slug: slugify(name) }))
     .filter((l) => l.slug && !seen.has(l.slug) && seen.add(l.slug));
-  await replaceLanguages(items);
+  await replaceLanguages(userId, items);
   redirect(safeNext(formData));
 }
 
 export async function saveSpiritualityStep(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
   const seen = new Set<string>();
   const practices = parseJsonArray(formData)
     .map((p) => p as Record<string, unknown>)
@@ -145,12 +152,13 @@ export async function saveSpiritualityStep(formData: FormData): Promise<void> {
       position: i,
     }))
     .filter((p) => p.name && p.slug && !seen.has(p.slug) && seen.add(p.slug));
-  await replaceSpiritualPractices(practices);
+  await replaceSpiritualPractices(userId, practices);
   redirect(safeNext(formData));
 }
 
 // Marks onboarding done (cookie) so the gate stops nagging, then goes home.
 export async function finishOnboarding(): Promise<void> {
+  const userId = await requireUserId();
   (await cookies()).set(ONBOARDED_COOKIE, "1", {
     httpOnly: true,
     sameSite: "lax",
