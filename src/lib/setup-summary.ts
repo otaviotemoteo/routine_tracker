@@ -45,18 +45,19 @@ export interface SetupRow {
 }
 
 export async function getSetupSummary(
+  userId: number,
   copy: Copy["onboarding"],
   todayCopy?: Copy["today"]
 ): Promise<SetupRow[]> {
   const today = todayInSaoPaulo();
   const [plan, goal, books, sleep, routine, langs, practices] = await Promise.all([
-    getActiveWorkoutPlan(),
-    getReadingGoal(Number(today.slice(0, 4))),
-    listBooks(),
-    getSleepTarget(),
-    listRoutineBlocks(),
-    listLanguages(),
-    listSpiritualPractices(),
+    getActiveWorkoutPlan(userId),
+    getReadingGoal(userId, Number(today.slice(0, 4))),
+    listBooks(userId),
+    getSleepTarget(userId),
+    listRoutineBlocks(userId),
+    listLanguages(userId),
+    listSpiritualPractices(userId),
   ]);
 
   // Reading hint. The list must be complete before a pace means anything —
