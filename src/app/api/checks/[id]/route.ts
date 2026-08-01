@@ -7,6 +7,7 @@ import {
   toggleCheck,
 } from "@/db/queries";
 import { parseDetails } from "@/lib/details-schemas";
+import { getUserId } from "@/lib/session";
 
 const bodySchema = z.object({
   done: z.boolean(),
@@ -21,6 +22,10 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (userId === null) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
   const { id } = await params;
   const checkId = Number(id);
   if (!Number.isInteger(checkId) || checkId <= 0) {
@@ -46,7 +51,7 @@ export async function PATCH(
   try {
     // Quick toggle: no details/note in the body — leave stored details intact.
     if (details === undefined && note === undefined) {
-      const check = await toggleCheck(checkId, done);
+      const check = await toggleCheck(userId, checkId, done);
       if (!check) {
         return NextResponse.json(
           { error: "Check não encontrado" },
@@ -60,7 +65,7 @@ export async function PATCH(
     let validated: unknown = null;
     let slug: string | null = null;
     if (details !== undefined && details !== null) {
-      slug = await getCheckHabitSlug(checkId);
+      slug = await getCheckHabitSlug(userId, checkId);
       if (!slug) {
         return NextResponse.json(
           { error: "Check não encontrado" },
@@ -80,7 +85,7 @@ export async function PATCH(
       }
     }
 
-    const check = await saveCheckDetails(checkId, {
+    const check = await saveCheckDetails(userId, checkId, {
       done,
       details: validated,
       note: note ?? null,
@@ -95,7 +100,7 @@ export async function PATCH(
     // Reading side-effect: advance the book's page / finish it.
     if (slug === "leitura" && validated) {
       const d = validated as { book_id: number; ended_on_page: number };
-      await applyReadingProgress(d.book_id, d.ended_on_page, check.checkedAt);
+      await applyReadingProgress(userId, d.book_id, d.ended_on_page, check.checkedAt);
     }
 
     return NextResponse.json(check);
