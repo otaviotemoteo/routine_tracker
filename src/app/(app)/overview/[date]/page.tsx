@@ -7,6 +7,7 @@ import { COPY, habitName } from "@/lib/i18n";
 import { habitIcon } from "@/lib/icons";
 import { describeDetails, type AuditBlock } from "@/lib/describe-details";
 import { formatDayLong } from "@/lib/utils";
+import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -158,6 +159,7 @@ function Block({ block }: { block: AuditBlock }) {
 // The "what exactly did I do that day" screen — the visual twin of one `day`
 // object from /api/export.
 export default async function DayAuditPage({ params }: DayAuditPageProps) {
+  const userId = await requireUserId();
   const { date } = await params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) {
     notFound();
@@ -166,8 +168,8 @@ export default async function DayAuditPage({ params }: DayAuditPageProps) {
   const lang = await getLang();
   const copy = COPY[lang];
   const [checks, lookups] = await Promise.all([
-    getDayChecksReadonly(date),
-    getAuditLookups(),
+    getDayChecksReadonly(userId, date),
+    getAuditLookups(userId),
   ]);
   const anyLogged = checks.some((c) => c.done || c.details || c.note);
 
