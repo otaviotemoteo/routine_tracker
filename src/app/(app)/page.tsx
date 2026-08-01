@@ -10,20 +10,22 @@ import { COPY } from "@/lib/i18n";
 import { getSetupSummary } from "@/lib/setup-summary";
 import { forecastFinishDate } from "@/lib/today-card";
 import { formatDayLong, todayInSaoPaulo } from "@/lib/utils";
+import { requireUserId } from "@/lib/session";
 
 // Always render with the current São Paulo day — never cache a stale "today".
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
+  const userId = await requireUserId();
   const lang = await getLang();
   const copy = COPY[lang];
   const today = todayInSaoPaulo();
   const [checks, context, setup, streak, comparisons] = await Promise.all([
-    getDayChecks(today),
-    getTodayContext(today),
-    getSetupSummary(copy.onboarding, copy.today),
-    getDayStreak(today),
-    getTodayComparisons(today),
+    getDayChecks(userId, today),
+    getTodayContext(userId, today),
+    getSetupSummary(userId, copy.onboarding, copy.today),
+    getDayStreak(userId, today),
+    getTodayComparisons(userId, today),
   ]);
 
   // Same source as the Overview note, so the two never disagree. Only the
