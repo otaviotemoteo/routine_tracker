@@ -1,6 +1,9 @@
 // Cookie signing/verification shared by the middleware (edge runtime) and the
 // login server action — Web Crypto only, so it runs in both.
-// Cookie value format: "<issuedAtMs>.<hmacSha256Hex>".
+// Cookie value format: "<userId>.<issuedAtMs>.<hmacSha256Hex>".
+//
+// The signature covers the user id, so the cookie says *who* you are and the
+// middleware can answer that without a database round trip on every request.
 
 export const AUTH_COOKIE = "tracker_auth";
 export const AUTH_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
@@ -30,33 +33,35 @@ function timingSafeEqualHex(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export async function createAuthCookieValue(secret: string): Promise<string> {
-  const issuedAt = Date.now().toString();
-  return `${issuedAt}.${await hmacHex(secret, issuedAt)}`;
+export async function createAuthCookieValue(
+  userId: number,
+  secret: string
+): Promise<string> {
+  const payload = `${userId}.${Date.now()}`;
+  return `${payload}.${await hmacHex(secret, payload)}`;
 }
 
-export async function verifyAuthCookieValue(
+// Returns the signed-in user's id, or null when the cookie is missing, was
+// tampered with, or is past its year.
+export async function readAuthCookieValue(
   value: string | undefined,
   secret: string
-): Promise<boolean> {
-  if (!value || !secret) return false;
-  const [issuedAt, signature] = value.split(".");
-  if (!issuedAt || !signature) return false;
-  const expected = await hmacHex(secret, issuedAt);
-  if (!timingSafeEqualHex(signature, expected)) return false;
-  const ageMs = Date.now() - Number(issuedAt);
-  return Number.isFinite(ageMs) && ageMs >= 0 && ageMs < AUTH_MAX_AGE_SECONDS * 1000;
-}
+): Promise<number | null> {
+  if (!value || !secret) return null;
+  const [userId, issuedAt, signature] = value.split(".");
+  if (!userId || !issuedAt || !signature) return null;
 
-// Compare secrets without leaking length/timing: HMAC both sides first.
-export async function passwordsMatch(
-  submitted: string,
-  expected: string,
-  secret: string
-): Promise<boolean> {
-  const [a, b] = await Promise.all([
-    hmacHex(secret, submitted),
-    hmacHex(secret, expected),
-  ]);
-  return timingSafeEqualHex(a, b);
+  const expected = await hmacHex(secret, `${userId}.${issuedAt}`);
+  if (!timingSafeEqualHex(signature, expected)) return null;
+
+  const ageMs = Date.now() - Number(issuedAt);
+  if (
+    !Number.isFinite(ageMs) ||
+    ageMs < 0 ||
+    ageMs >= AUTH_MAX_AGE_SECONDS * 1000
+  ) {
+    return null;
+  }
+  const id = Number(userId);
+  return Number.isInteger(id) && id > 0 ? id : null;
 }
