@@ -6,8 +6,9 @@ import {
   AUTH_COOKIE,
   AUTH_MAX_AGE_SECONDS,
   createAuthCookieValue,
-  passwordsMatch,
 } from "@/lib/auth";
+import { verifyPassword } from "@/lib/password";
+import { findUserByName } from "@/db/users";
 import type { LoginErrorCode } from "@/lib/i18n";
 import {
   clearLoginFailures,
@@ -21,42 +22,66 @@ export interface LoginState {
   retryMinutes?: number;
 }
 
+export async function startSession(userId: number, secret: string) {
+  (await cookies()).set(
+    AUTH_COOKIE,
+    await createAuthCookieValue(userId, secret),
+    {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: AUTH_MAX_AGE_SECONDS,
+      path: "/",
+    }
+  );
+}
+
+// The caller's IP, for the brute-force counter.
+export async function clientIp(): Promise<string> {
+  return ((await headers()).get("x-forwarded-for") ?? "unknown")
+    .split(",")[0]
+    .trim();
+}
+
 export async function login(
   _prev: LoginState,
   formData: FormData
 ): Promise<LoginState> {
+  const name = formData.get("name");
   const password = formData.get("password");
-  const expected = process.env.APP_PASSWORD;
   const secret = process.env.AUTH_SECRET;
 
-  if (!expected || !secret) {
-    return { error: "server" };
-  }
-  if (typeof password !== "string" || password.length === 0) {
+  if (!secret) return { error: "server" };
+  if (
+    typeof name !== "string" ||
+    name.trim().length === 0 ||
+    typeof password !== "string" ||
+    password.length === 0
+  ) {
     return { error: "missing" };
   }
 
-  // Brute-force guard: 5 wrong passwords per IP per 15 min.
-  const ip = ((await headers()).get("x-forwarded-for") ?? "unknown")
-    .split(",")[0]
-    .trim();
+  // Brute-force guard: 5 wrong attempts per IP per 15 min.
+  const ip = await clientIp();
   const limit = isLoginBlocked(ip);
   if (limit.blocked) {
     return { error: "rate_limited", retryMinutes: limit.retryAfterMinutes };
   }
 
-  if (!(await passwordsMatch(password, expected, secret))) {
+  // One error for both "no such name" and "wrong password": saying which was
+  // wrong tells a stranger whose accounts exist.
+  const user = await findUserByName(name);
+  if (!user || !(await verifyPassword(password, user.passwordHash))) {
     registerLoginFailure(ip);
     return { error: "wrong" };
   }
   clearLoginFailures(ip);
 
-  (await cookies()).set(AUTH_COOKIE, await createAuthCookieValue(secret), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: AUTH_MAX_AGE_SECONDS,
-    path: "/",
-  });
+  await startSession(user.id, secret);
   redirect("/");
+}
+
+export async function logout() {
+  (await cookies()).delete(AUTH_COOKIE);
+  redirect("/login");
 }
