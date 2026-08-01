@@ -5,6 +5,7 @@ import { isConfigured } from "@/db/queries";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { ONBOARDED_COOKIE } from "@/lib/onboarding";
+import { requireUserId } from "@/lib/session";
 
 // Persistent shell for the authenticated app: the NavBar renders once here and
 // survives navigations (no remount / no perceived reload). Login and onboarding
@@ -18,9 +19,10 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const userId = await requireUserId();
   const lang = await getLang();
   const onboarded = (await cookies()).get(ONBOARDED_COOKIE)?.value === "1";
-  if (!onboarded && !(await isConfigured())) {
+  if (!onboarded && !(await isConfigured(userId))) {
     redirect("/onboarding");
   }
 
