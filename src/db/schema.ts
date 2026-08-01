@@ -13,8 +13,24 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
-// ─── Tier 1: the spine (v1, unchanged) ──────────────────────────────────────
+// ─── Tier 0: accounts ────────────────────────────────────────────────────────
 
+// Login is a name, not an email: nothing is ever sent to a user, so an address
+// would be an unverifiable field to maintain. `handle` is the lowercased name
+// and carries the uniqueness, so "Sofia" and "sofia" are the same person.
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 40 }).notNull(),
+  handle: varchar("handle", { length: 40 }).notNull().unique(),
+  // PBKDF2-SHA256, "iterations.saltHex.hashHex" — see src/lib/password.ts.
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+// ─── Tier 1: the spine ───────────────────────────────────────────────────────
+
+// Habits stay a shared catalogue: everyone tracks the same seven for now.
+// (When activities become user-defined, this grows a user_id like the rest.)
 export const habits = pgTable("habits", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 50 }).notNull(),
@@ -46,6 +62,9 @@ export const dailyChecks = pgTable(
   "daily_checks",
   {
     id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
     habitId: integer("habit_id")
       .notNull()
       .references(() => habits.id),
@@ -61,8 +80,8 @@ export const dailyChecks = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (t) => [
-    unique().on(t.habitId, t.checkedAt),
-    index("idx_checks_date").on(t.checkedAt.desc()),
+    unique().on(t.userId, t.habitId, t.checkedAt),
+    index("idx_checks_user_date").on(t.userId, t.checkedAt.desc()),
   ]
 );
 
@@ -72,6 +91,9 @@ export const dailyChecks = pgTable(
 // active. History is `SELECT * FROM workout_plans ORDER BY version`.
 export const workoutPlans = pgTable("workout_plans", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
   version: integer("version").notNull(),
   name: varchar("name", { length: 80 }).notNull(),
   active: boolean("active").notNull().default(true),
@@ -91,15 +113,25 @@ export const workoutPlanDays = pgTable("workout_plan_days", {
     .default([]),
 });
 
-export const readingGoals = pgTable("reading_goals", {
-  id: serial("id").primaryKey(),
-  year: integer("year").notNull().unique(),
-  targetBooks: integer("target_books").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+export const readingGoals = pgTable(
+  "reading_goals",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    year: integer("year").notNull(),
+    targetBooks: integer("target_books").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [unique().on(t.userId, t.year)]
+);
 
 export const books = pgTable("books", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
   title: varchar("title", { length: 200 }).notNull(),
   author: varchar("author", { length: 120 }),
   totalPages: integer("total_pages").notNull(),
@@ -113,6 +145,9 @@ export const books = pgTable("books", {
 
 export const routineBlocks = pgTable("routine_blocks", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
   startTime: time("start_time").notNull(),
   endTime: time("end_time").notNull(),
   activity: varchar("activity", { length: 120 }).notNull(),
@@ -121,26 +156,43 @@ export const routineBlocks = pgTable("routine_blocks", {
   position: integer("position").notNull(),
 });
 
-export const spiritualPractices = pgTable("spiritual_practices", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 80 }).notNull(),
-  slug: varchar("slug", { length: 80 }).notNull().unique(),
-  countable: boolean("countable").notNull().default(false),
-  active: boolean("active").notNull().default(true),
-  position: integer("position").notNull(),
-});
+export const spiritualPractices = pgTable(
+  "spiritual_practices",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    name: varchar("name", { length: 80 }).notNull(),
+    slug: varchar("slug", { length: 80 }).notNull(),
+    countable: boolean("countable").notNull().default(false),
+    active: boolean("active").notNull().default(true),
+    position: integer("position").notNull(),
+  },
+  (t) => [unique().on(t.userId, t.slug)]
+);
 
-export const languages = pgTable("languages", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 50 }).notNull(),
-  slug: varchar("slug", { length: 50 }).notNull().unique(),
-  active: boolean("active").notNull().default(true),
-});
+export const languages = pgTable(
+  "languages",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    name: varchar("name", { length: 50 }).notNull(),
+    slug: varchar("slug", { length: 50 }).notNull(),
+    active: boolean("active").notNull().default(true),
+  },
+  (t) => [unique().on(t.userId, t.slug)]
+);
 
 // Sleep targets (single row): the planned bedtime/wake used to derive the
 // default hours for the daily sleep stepper. Not referenced by `details`.
 export const sleepTargets = pgTable("sleep_targets", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
   bedtime: time("bedtime").notNull(),
   wakeTime: time("wake_time").notNull(),
 });
