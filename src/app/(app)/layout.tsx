@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NavBar } from "@/components/NavBar";
 import { isConfigured } from "@/db/queries";
+import { getUserName } from "@/db/users";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { ONBOARDED_COOKIE } from "@/lib/onboarding";
@@ -25,10 +26,11 @@ export default async function AppLayout({
   if (!onboarded && !(await isConfigured(userId))) {
     redirect("/onboarding");
   }
+  const userName = (await getUserName(userId)) ?? "";
 
   return (
     <>
-      <NavBar lang={lang} copy={COPY[lang].nav} />
+      <NavBar lang={lang} copy={COPY[lang].nav} userName={userName} />
       {children}
     </>
   );
