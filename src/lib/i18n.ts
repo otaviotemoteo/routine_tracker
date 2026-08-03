@@ -102,7 +102,6 @@ export interface Copy {
     today: string;
     overview: string;
     logout: string;
-    signedInAs: string;
   };
   overview: {
     eyebrow: string;
@@ -265,19 +264,6 @@ export interface Copy {
     agoYesterday: string;
     agoDays: string; // {n}
     agoNever: string;
-  };
-  config: {
-    password: {
-      title: string;
-      lead: string;
-      currentLabel: string;
-      newLabel: string;
-      submit: string;
-      saving: string;
-      saved: string;
-      errorCurrent: string;
-      errorWeak: string;
-    };
   };
   sheets: {
     save: string;
@@ -517,8 +503,7 @@ export const COPY: Record<Lang, Copy> = {
       label: "Main navigation",
       today: "Today",
       overview: "Overview",
-      logout: "Sign out",
-      signedInAs: "Signed in as",
+      logout: "Logout",
     },
     overview: {
       eyebrow: "Your history",
@@ -685,19 +670,6 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "yesterday",
       agoDays: "{n} days ago",
       agoNever: "never",
-    },
-    config: {
-      password: {
-        title: "Password",
-        lead: "Change the password you sign in with.",
-        currentLabel: "Current password",
-        newLabel: "New password",
-        submit: "Change password",
-        saving: "Saving…",
-        saved: "Password changed.",
-        errorCurrent: "That isn't your current password.",
-        errorWeak: "The new password doesn't meet the rules yet.",
-      },
     },
     sheets: {
       save: "Save",
@@ -968,7 +940,6 @@ export const COPY: Record<Lang, Copy> = {
       today: "Hoje",
       overview: "Visão geral",
       logout: "Sair",
-      signedInAs: "Conectado como",
     },
     overview: {
       eyebrow: "Seu histórico",
@@ -1135,19 +1106,6 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "ontem",
       agoDays: "há {n} dias",
       agoNever: "nunca",
-    },
-    config: {
-      password: {
-        title: "Senha",
-        lead: "Altere a senha que você usa para entrar.",
-        currentLabel: "Senha atual",
-        newLabel: "Nova senha",
-        submit: "Alterar senha",
-        saving: "Salvando…",
-        saved: "Senha alterada.",
-        errorCurrent: "Essa não é a sua senha atual.",
-        errorWeak: "A nova senha ainda não cumpre as regras.",
-      },
     },
     sheets: {
       save: "Salvar",
