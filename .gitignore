@@ -38,9 +38,9 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Personal / gitignored project files (ARCHITECTURE.md ships with the repo on purpose)
+# Personal / gitignored project files (docs/ARCHITECTURE.md ships with the repo on purpose)
 CLAUDE.md
-LEARNING_ROADMAP.md
-LINKEDIN_POSTS.md
-BLOCKED.md
+docs/LEARNING_ROADMAP.md
+docs/LINKEDIN_POSTS.md
+docs/BLOCKED.md
 identidade-visual.html

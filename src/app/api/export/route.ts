@@ -7,7 +7,7 @@ const dateSchema = z.string().date();
 
 // GET /api/export?from=YYYY-MM-DD&to=YYYY-MM-DD — the canonical dataset JSON
 // (behind auth like everything else). Feeds the year-end AI analysis; see
-// DATA_DICTIONARY.md for the field semantics.
+// docs/DATA_DICTIONARY.md for the field semantics.
 export async function GET(request: Request) {
   const userId = await getUserId();
   if (userId === null) {

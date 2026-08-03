@@ -4,7 +4,7 @@ A small multi-user web app for daily habit check-ins with weekly and monthly con
 
 **One sentence:** open the app, check off what I did today, see my consistency over the week and the month.
 
-This document explains *how* the system is built and *why*. For scope, screens and the day-by-day plan, see `README.md`.
+This document explains *how* the system is built and *why*. For scope, screens and the day-by-day plan, see `../README.md`.
 
 ---
 

@@ -1,7 +1,7 @@
 // In-memory sliding-window limiter for FAILED login attempts, keyed by IP.
 // Successful logins clear the counter; only wrong passwords count.
 //
-// Serverless caveat (documented in ARCHITECTURE.md): the Map lives per
+// Serverless caveat (documented in docs/ARCHITECTURE.md): the Map lives per
 // instance, so a cold start resets it. For a single-user app this still
 // shuts down naive brute force; a durable limiter (Upstash, Vercel WAF)
 // would be the multi-user upgrade path.

@@ -14,14 +14,14 @@ Personal web app for daily habit check-ins with weekly/monthly visualization and
 - **Today** screen (`/`): a status board — progress bar (required habits) + one card per habit reporting where it stands: done (with what it logged, e.g. "2/2", "+23 p") or what today expects of it ("Chest + triceps", "Dune · page 100 of 412", "Target 23:00 – 06:30"). A single **"Complete daily"** button opens the guided check-in at `/day` — one habit per step, prefilled from your goals ("Did you do Workout today? · Chest + triceps · Bench press 4×8"), saving details + done per step, with skip.
 - **Overview** screen (`/overview`): a Week | Month toggle (absorbs the old `/semana`, `/mes`). Week = contributions grid with tappable cells; Month = adherence % + streaks **plus** rich summaries (avg sleep, pages read, workout %, lessons). Cells link to a **Day Audit** (`/overview/[date]`) — everything logged that day, human-readable. Below the chart, an **Activities** section shows your configured setup (with the reading pace you need to hit your goal) and links straight into editing it.
 - **Onboarding** (`/onboarding`): an 8-step wizard configuring the workout plan, reading list/goal, sleep window, routine blocks, languages and spiritual practices. Editable later under `/config`.
-- **Rich data model** (v2): a binary spine (`done`) + JSONB `details` validated by Zod + normalized entity tables. See `DATA_DICTIONARY.md`.
+- **Rich data model** (v2): a binary spine (`done`) + JSONB `details` validated by Zod + normalized entity tables. See `docs/DATA_DICTIONARY.md`.
 - **Export** (`GET /api/export?from&to`): the canonical dataset JSON for a future year-end AI analysis.
 - Bilingual interface (English default, Portuguese), switchable from any screen.
 - Accounts created by script, claimed on first sign-in, login rate-limited.
 
-**Out:** AI insights in-app, LinkedIn posts, notifications, diet, external integrations (e.g. the Duolingo API), public sign-up. The app captures the dataset; the year-end analysis is done by feeding the export + `DATA_DICTIONARY.md` to an AI offline.
+**Out:** AI insights in-app, LinkedIn posts, notifications, diet, external integrations (e.g. the Duolingo API), public sign-up. The app captures the dataset; the year-end analysis is done by feeding the export + `docs/DATA_DICTIONARY.md` to an AI offline.
 
-See `ARCHITECTURE.md` for how it's built, `UX_PRINCIPLES.md` for how it should behave, and `DATA_DICTIONARY.md` for every stored field.
+See `docs/ARCHITECTURE.md` for how it's built, `docs/UX_PRINCIPLES.md` for how it should behave, and `docs/DATA_DICTIONARY.md` for every stored field.
 
 ---
 
@@ -160,7 +160,7 @@ GET    /api/checks/month?month=YYYY-MM
        → all checks for the month + adherence % + streak per habit.
 
 GET    /api/export?from=YYYY-MM-DD&to=YYYY-MM-DD
-       → canonical dataset JSON (entities + per-day details). See DATA_DICTIONARY.md.
+       → canonical dataset JSON (entities + per-day details). See docs/DATA_DICTIONARY.md.
 ```
 
 Thin routes: input validation + call to the `src/db/queries.ts` layer. All protected by the auth middleware.
@@ -212,12 +212,12 @@ tracker/
 ├── postcss.config.mjs
 ├── next.config.ts
 ├── .env.local                    # DATABASE_URL, AUTH_SECRET
-├── ARCHITECTURE.md               # ships with the repo (how it's built)
-├── UX_PRINCIPLES.md              # ships with the repo (how it should behave)
-├── DATA_DICTIONARY.md            # ships with the repo (every stored field)
-├── LEARNING_ROADMAP.md           # (gitignored)
-├── LINKEDIN_POSTS.md             # (gitignored)
-└── BLOCKED.md                    # (gitignored)
+├── docs/ARCHITECTURE.md               # ships with the repo (how it's built)
+├── docs/UX_PRINCIPLES.md              # ships with the repo (how it should behave)
+├── docs/DATA_DICTIONARY.md            # ships with the repo (every stored field)
+├── docs/LEARNING_ROADMAP.md           # (gitignored)
+├── docs/LINKEDIN_POSTS.md             # (gitignored)
+└── docs/BLOCKED.md                    # (gitignored)
 ```
 
 ---
@@ -268,5 +268,5 @@ safe to re-run. Nothing else reads `APP_PASSWORD` — drop it afterwards.
 
 - TypeScript strict, no `any`, interfaces for all props.
 - One commit per file. Conventional Commits (`chore:`, `feat:`, `docs:`). No co-authorship, no push until manual review.
-- `.gitignore` includes: `LEARNING_ROADMAP.md`, `LINKEDIN_POSTS.md`, `BLOCKED.md`, `identidade-visual.html`, `.env*`. `ARCHITECTURE.md` ships with the repo on purpose.
+- `.gitignore` includes: `docs/LEARNING_ROADMAP.md`, `docs/LINKEDIN_POSTS.md`, `docs/BLOCKED.md`, `identidade-visual.html`, `.env*`. `docs/ARCHITECTURE.md` ships with the repo on purpose.
 - Local development without Neon: `docker` + `local-neon-http-proxy` (set `NEON_LOCAL_PROXY=true` in `.env.local`) lets the same neon-http driver hit a local Postgres.

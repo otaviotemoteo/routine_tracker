@@ -571,7 +571,7 @@ export async function isConfigured(userId: number): Promise<boolean> {
 }
 
 // Canonical dataset export for a date range — the exact payload a future AI
-// analysis consumes (see DATA_DICTIONARY.md). Entities carry full history
+// analysis consumes (see docs/DATA_DICTIONARY.md). Entities carry full history
 // (all workout-plan versions); days hold per-habit {done, details, note}.
 export async function getExport(userId: number, from: string, to: string) {
   const [
@@ -666,7 +666,7 @@ export async function getExport(userId: number, from: string, to: string) {
   }
 
   // Emit snake_case throughout so the whole export is self-consistent with the
-  // `details` fields and DATA_DICTIONARY.md (Drizzle rows are camelCase).
+  // `details` fields and docs/DATA_DICTIONARY.md (Drizzle rows are camelCase).
   return {
     meta: { from, to, timezone: "America/Sao_Paulo", schema_version: 2 },
     entities: {

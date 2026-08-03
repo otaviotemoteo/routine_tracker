@@ -3,7 +3,7 @@ import { z } from "zod";
 // One Zod schema per habit slug — the SINGLE SOURCE OF TRUTH for the shape of
 // `daily_checks.details`. It (1) validates every write at the API boundary,
 // (2) generates the TypeScript types below via z.infer, and (3) feeds
-// DATA_DICTIONARY.md through the `.describe()` metadata on every field.
+// docs/DATA_DICTIONARY.md through the `.describe()` metadata on every field.
 //
 // Rule: `details` references entities by id/slug (book_id, plan_day_id,
 // language_slug). Entities are the nouns; details are the daily verbs.
