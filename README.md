@@ -17,9 +17,9 @@ Personal web app for daily habit check-ins with weekly/monthly visualization and
 - **Rich data model** (v2): a binary spine (`done`) + JSONB `details` validated by Zod + normalized entity tables. See `DATA_DICTIONARY.md`.
 - **Export** (`GET /api/export?from&to`): the canonical dataset JSON for a future year-end AI analysis.
 - Bilingual interface (English default, Portuguese), switchable from any screen.
-- Simple single-user auth (password via env var, login rate-limited).
+- Accounts created by script, claimed on first sign-in, login rate-limited.
 
-**Out:** AI insights in-app, LinkedIn posts, notifications, diet, external integrations (e.g. the Duolingo API), multi-user. The app captures the dataset; the year-end analysis is done by feeding the export + `DATA_DICTIONARY.md` to an AI offline.
+**Out:** AI insights in-app, LinkedIn posts, notifications, diet, external integrations (e.g. the Duolingo API), public sign-up. The app captures the dataset; the year-end analysis is done by feeding the export + `DATA_DICTIONARY.md` to an AI offline.
 
 See `ARCHITECTURE.md` for how it's built, `UX_PRINCIPLES.md` for how it should behave, and `DATA_DICTIONARY.md` for every stored field.
 
@@ -32,7 +32,7 @@ See `ARCHITECTURE.md` for how it's built, `UX_PRINCIPLES.md` for how it should b
 | Framework | Next.js 14+ (App Router) |
 | ORM | Drizzle |
 | Database | Neon (PostgreSQL) |
-| Auth | Middleware + `APP_PASSWORD` (env) + signed cookie |
+| Auth | Middleware + signed cookie (carries the user id) + PBKDF2 |
 | Styling | Tailwind |
 | Fonts | Fraunces (display), Jost (body), JetBrains Mono (data) |
 | Deploy | Vercel |
@@ -44,7 +44,8 @@ See `ARCHITECTURE.md` for how it's built, `UX_PRINCIPLES.md` for how it should b
 Business rules that apply to the entire codebase. Do not reinterpret.
 
 1. **Timezone is always `America/Sao_Paulo`.** A check's date NEVER comes from the database's `CURRENT_DATE` (Neon/Vercel run in UTC and the day would roll over at 9pm Brasília time). Every "today" date is calculated in the application code with an explicit timezone and passed as a parameter into queries. Single helper in `src/lib/utils.ts` (`todayInSaoPaulo(): string` in `YYYY-MM-DD` format) used everywhere.
-2. **Auth is hardcoded on purpose.** Next.js middleware checks the cookie; the `/login` page compares against `APP_PASSWORD` from env and sets an httpOnly cookie signed with `AUTH_SECRET`. No Auth.js in the MVP.
+2. **Accounts exist, sign-up does not.** Accounts are created only by `bun run user:create <name>` — no UI or API route makes one. Sign-in is a name, then either the password or, for an account nobody has claimed yet, choosing the first one. Middleware validates an httpOnly cookie signed with `AUTH_SECRET` that carries the user id. No Auth.js. Passwords are PBKDF2-SHA256 (600k iterations) via Web Crypto.
+10. **Every query is scoped to the signed-in user**, and every id-addressed write filters on `user_id` too, so an id from another account matches no row. `habits` is the one shared table.
 3. **Week starts on Monday** (Mon–Sun), across all screens and calculations.
 4. **A streak doesn't break because today hasn't been marked yet.** Streak = consecutive days with the habit done counting backward from yesterday; add +1 if today is already done.
 5. **Month adherence %** = days done ÷ days elapsed in the month (from day 1 through today, inclusive), not total days in the month. Past months use the month's total day count.
@@ -93,9 +94,17 @@ Full preview in `docs/identidade-visual.html` (historical reference, gitignored)
 
 ## Database Schema
 
-Two tables.
+`habits` is shared by every account; everything else hangs off `users.id`.
 
 ```sql
+CREATE TABLE users (
+  id            SERIAL PRIMARY KEY,
+  name          VARCHAR(40) NOT NULL,        -- display: "Sofia"
+  handle        VARCHAR(40) NOT NULL UNIQUE, -- lowercase, carries uniqueness
+  password_hash TEXT,                        -- NULL until first sign-in claims it
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE habits (
   id         SERIAL PRIMARY KEY,
   name       VARCHAR(50) NOT NULL,
@@ -107,12 +116,13 @@ CREATE TABLE habits (
 
 CREATE TABLE daily_checks (
   id         SERIAL PRIMARY KEY,
+  user_id    INT NOT NULL REFERENCES users(id),
   habit_id   INT NOT NULL REFERENCES habits(id),
   checked_at DATE NOT NULL,               -- NO default: always passed by the application (São Paulo TZ)
   done       BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(habit_id, checked_at)
+  UNIQUE(user_id, habit_id, checked_at)
 );
 
 CREATE INDEX idx_checks_date ON daily_checks(checked_at DESC);
@@ -193,7 +203,7 @@ tracker/
 │   │   ├── i18n.ts + get-lang.ts   # bilingual copy
 │   │   ├── onboarding{,-prefill}.ts / summaries.ts / describe-details.ts
 │   │   ├── auth.ts / rate-limit.ts / icons.ts
-│   ├── middleware.ts           # cookie-based auth
+│   ├── middleware.ts           # cookie-based auth (resolves the user id)
 │   └── types/habit.ts
 ├── docs/identidade-visual.html   # (gitignored) design system preview
 ├── drizzle.config.ts
@@ -201,7 +211,7 @@ tracker/
 ├── eslint.config.mjs
 ├── postcss.config.mjs
 ├── next.config.ts
-├── .env.local                    # DATABASE_URL, APP_PASSWORD, AUTH_SECRET
+├── .env.local                    # DATABASE_URL, AUTH_SECRET
 ├── ARCHITECTURE.md               # ships with the repo (how it's built)
 ├── UX_PRINCIPLES.md              # ships with the repo (how it should behave)
 ├── DATA_DICTIONARY.md            # ships with the repo (every stored field)
@@ -216,11 +226,29 @@ tracker/
 
 ```bash
 bun install
-cp .env.example .env.local   # fill in DATABASE_URL (Neon), APP_PASSWORD, AUTH_SECRET
+cp .env.example .env.local   # fill in DATABASE_URL (Neon), AUTH_SECRET
 bun run db:push              # applies the schema to Neon via Drizzle
-bun run db:seed              # populates the 7 habits
+bun run db:seed              # populates the 7 shared habits
+bun run user:create otavio   # an account — repeat per person
 bun run dev
 ```
+
+### Accounts
+
+There is no sign-up page and no API route that creates an account; these three
+scripts are the only way in or out of that state.
+
+```bash
+bun run user:create <name>    # new account, no password yet
+bun run user:password <name>  # set/reset a password (prompts, never an argument)
+bun run db:migrate            # one-shot: single-user database → accounts
+```
+
+A new account has no password. The first person to sign in with that name picks
+one (8+ characters, a number, a special character) and goes straight into
+onboarding. `db:migrate` is only for a database that predates accounts: it reads
+`APP_PASSWORD` to create the owner, assigns every existing row to them, and is
+safe to re-run. Nothing else reads `APP_PASSWORD` — drop it afterwards.
 
 ---
 
