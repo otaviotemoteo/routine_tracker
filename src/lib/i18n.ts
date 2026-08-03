@@ -27,7 +27,12 @@ export function readLangCookieClient(): Lang {
   return resolveLang(match?.[1]);
 }
 
-export type LoginErrorCode = "missing" | "wrong" | "server" | "rate_limited";
+export type LoginErrorCode =
+  | "missing"
+  | "wrong"
+  | "weak"
+  | "server"
+  | "rate_limited";
 
 // Copy is passed from Server Components into Client Components, so every
 // value must be serializable — templates with {placeholders}, never functions.
@@ -70,17 +75,35 @@ export interface Copy {
     howItWorksLabel: string;
     steps: { title: string; text: string }[];
     loginHeading: string;
+    nameLabel: string;
     passwordLabel: string;
     submit: string;
     submitting: string;
+    continueLabel: string;
+    // First access on an account created by script.
+    claimHeading: string;
+    claimLead: string; // {name}
+    newPasswordLabel: string;
+    createPassword: string;
+    changeName: string;
+    ruleLength: string; // {n}
+    ruleNumber: string;
+    ruleSymbol: string;
     errors: {
       missing: string;
       wrong: string;
+      weak: string;
       server: string;
       rateLimited: string; // {minutes}
     };
   };
-  nav: { label: string; today: string; overview: string };
+  nav: {
+    label: string;
+    today: string;
+    overview: string;
+    logout: string;
+    signedInAs: string;
+  };
   overview: {
     eyebrow: string;
     title: string;
@@ -242,6 +265,19 @@ export interface Copy {
     agoYesterday: string;
     agoDays: string; // {n}
     agoNever: string;
+  };
+  config: {
+    password: {
+      title: string;
+      lead: string;
+      currentLabel: string;
+      newLabel: string;
+      submit: string;
+      saving: string;
+      saved: string;
+      errorCurrent: string;
+      errorWeak: string;
+    };
   };
   sheets: {
     save: string;
@@ -456,17 +492,34 @@ export const COPY: Record<Lang, Copy> = {
         { title: "Month", text: "Track adherence and each habit's streak." },
       ],
       loginHeading: "Sign in",
+      nameLabel: "Name",
       passwordLabel: "Password",
       submit: "Sign in",
       submitting: "Signing in…",
+      continueLabel: "Continue",
+      claimHeading: "First access",
+      claimLead: "Welcome, {name}. Choose the password you'll use from now on.",
+      newPasswordLabel: "New password",
+      createPassword: "Create password",
+      changeName: "Not you?",
+      ruleLength: "At least {n} characters",
+      ruleNumber: "A number",
+      ruleSymbol: "A special character",
       errors: {
-        missing: "Type the password.",
-        wrong: "Wrong password. Try again.",
-        server: "Server is missing APP_PASSWORD or AUTH_SECRET.",
+        missing: "Type your name and password.",
+        wrong: "Wrong name or password. Try again.",
+        weak: "That password doesn't meet the rules yet.",
+        server: "Server is missing AUTH_SECRET.",
         rateLimited: "Too many attempts. Try again in {minutes} min.",
       },
     },
-    nav: { label: "Main navigation", today: "Today", overview: "Overview" },
+    nav: {
+      label: "Main navigation",
+      today: "Today",
+      overview: "Overview",
+      logout: "Sign out",
+      signedInAs: "Signed in as",
+    },
     overview: {
       eyebrow: "Your history",
       title: "Overview",
@@ -632,6 +685,19 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "yesterday",
       agoDays: "{n} days ago",
       agoNever: "never",
+    },
+    config: {
+      password: {
+        title: "Password",
+        lead: "Change the password you sign in with.",
+        currentLabel: "Current password",
+        newLabel: "New password",
+        submit: "Change password",
+        saving: "Saving…",
+        saved: "Password changed.",
+        errorCurrent: "That isn't your current password.",
+        errorWeak: "The new password doesn't meet the rules yet.",
+      },
     },
     sheets: {
       save: "Save",
@@ -876,17 +942,34 @@ export const COPY: Record<Lang, Copy> = {
         { title: "Mês", text: "Acompanhe a adesão e a sequência de cada hábito." },
       ],
       loginHeading: "Entrar",
+      nameLabel: "Nome",
       passwordLabel: "Senha",
       submit: "Entrar",
       submitting: "Entrando…",
+      continueLabel: "Continuar",
+      claimHeading: "Primeiro acesso",
+      claimLead: "Boas-vindas, {name}. Escolha a senha que você vai usar daqui em diante.",
+      newPasswordLabel: "Nova senha",
+      createPassword: "Criar senha",
+      changeName: "Não é você?",
+      ruleLength: "Pelo menos {n} caracteres",
+      ruleNumber: "Um número",
+      ruleSymbol: "Um caractere especial",
       errors: {
-        missing: "Digite a senha.",
-        wrong: "Senha incorreta. Tente de novo.",
-        server: "Servidor sem APP_PASSWORD ou AUTH_SECRET configurados.",
+        missing: "Digite seu nome e sua senha.",
+        wrong: "Nome ou senha incorretos. Tente de novo.",
+        weak: "Essa senha ainda não cumpre as regras.",
+        server: "Servidor sem AUTH_SECRET configurado.",
         rateLimited: "Muitas tentativas. Tente de novo em {minutes} min.",
       },
     },
-    nav: { label: "Navegação principal", today: "Hoje", overview: "Visão geral" },
+    nav: {
+      label: "Navegação principal",
+      today: "Hoje",
+      overview: "Visão geral",
+      logout: "Sair",
+      signedInAs: "Conectado como",
+    },
     overview: {
       eyebrow: "Seu histórico",
       title: "Visão geral",
@@ -1052,6 +1135,19 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "ontem",
       agoDays: "há {n} dias",
       agoNever: "nunca",
+    },
+    config: {
+      password: {
+        title: "Senha",
+        lead: "Altere a senha que você usa para entrar.",
+        currentLabel: "Senha atual",
+        newLabel: "Nova senha",
+        submit: "Alterar senha",
+        saving: "Salvando…",
+        saved: "Senha alterada.",
+        errorCurrent: "Essa não é a sua senha atual.",
+        errorWeak: "A nova senha ainda não cumpre as regras.",
+      },
     },
     sheets: {
       save: "Salvar",
