@@ -9,11 +9,12 @@
 //
 // Accounts are only ever created here and by `user:create` — never by the UI
 // or the API.
-// Pool (WebSocket) rather than the app's neon-http driver: http has no
-// interactive transactions, and a half-applied migration is exactly what this
-// must never leave behind.
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
+// node-postgres over a plain TCP connection, not the app's neon-http driver:
+// http has no interactive transactions, and a half-applied migration is
+// exactly what this must never leave behind. Neon accepts ordinary Postgres
+// connections, so the same script runs against Neon and against local docker —
+// which is what makes it testable before it touches anything real.
+import pg from "pg";
 import { hashPassword, toHandle } from "@/lib/password";
 
 const OWNER = process.env.MIGRATE_OWNER_NAME ?? "otavio";
@@ -45,9 +46,11 @@ async function main(): Promise<void> {
     );
     process.exit(1);
   }
-  neonConfig.webSocketConstructor = ws;
-
-  const pool = new Pool({ connectionString: url });
+  const pool = new pg.Pool({
+    connectionString: url,
+    // Neon requires TLS; a local docker Postgres doesn't offer it.
+    ssl: url.includes("localhost") ? false : { rejectUnauthorized: true },
+  });
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
