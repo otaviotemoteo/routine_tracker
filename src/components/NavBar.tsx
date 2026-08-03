@@ -10,14 +10,11 @@ import type { Copy, Lang } from "@/lib/i18n";
 interface NavBarProps {
   lang: Lang;
   copy: Copy["nav"];
-  // Whose session this is — shown beside the sign-out button, so on a shared
-  // device it's obvious which account is open.
-  userName: string;
 }
 
 // Rendered once in the (app) route-group layout so it persists across
 // navigations instead of remounting per page.
-export function NavBar({ lang, copy, userName }: NavBarProps) {
+export function NavBar({ lang, copy }: NavBarProps) {
   const pathname = usePathname();
   const navItems = [
     { href: "/", label: copy.today, active: pathname === "/" },
@@ -55,12 +52,13 @@ export function NavBar({ lang, copy, userName }: NavBarProps) {
           <form action={logout}>
             <button
               type="submit"
-              title={`${copy.signedInAs} ${userName}`}
-              aria-label={`${copy.logout} (${userName})`}
-              className="min-h-[44px] inline-flex items-center gap-1.5 px-3 sm:px-4 rounded-full border-2 border-forest bg-white font-semibold text-sm transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
+              aria-label={copy.logout}
+              className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 rounded-full border-2 border-forest bg-white font-semibold text-sm transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
             >
               <LogOut aria-hidden className="w-4 h-4" />
-              <span className="hidden sm:inline">{userName}</span>
+              {/* Icon alone on a phone: the nav row is already three controls
+                  wide before the label. */}
+              <span className="hidden sm:inline">{copy.logout}</span>
             </button>
           </form>
         </div>
