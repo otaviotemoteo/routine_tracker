@@ -31,22 +31,6 @@ export async function findUserByName(name: string): Promise<AccountRow | null> {
   return row ?? null;
 }
 
-export async function getUserName(id: number): Promise<string | null> {
-  const [row] = await db
-    .select({ name: users.name })
-    .from(users)
-    .where(eq(users.id, id));
-  return row?.name ?? null;
-}
-
-export async function getPasswordHash(id: number): Promise<string | null> {
-  const [row] = await db
-    .select({ passwordHash: users.passwordHash })
-    .from(users)
-    .where(eq(users.id, id));
-  return row?.passwordHash ?? null;
-}
-
 // Claim: set the first password on an account that has none. The `IS NULL`
 // guard is in the WHERE clause, so two people racing to claim the same name
 // can't both win — the second update matches no row.
@@ -68,6 +52,7 @@ export async function claimAccount(
   return true;
 }
 
+// Script-only (bun run user:password): there is no self-service reset.
 export async function changePassword(
   id: number,
   password: string
