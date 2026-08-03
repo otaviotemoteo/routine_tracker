@@ -1,6 +1,6 @@
 # Architecture — Personal Habit Tracker
 
-A single-user web app for daily habit check-ins with weekly and monthly consistency views.
+A small multi-user web app for daily habit check-ins with weekly and monthly consistency views.
 
 **One sentence:** open the app, check off what I did today, see my consistency over the week and the month.
 
@@ -19,7 +19,7 @@ This document explains *how* the system is built and *why*. For scope, screens a
 ┌──────────────────────▼──────────────────────────────┐
 │  Next.js 14+ (App Router) on Vercel                  │
 │                                                      │
-│  middleware.ts ── auth gate (signed cookie)          │
+│  middleware.ts ── auth gate (signed cookie → user id) │
 │       │                                              │
 │  app/api/checks/*  ── thin route handlers            │
 │       │              (input validation only)         │
@@ -30,7 +30,7 @@ This document explains *how* the system is built and *why*. For scope, screens a
                        │ serverless driver
 ┌──────────────────────▼──────────────────────────────┐
 │  Neon (PostgreSQL, serverless)                       │
-│  tables: habits, daily_checks                        │
+│  users, habits, daily_checks + entity tables         │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -43,7 +43,7 @@ The project deliberately mirrors the organization of **DevTrack** (`/home/otavio
 | Framework | Next.js 14+ (App Router) | Already mastered from DevTrack; RSC-first |
 | ORM | Drizzle | Type-safe, lightweight, already in use |
 | Database | Neon (PostgreSQL) | Serverless, zero config, already in use |
-| Auth | Custom middleware + env password | Single user; anything more is overkill |
+| Auth | Custom middleware + signed cookie + PBKDF2 | A closed set of accounts created by script; Auth.js would be overkill |
 | Styling | Tailwind | Tokens for the "Canteiro" design system |
 | Fonts | Fraunces / Jost / JetBrains Mono | Display / body / numeric data |
 | Deploy | Vercel | Zero config for Next.js |
@@ -62,20 +62,23 @@ Server Components fetch through the API routes' underlying query functions; clie
 
 ## Data Model
 
-Two tables. That's the whole model.
+`habits` is a shared catalogue; everything else belongs to one account through
+`user_id` (see "Data ownership").
 
 ```
-habits                          daily_checks
-──────                          ────────────
-id          SERIAL PK           id          SERIAL PK
-name        VARCHAR(50)         habit_id    FK → habits.id
-slug        VARCHAR(50) UNIQUE  checked_at  DATE  (no DB default!)
-icon        VARCHAR(10)         done        BOOLEAN default false
-optional    BOOLEAN             created_at  TIMESTAMPTZ
-created_at  TIMESTAMPTZ         updated_at  TIMESTAMPTZ
+users                 habits                daily_checks
+─────                 ──────                ────────────
+id      SERIAL PK     id      SERIAL PK     id          SERIAL PK
+name    VARCHAR(40)   name    VARCHAR(50)   user_id     FK → users.id
+handle  VARCHAR(40)   slug    VARCHAR(50)   habit_id    FK → habits.id
+        UNIQUE                UNIQUE        checked_at  DATE (no DB default!)
+password_hash TEXT    icon    VARCHAR(10)   done        BOOLEAN default false
+        NULL = unclaimed
+                      optional BOOLEAN      details     JSONB (Tier 2)
+created_at TIMESTAMPTZ                      note        TEXT
 
-                                UNIQUE(habit_id, checked_at)
-                                INDEX on checked_at DESC
+                          UNIQUE(user_id, habit_id, checked_at)
+                          INDEX on (user_id, checked_at DESC)
 ```
 
 - `habits` is seeded once with 7 rows (6 required + 1 optional "Hobby") and is effectively static in the MVP.
@@ -138,14 +141,81 @@ GET    /api/export?from&to            canonical dataset JSON (v2)
 
 All routes sit behind the auth middleware. Handlers return proper status codes with JSON error bodies; every handler wraps its work in try/catch.
 
-## Authentication
+## Authentication & accounts
 
-Deliberately minimal for a single user:
+Small, closed and deliberately without Auth.js — a handful of people who all
+know each other, so the machinery of a general auth provider buys nothing.
 
-- `middleware.ts` protects everything except `/login` and static assets by validating an httpOnly cookie signed with `AUTH_SECRET`.
-- `/login` compares the submitted password against `APP_PASSWORD` (env var) and sets the cookie.
-- No Auth.js, no user table, no sessions store — accounts don't exist in the database at all; the env password is the only credential. If the app ever goes multi-user, this swaps out for Auth.js without touching the data layer.
-- **Login rate limiting** (`src/lib/rate-limit.ts`): 5 failed passwords per IP per 15-minute sliding window blocks further attempts (even with the right password) until the window expires; success clears the counter. It's in-memory, so a serverless cold start resets it — acceptable for the only unauthenticated surface of a single-user app; the durable upgrade path is Upstash or Vercel WAF rules.
+- **Accounts are created by script only** (`bun run user:create <name>`). There
+  is no sign-up page and no API route that creates one. This is the security
+  model: you can't register, so the only way in is a name someone gave you.
+- **The login handle is a name, not an email.** `users.name` is the display
+  form ("Sofia"); `users.handle` is its lowercase and carries the UNIQUE, so
+  "Sofia" and "sofia" are one account. Nothing is ever emailed, so an address
+  would be an unverifiable field to maintain.
+- **First access claims the account.** `users.password_hash` is NULL until
+  someone signs in with that name and chooses a password; the claim UPDATE
+  carries `WHERE password_hash IS NULL`, so two people racing for the same name
+  can't both win. Claiming also seeds that account's three default spiritual
+  practices and drops the user into onboarding.
+- **Sign-in is two steps** (`src/app/login/actions.ts`): name, then either the
+  password or the first-access screen. An *unknown* name is routed to the
+  password step and fails with the same wrong-credentials message, so the form
+  can't be used to enumerate who has an account. Only an unclaimed name reveals
+  itself — the accepted cost of the claim flow, and why names aren't published.
+- **Passwords**: PBKDF2-SHA256, 600k iterations, Web Crypto only so the same
+  code runs on the edge middleware and in Node (`src/lib/password.ts`). Stored
+  as `iterations.salt.hash`, so the cost can be raised later without
+  invalidating anyone's password. Rules live in `src/lib/password-rules.ts` and
+  are read by both the live checklist and the server check, so the form can
+  never accept what the action rejects.
+- **No self-service password change.** `bun run user:password <name>` prompts
+  for a new one. Deliberate: resets go through the owner.
+- **The session cookie carries the user id**, signed:
+  `userId.issuedAt.HMAC-SHA256(userId.issuedAt)`. The middleware verifies the
+  signature only, so authorization costs no database round trip per request.
+  The trade-off: deleting a user does not invalidate their cookie until it
+  expires.
+- **Every query is scoped to the signed-in user** — see "Data ownership".
+- **Login rate limiting** (`src/lib/rate-limit.ts`): 5 failed attempts per IP
+  per 15-minute sliding window blocks further attempts (even with the right
+  password) until the window expires; success clears the counter. It's
+  in-memory, so a serverless cold start resets it; the durable upgrade path is
+  Upstash or Vercel WAF rules. It also covers the name step, which is what
+  makes guessing an unclaimed name impractical.
+
+## Data ownership
+
+Every per-user table carries `user_id`; `habits` does not, because the seven
+habits are a shared catalogue (when activities become user-defined, it grows
+one like the rest). `workout_plan_days` reaches its owner through `plan_id`.
+
+Two rules hold everywhere in `src/db/queries.ts`:
+
+1. **Every function takes `userId` as its first argument**, resolved once per
+   request by `requireUserId()` (pages/actions) or `getUserId()` (API routes,
+   which answer 401 rather than redirect) — `src/lib/session.ts`.
+2. **Every id-addressed write filters on the user too**
+   (`WHERE id = ? AND user_id = ?`), so a check or book id belonging to
+   somebody else matches no row instead of being mutated. Ownership is never
+   inferred from the id alone.
+
+Uniqueness that used to be global is per-account:
+`daily_checks(user_id, habit_id, checked_at)`, `reading_goals(user_id, year)`,
+`spiritual_practices(user_id, slug)`, `languages(user_id, slug)`.
+
+### Migrating from the single-user shape
+
+`bun run db:migrate` (`src/db/migrate-users.ts`) is a one-shot, re-runnable
+script: it creates `users`, adds `user_id` everywhere, inserts the owner from
+`APP_PASSWORD`, assigns every existing row to them, then sets the columns NOT
+NULL and swaps the constraints. It runs over a plain Postgres connection (`pg`)
+rather than the app's neon-http driver, because http has no interactive
+transactions and a half-applied migration is the one outcome this must never
+leave behind — and because that same connection works against local docker,
+which is what makes it testable before it touches anything real.
+`APP_PASSWORD` is read by this script and nothing else; it can be deleted once
+the owner has changed their password.
 
 ## Frontend Architecture
 
@@ -183,7 +253,7 @@ The loop stops only when every phase is complete and audited. What remains is th
 - **Next 15 / React 19** ("14+" per README): async `searchParams`/`params` and `useActionState` are used accordingly.
 - **`src/` root** (README) instead of DevTrack's repo-root `app/` layout.
 - **Local dev without Neon:** `NEON_LOCAL_PROXY=true` routes the neon-http driver through `local-neon-http-proxy` (docker) to a plain local Postgres — the same driver code runs in dev and production. `drizzle-kit push` can't use the proxy; apply generated SQL via `psql` locally.
-- **Auth cookie** is `issuedAt.HMAC-SHA256(issuedAt)` via Web Crypto (works on both the edge middleware and the Node server action), max age 1 year, timing-safe comparisons.
+- **Auth cookie** is `userId.issuedAt.HMAC-SHA256(userId.issuedAt)` via Web Crypto (works on both the edge middleware and the Node server action), max age 1 year, timing-safe comparisons.
 
 ## Development Conventions
 
