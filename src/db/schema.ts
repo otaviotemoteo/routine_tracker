@@ -23,7 +23,10 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 40 }).notNull(),
   handle: varchar("handle", { length: 40 }).notNull().unique(),
   // PBKDF2-SHA256, "iterations.saltHex.hashHex" — see src/lib/password.ts.
-  passwordHash: text("password_hash").notNull(),
+  // NULL means the account exists but has never been signed into: the first
+  // person to log in with this name sets the password. Accounts are only ever
+  // created by script, never by the UI or the API.
+  passwordHash: text("password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
