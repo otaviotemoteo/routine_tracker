@@ -1,272 +1,103 @@
 # Personal Tracker
 
-Personal web app for daily habit check-ins with weekly/monthly visualization and a rich, auditable per-day dataset.
+A small web app for keeping track of the things I do every day (training,
+reading, sleep, my routine, languages, spiritual practice) and for seeing,
+honestly, how consistent I actually am.
 
-**One sentence:** I open the app, mark what I did today (down to pages read and lessons done), and see my consistency — and any single day — over the week and the month.
-
----
-
-## Scope
-
-**In:**
-
-- 7 habits (6 required + 1 optional): 🏋️ Workout, 📖 Reading, 🌙 Sleep, ⏰ Routine, 🌍 Duolingo, ✝️ Spirituality, 🎸 Hobby (optional)
-- **Today** screen (`/`): a status board — progress bar (required habits) + one card per habit reporting where it stands: done (with what it logged, e.g. "2/2", "+23 p") or what today expects of it ("Chest + triceps", "Dune · page 100 of 412", "Target 23:00 – 06:30"). A single **"Complete daily"** button opens the guided check-in at `/day` — one habit per step, prefilled from your goals ("Did you do Workout today? · Chest + triceps · Bench press 4×8"), saving details + done per step, with skip.
-- **Overview** screen (`/overview`): a Week | Month toggle (absorbs the old `/semana`, `/mes`). Week = contributions grid with tappable cells; Month = adherence % + streaks **plus** rich summaries (avg sleep, pages read, workout %, lessons). Cells link to a **Day Audit** (`/overview/[date]`) — everything logged that day, human-readable. Below the chart, an **Activities** section shows your configured setup (with the reading pace you need to hit your goal) and links straight into editing it.
-- **Onboarding** (`/onboarding`): an 8-step wizard configuring the workout plan, reading list/goal, sleep window, routine blocks, languages and spiritual practices. Editable later under `/config`.
-- **Rich data model** (v2): a binary spine (`done`) + JSONB `details` validated by Zod + normalized entity tables. See `docs/DATA_DICTIONARY.md`.
-- **Export** (`GET /api/export?from&to`): the canonical dataset JSON for a future year-end AI analysis.
-- Bilingual interface (English default, Portuguese), switchable from any screen.
-- Accounts created by script, claimed on first sign-in, login rate-limited.
-
-**Out:** AI insights in-app, LinkedIn posts, notifications, diet, external integrations (e.g. the Duolingo API), public sign-up. The app captures the dataset; the year-end analysis is done by feeding the export + `docs/DATA_DICTIONARY.md` to an AI offline.
-
-See `docs/ARCHITECTURE.md` for how it's built, `docs/UX_PRINCIPLES.md` for how it should behave, and `docs/DATA_DICTIONARY.md` for every stored field.
+**In one sentence:** open it, say what you did today, and watch the week and the
+month fill in.
 
 ---
 
-## Stack
+## What it's for
 
-| Layer | Technology |
-|--------|-----------|
-| Framework | Next.js 14+ (App Router) |
-| ORM | Drizzle |
-| Database | Neon (PostgreSQL) |
-| Auth | Middleware + signed cookie (carries the user id) + PBKDF2 |
-| Styling | Tailwind |
-| Fonts | Fraunces (display), Jost (body), JetBrains Mono (data) |
-| Deploy | Vercel |
+Most habit apps ask a yes-or-no question and give you back a number. That's easy
+to keep up with and tells you almost nothing three months later. *Did you read
+today?* Yes. Which book? How many pages? On track to finish it this year? The
+app has no idea.
 
----
+This one asks the small follow-up questions while you're already there, and
+keeps the answers. So at the end of the year there's a real record: not "I read
+on 214 days", but which books, at what pace, and where the month went quiet.
 
-## Consolidated Decisions
+The trade is that answering takes slightly longer than tapping a checkbox. Every
+design decision in the app exists to keep that trade worth making. The daily
+check-in is meant to stay under two minutes, because a slightly shallower answer
+given every day beats a perfect one abandoned in week three.
 
-Business rules that apply to the entire codebase. Do not reinterpret.
+## What you actually do with it
 
-1. **Timezone is always `America/Sao_Paulo`.** A check's date NEVER comes from the database's `CURRENT_DATE` (Neon/Vercel run in UTC and the day would roll over at 9pm Brasília time). Every "today" date is calculated in the application code with an explicit timezone and passed as a parameter into queries. Single helper in `src/lib/utils.ts` (`todayInSaoPaulo(): string` in `YYYY-MM-DD` format) used everywhere.
-2. **Accounts exist, sign-up does not.** Accounts are created only by `bun run user:create <name>` — no UI or API route makes one. Sign-in is a name, then either the password or, for an account nobody has claimed yet, choosing the first one. Middleware validates an httpOnly cookie signed with `AUTH_SECRET` that carries the user id. No Auth.js. Passwords are PBKDF2-SHA256 (600k iterations) via Web Crypto.
-10. **Every query is scoped to the signed-in user**, and every id-addressed write filters on `user_id` too, so an id from another account matches no row. `habits` is the one shared table.
-3. **Week starts on Monday** (Mon–Sun), across all screens and calculations.
-4. **A streak doesn't break because today hasn't been marked yet.** Streak = consecutive days with the habit done counting backward from yesterday; add +1 if today is already done.
-5. **Month adherence %** = days done ÷ days elapsed in the month (from day 1 through today, inclusive), not total days in the month. Past months use the month's total day count.
-6. **Hobby is optional:** it appears on every screen with a distinct visual (dashed border, "optional" label), but doesn't count toward the day's progress bar nor the week's best/worst.
-7. **Toggle is optimistic UI:** the card changes instantly on click and reverts if the PATCH fails.
-8. **HTTP routes in `app/api`, organized like DevTrack.** Routes are thin: they validate input and call the query layer (`src/db/queries.ts`), which concentrates all database access. No loose SQL/Drizzle inside route handlers or components.
-9. **Organization follows DevTrack.** Folder structure, naming, layers (route → query → schema), and best practices replicate the conventions adopted in `/home/otavio/Desktop/projetos/pessoal/devtrack`. Where this README conflicts with DevTrack, this README wins (the tracker is intentionally simpler).
+**Every day.** You open **Today** and see a card per habit, showing what you've
+logged so far or what today expects of you: the session your plan has for a
+Tuesday, the page your book is on, the sleep window you set. One button starts
+the check-in, which walks you through one habit at a time with the answers
+already filled in from your own setup. You correct what's wrong and move on.
+Anything you'd rather not answer, you skip.
 
----
+**Every so often.** **Overview** shows two things. The week is a grid with
+habits down the side and days across the top. The month is a calendar that gets
+greener the more you did. Point at any day to see what it held, or click through
+for the full record of it. Underneath are the numbers worth knowing: which day
+went best, which habit is slipping, whether your reading pace still reaches your
+goal.
 
-## Design System — "Canteiro"
+**Once, at the start.** A short setup asks what you're actually tracking: your
+training plan, the books you mean to read, the hours you're aiming for, the
+blocks your day is built from, which languages, which practices. Everything the
+daily check-in prefills comes from here, and you can change any of it later.
 
-Identity: cream paper, deep-green ink, offset hard shadows, thick-bordered cards. Retro-editorial aesthetic in green.
+## The ideas behind it
 
-### Palette
+- **A screen either reports or edits, never both.** Today tells you where you
+  stand and has exactly one button. Changing something is always a deliberate
+  move into a different screen. Mixing the two is what makes trackers feel like
+  paperwork.
+- **Never show a number the data can't support.** No reading pace until the book
+  list is complete. No "12% above average" invented from three days of history.
+  If it can't be said honestly, it isn't said.
+- **The rules shouldn't punish you.** A streak counts from yesterday, so an
+  unchecked today never zeroes it. Adherence divides by the days that have
+  actually happened, not by the whole month, and never by days from before you
+  started tracking.
+- **Every state is written down, not just coloured.** Green and grey reinforce
+  the meaning. The words carry it.
+- **The phone is the real device.** It's designed at phone width first. The
+  desktop just gets more room.
+- **It works in English and Portuguese**, switchable from any screen.
 
-In code (tailwind.config.ts) the tokens use English color names; the mapping is fixed:
+## Who can use it
 
-| Token | Tailwind name | Hex | Use |
-|-------|---------------|-----|-----|
-| `--papel` | `cream` | `#F7F3E8` | Overall background |
-| `--mata` | `forest` | `#17281C` | Text, borders, hard shadows |
-| `--trevo` | `clover` | `#3D9B4F` | Accent: primary buttons, completed checks, done cells |
-| `--broto` | `mint` | `#E3EFE0` | Soft fills: hover, marked card, section tint |
-| `--palha` | `straw` | `#D9A03F` | Streaks, achievement highlights, and the "pending" state (a `straw/30` chip on Today's cards) |
-| `--cinza-palha` | `sand` | `#DCD9CC` | Empty cells, unfilled bars, muted text together with `forest` opacity |
+It's for a handful of people who know each other, so there's no sign-up page and
+no way to register. Accounts are created from the command line. The first time
+you sign in with your name you choose your password, and you land in setup.
+Everyone's data is entirely their own. The only thing shared between accounts is
+the list of habit names.
 
-### Typography
+## Where the data goes
 
-- **Fraunces** (700/900) — titles and headings, with `font-variant-caps: small-caps` and wide letter-spacing on screen titles ("Today", "Week", "Month")
-- **Jost** (400/500/600) — body, labels, buttons
-- **JetBrains Mono** (500/700) — numbers: percentages, counters (4/6), streaks
-
-### Signature Components
-
-- **Hard shadow:** `box-shadow: 4px 4px 0 var(--mata)` on cards and buttons (6px on button hover, with a -2px translate). No blur, ever.
-- **Borders:** `2px solid var(--mata)`, 10–12px radius on cards, pill buttons (full radius).
-- **Completed habit card:** `--broto` fill, check in `--trevo`.
-- **Hobby card:** `2px dashed` border, small "optional" label.
-- **Week grid:** square cells with 4px radius; done in `--trevo`, empty in `--cinza-palha`, both with a thin border of `--mata` at 15% opacity.
-- **Eyebrow:** small caps label with a left dash (like the reference's "— RESERVATIONS"), in `--trevo`.
-
-Full preview in `docs/identidade-visual.html` (historical reference, gitignored). The UI never renders emoji: habit icons are lucide-react SVGs mapped by slug in `src/lib/icons.ts` (the emoji in the database `icon` column is legacy seed data, unused by the interface).
-
----
-
-## Database Schema
-
-`habits` is shared by every account; everything else hangs off `users.id`.
-
-```sql
-CREATE TABLE users (
-  id            SERIAL PRIMARY KEY,
-  name          VARCHAR(40) NOT NULL,        -- display: "Sofia"
-  handle        VARCHAR(40) NOT NULL UNIQUE, -- lowercase, carries uniqueness
-  password_hash TEXT,                        -- NULL until first sign-in claims it
-  created_at    TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE habits (
-  id         SERIAL PRIMARY KEY,
-  name       VARCHAR(50) NOT NULL,
-  slug       VARCHAR(50) NOT NULL UNIQUE,
-  icon       VARCHAR(10),
-  optional   BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE daily_checks (
-  id         SERIAL PRIMARY KEY,
-  user_id    INT NOT NULL REFERENCES users(id),
-  habit_id   INT NOT NULL REFERENCES habits(id),
-  checked_at DATE NOT NULL,               -- NO default: always passed by the application (São Paulo TZ)
-  done       BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, habit_id, checked_at)
-);
-
-CREATE INDEX idx_checks_date ON daily_checks(checked_at DESC);
-```
-
-**Seed:**
-
-```sql
-INSERT INTO habits (name, slug, icon, optional) VALUES
-  ('Treino',          'treino',          '🏋️', false),
-  ('Leitura',         'leitura',         '📖', false),
-  ('Sono',            'sono',            '🌙', false),
-  ('Rotina',          'rotina',          '⏰', false),
-  ('Duolingo',        'duolingo',        '🌍', false),
-  ('Espiritualidade', 'espiritualidade', '✝️', false),
-  ('Hobby',           'hobby',           '🎸', true);
-```
+Nowhere. It lives in one database, it isn't sold or analysed by anyone, and it
+can be exported whole at any time as a single file. That export is the point of
+all the detail: at the end of a year it's a dataset worth reading, and the app
+deliberately doesn't try to interpret it for you.
 
 ---
 
-## API Routes
+## For developers
 
-```
-GET    /api/checks?date=YYYY-MM-DD
-       → returns the day's 7 checks (creates them if they don't exist). Without ?date, uses today (São Paulo TZ).
-
-PATCH  /api/checks/:id
-       → { done }                → quick toggle (keeps details)
-       → { done, details, note } → sheet save (details validated per habit slug by Zod)
-
-GET    /api/checks/week?start=YYYY-MM-DD
-       → start must be a Monday. Returns 7 days x 7 habits.
-
-GET    /api/checks/month?month=YYYY-MM
-       → all checks for the month + adherence % + streak per habit.
-
-GET    /api/export?from=YYYY-MM-DD&to=YYYY-MM-DD
-       → canonical dataset JSON (entities + per-day details). See docs/DATA_DICTIONARY.md.
-```
-
-Thin routes: input validation + call to the `src/db/queries.ts` layer. All protected by the auth middleware.
-
----
-
-## Folder Structure
-
-```
-tracker/
-├── src/
-│   ├── app/
-│   │   ├── (app)/               # authed shell: persistent NavBar + onboarding gate
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx         # Today
-│   │   │   ├── loading.tsx
-│   │   │   └── overview/
-│   │   │       ├── page.tsx     # Week | Month toggle
-│   │   │       └── [date]/page.tsx   # Day Audit
-│   │   ├── login/              # landing + login (no NavBar)
-│   │   ├── onboarding/         # 8-step wizard (page.tsx + actions.ts)
-│   │   ├── config/            # settings, reuses wizard steps
-│   │   ├── api/
-│   │   │   ├── checks/{route,[id],week,month}.ts
-│   │   │   └── export/route.ts
-│   │   ├── layout.tsx          # root: <html>, fonts, lang
-│   │   ├── globals.css / error.tsx / icon.svg
-│   ├── components/
-│   │   ├── HabitCard.tsx / HabitSheet.tsx / TodayChecklist.tsx
-│   │   ├── sheets/             # per-habit detail-sheet bodies + registry
-│   │   ├── onboarding/         # wizard step components + chrome
-│   │   ├── WeekGrid / MonthProgress / MonthSummary / PeriodNav / NavBar
-│   │   └── landing/            # Hero, HowItWorks, LoginForm, LanguageSelect
-│   ├── db/
-│   │   ├── schema.ts           # Tier 1 spine + Tier 3 entities
-│   │   ├── index.ts / queries.ts / seed.ts
-│   ├── lib/
-│   │   ├── utils.ts            # timezone/date helpers, streaks, adherence, pace
-│   │   ├── details-schemas.ts  # Zod per-habit details (source of truth)
-│   │   ├── i18n.ts + get-lang.ts   # bilingual copy
-│   │   ├── onboarding{,-prefill}.ts / summaries.ts / describe-details.ts
-│   │   ├── auth.ts / rate-limit.ts / icons.ts
-│   ├── middleware.ts           # cookie-based auth (resolves the user id)
-│   └── types/habit.ts
-├── docs/identidade-visual.html   # (gitignored) design system preview
-├── drizzle.config.ts
-├── tailwind.config.ts
-├── eslint.config.mjs
-├── postcss.config.mjs
-├── next.config.ts
-├── .env.local                    # DATABASE_URL, AUTH_SECRET
-├── docs/ARCHITECTURE.md               # ships with the repo (how it's built)
-├── docs/UX_PRINCIPLES.md              # ships with the repo (how it should behave)
-├── docs/DATA_DICTIONARY.md            # ships with the repo (every stored field)
-├── docs/LEARNING_ROADMAP.md           # (gitignored)
-├── docs/LINKEDIN_POSTS.md             # (gitignored)
-└── docs/BLOCKED.md                    # (gitignored)
-```
-
----
-
-## Quick Start
+| Document | What's in it |
+|---|---|
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Run it locally, the stack, the schema, the API, the folder layout |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How it's built and why: layering, accounts, data ownership |
+| [`docs/UX_PRINCIPLES.md`](docs/UX_PRINCIPLES.md) | How it should behave, with the code that implements each rule |
+| [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md) | Every stored field, so the export is readable years from now |
+| [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) | The "Canteiro" visual identity: palette, type, components |
 
 ```bash
 bun install
-cp .env.example .env.local   # fill in DATABASE_URL (Neon), AUTH_SECRET
-bun run db:push              # applies the schema to Neon via Drizzle
-bun run db:seed              # populates the 7 shared habits
-bun run user:create otavio   # an account — repeat per person
+cp .env.example .env.local   # DATABASE_URL (Neon), AUTH_SECRET
+bun run db:push && bun run db:seed
+bun run user:create <name>
 bun run dev
 ```
 
-### Accounts
-
-There is no sign-up page and no API route that creates an account; these three
-scripts are the only way in or out of that state.
-
-```bash
-bun run user:create <name>    # new account, no password yet
-bun run user:password <name>  # set/reset a password (prompts, never an argument)
-bun run db:migrate            # one-shot: single-user database → accounts
-```
-
-A new account has no password. The first person to sign in with that name picks
-one (8+ characters, a number, a special character) and goes straight into
-onboarding. `db:migrate` is only for a database that predates accounts: it reads
-`APP_PASSWORD` to create the owner, assigns every existing row to them, and is
-safe to re-run. Nothing else reads `APP_PASSWORD` — drop it afterwards.
-
----
-
-## Timeline (1 week, ~2h/day)
-
-| Day | Deliverable |
-|-----|---------|
-| Mon | Setup: Next.js + Drizzle + Neon. Schema. Seed. Date helpers with TZ. |
-| Tue | Auth (middleware + login). Day API + toggle. "Today" screen functional. |
-| Wed | Week API. "Week" screen with grid. |
-| Thu | Month API (% + streak). "Month" screen. |
-| Fri | Deploy to Vercel. Test on phone. Visual adjustments. |
-
----
-
-## Conventions
-
-- TypeScript strict, no `any`, interfaces for all props.
-- One commit per file. Conventional Commits (`chore:`, `feat:`, `docs:`). No co-authorship, no push until manual review.
-- `.gitignore` includes: `docs/LEARNING_ROADMAP.md`, `docs/LINKEDIN_POSTS.md`, `docs/BLOCKED.md`, `identidade-visual.html`, `.env*`. `docs/ARCHITECTURE.md` ships with the repo on purpose.
-- Local development without Neon: `docker` + `local-neon-http-proxy` (set `NEON_LOCAL_PROXY=true` in `.env.local`) lets the same neon-http driver hit a local Postgres.
+Built with Next.js, Drizzle and Neon, deployed on Vercel.

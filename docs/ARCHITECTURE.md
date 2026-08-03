@@ -34,13 +34,11 @@ This document explains *how* the system is built and *why*. For scope, screens a
 └─────────────────────────────────────────────────────┘
 ```
 
-The project deliberately mirrors the organization of **DevTrack** (`/home/otavio/Desktop/projetos/pessoal/devtrack`): same folder conventions, same strict layering, same naming style. The tracker is DevTrack's simpler sibling — same house, same rules. Where this documentation conflicts with DevTrack conventions, this documentation wins, because the tracker is intentionally simpler.
-
 ## Tech Stack
 
 | Layer | Technology | Rationale |
 |-------|-----------|-----------|
-| Framework | Next.js 14+ (App Router) | Already mastered from DevTrack; RSC-first |
+| Framework | Next.js 14+ (App Router) | RSC-first, already familiar |
 | ORM | Drizzle | Type-safe, lightweight, already in use |
 | Database | Neon (PostgreSQL) | Serverless, zero config, already in use |
 | Auth | Custom middleware + signed cookie + PBKDF2 | A closed set of accounts created by script; Auth.js would be overkill |
@@ -249,9 +247,9 @@ The loop stops only when every phase is complete and audited. What remains is th
 
 ## Deviations & Notable Choices
 
-- **Tailwind v3 (not v4 like DevTrack)** so the design tokens live in `tailwind.config.ts` exactly as the project contract asks; DevTrack's CSS-first v4 tokens would scatter them into `globals.css`.
+- **Tailwind v3, not v4**, so the design tokens live in `tailwind.config.ts` as the project contract asks. v4's CSS-first tokens would scatter them into `globals.css`.
 - **Next 15 / React 19** ("14+" per README): async `searchParams`/`params` and `useActionState` are used accordingly.
-- **`src/` root** (README) instead of DevTrack's repo-root `app/` layout.
+- **`src/` root** rather than a repo-root `app/` layout.
 - **Local dev without Neon:** `NEON_LOCAL_PROXY=true` routes the neon-http driver through `local-neon-http-proxy` (docker) to a plain local Postgres — the same driver code runs in dev and production. `drizzle-kit push` can't use the proxy; apply generated SQL via `psql` locally.
 - **Auth cookie** is `userId.issuedAt.HMAC-SHA256(userId.issuedAt)` via Web Crypto (works on both the edge middleware and the Node server action), max age 1 year, timing-safe comparisons.
 
