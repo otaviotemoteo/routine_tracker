@@ -7,7 +7,6 @@ import { RoutineStep } from "@/components/onboarding/RoutineStep";
 import { DuolingoStep } from "@/components/onboarding/DuolingoStep";
 import { SpiritualityStep } from "@/components/onboarding/SpiritualityStep";
 import { LanguageSelect } from "@/components/landing/LanguageSelect";
-import { PasswordCard } from "@/components/config/PasswordCard";
 import { getSetupSummary } from "@/lib/setup-summary";
 import {
   saveDuolingoStep,
@@ -52,8 +51,7 @@ interface ConfigPageProps {
 export default async function ConfigPage({ searchParams }: ConfigPageProps) {
   const userId = await requireUserId();
   const lang = await getLang();
-  const all = COPY[lang];
-  const copy = all.onboarding;
+  const copy = COPY[lang].onboarding;
   const { section: raw, from } = await searchParams;
   const section = SECTIONS.includes(raw as Section) ? (raw as Section) : null;
 
@@ -97,14 +95,6 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
               </li>
             ))}
           </ul>
-
-          {/* Account, below the activities it belongs beneath. */}
-          <div className="mt-8">
-            <PasswordCard
-              copy={all.config.password}
-              landingCopy={all.landing}
-            />
-          </div>
 
           <Link
             href="/"
