@@ -120,6 +120,26 @@ settle decisions that were already made, not re-open them.
   after it, or the user reaches a stale screen and reaches for F5
   (`src/components/daily/DailyStep.tsx`).
 
+## Getting in
+
+- **Ask for one thing at a time.** Sign-in is the name, then the password —
+  because until we know who you are we can't know whether you even *have* a
+  password yet. Two short steps beat one form that asks for something half the
+  people don't have.
+- **Never say which half was wrong.** "Wrong name or password" — one message
+  for a bad name and a bad password alike, so the form can't be used to find
+  out who has an account.
+- **Rules are shown while typing, not after submitting.** A password field you
+  can't read is hard enough; the three rules sit under it as a live checklist
+  and the button stays disabled until they pass
+  (`src/lib/password-rules.ts` is read by both the checklist and the server, so
+  the form can never accept what the action rejects).
+- **First access lands in onboarding, not on an empty Today.** A brand-new
+  account has nothing to show; drop it where it can say what it tracks.
+- **The way out is always visible.** Sign-out sits in the nav on every screen of
+  the app — label on desktop, icon alone on a phone where the row is already
+  three controls wide.
+
 ## Forms and data entry
 
 - **Guided steps beat one long form.** Both the onboarding wizard and the daily
