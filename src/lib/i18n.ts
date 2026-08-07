@@ -2,6 +2,11 @@
 // (top right, every screen). The choice lives in a non-httpOnly cookie so the
 // client can set it and server components can read it. Habit names come from
 // the database in Portuguese and are localized here by slug.
+//
+// One slice lives elsewhere: the values layer's copy is large enough to bury
+// everything else, so it sits in i18n-assessment.ts and is folded in below.
+// The import runs one way, and callers still read COPY[lang].assessment.
+import { ASSESSMENT_COPY, type AssessmentCopy } from "./i18n-assessment";
 
 export type Lang = "en" | "pt";
 
@@ -462,6 +467,7 @@ export interface Copy {
       leave: string;
     };
   };
+  assessment: AssessmentCopy;
 }
 
 export const COPY: Record<Lang, Copy> = {
@@ -901,6 +907,7 @@ export const COPY: Record<Lang, Copy> = {
         leave: "Discard",
       },
     },
+    assessment: ASSESSMENT_COPY.en,
   },
   pt: {
     metaTitle: "Tracker — hábitos diários",
@@ -1338,5 +1345,6 @@ export const COPY: Record<Lang, Copy> = {
         leave: "Descartar",
       },
     },
+    assessment: ASSESSMENT_COPY.pt,
   },
 };
