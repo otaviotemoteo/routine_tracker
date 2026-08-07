@@ -7,17 +7,14 @@ import { ResumeStep } from "@/components/assessment/ResumeStep";
 import { restartAssessment, saveDomainRating, startAssessment } from "./actions";
 import { getLatestSealed, getOpenDraft } from "@/db/assessment";
 import {
-  ASSESSMENT_STEPS,
   answeredCount,
   assessmentStepHref,
-  assessmentStepNumber,
   firstUnanswered,
   nextAssessmentHref,
   prevAssessmentHref,
   resolveAssessmentStep,
-  TOTAL_ASSESSMENT_STEPS,
 } from "@/lib/assessment";
-import { TOTAL_DOMAINS, isDomainSlug } from "@/lib/domains";
+import { TOTAL_DOMAINS, domainPosition, isDomainSlug } from "@/lib/domains";
 import { getLang } from "@/lib/get-lang";
 import { COPY, format } from "@/lib/i18n";
 import { requireUserId } from "@/lib/session";
@@ -90,17 +87,18 @@ export default async function AssessmentPage({
 
   if (!isDomainSlug(step)) redirect("/assessment");
 
-  const domainNumber = ASSESSMENT_STEPS.indexOf(step); // intro is 1, so this is the domain's own number
-  const stepNumber = assessmentStepNumber(step);
+  // The bar counts areas, not steps: the intro carries no bar, so starting the
+  // count at the first domain is what makes "12 of 12" land on the last one.
+  const areaNumber = domainPosition(step);
 
   return (
     <Shell lang={lang}>
       <OnboardingProgress
-        stepNumber={stepNumber}
-        total={TOTAL_ASSESSMENT_STEPS}
-        label={format(copy.stepOf, {
-          current: stepNumber,
-          total: TOTAL_ASSESSMENT_STEPS,
+        stepNumber={areaNumber}
+        total={TOTAL_DOMAINS}
+        label={format(copy.domainStep.eyebrow, {
+          current: areaNumber,
+          total: TOTAL_DOMAINS,
         })}
       />
       <DomainStep
@@ -108,9 +106,7 @@ export default async function AssessmentPage({
         next={nextAssessmentHref(step)}
         backHref={prevAssessmentHref(step)}
         slug={step}
-        stepNumber={domainNumber}
-        totalDomains={TOTAL_DOMAINS}
-        isLast={domainNumber === TOTAL_DOMAINS}
+        isLast={areaNumber === TOTAL_DOMAINS}
         copy={copy}
         initial={draft.ratings[step] ?? {}}
       />
