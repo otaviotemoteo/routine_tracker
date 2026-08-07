@@ -1,8 +1,10 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   serial,
   varchar,
   boolean,
+  check,
   date,
   integer,
   timestamp,
@@ -10,6 +12,7 @@ import {
   time,
   jsonb,
   unique,
+  uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
 
@@ -199,3 +202,151 @@ export const sleepTargets = pgTable("sleep_targets", {
   bedtime: time("bedtime").notNull(),
   wakeTime: time("wake_time").notNull(),
 });
+
+// ─── Tier 4: the values layer ────────────────────────────────────────────────
+//
+// Where the tracker records what you did, this records what you said mattered.
+// It is append-only by design: the one question that justifies the whole thing
+// existing is "what did I say I'd do, and what happened?", and you cannot
+// answer it in a system that lets you edit the past.
+
+// The twelve life domains, seeded once and shared by everyone — a fixed
+// vocabulary, like `habits`. Deliberately carries no display text: names and
+// descriptions live in src/lib/i18n-assessment.ts, keyed by this slug, because
+// the app is bilingual.
+export const lifeDomains = pgTable("life_domains", {
+  id: serial("id").primaryKey(),
+  slug: varchar("slug", { length: 40 }).notNull().unique(),
+  position: integer("position").notNull(), // fixed order, never randomised
+});
+
+// A planning period ("2026-H2"). Derived from the date, never created by hand:
+// there is no cycle UI and there doesn't need to be one.
+export const cycles = pgTable(
+  "cycles",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    label: varchar("label", { length: 20 }).notNull(),
+    startsAt: date("starts_at").notNull(),
+    endsAt: date("ends_at").notNull(),
+    status: varchar("status", { length: 10 }).notNull().default("active"),
+    // 'draft' | 'active' | 'closed'
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [unique().on(t.userId, t.label)]
+);
+
+// One filling-in of the grid.
+//
+// Mutable while `completedAt IS NULL` (a draft you can walk back through) and
+// sealed forever the moment it is set. That is how append-only and "every step
+// saves on advance, abandoning midway loses nothing" both hold: a draft simply
+// isn't the record yet. Every write to a rating carries the same predicate.
+export const assessments = pgTable(
+  "assessments",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    cycleId: integer("cycle_id")
+      .notNull()
+      .references(() => cycles.id),
+    // NO database default (timezone rule) — see src/lib/utils.ts.
+    takenAt: date("taken_at").notNull(),
+    kind: varchar("kind", { length: 10 }).notNull().default("full"),
+    // 'full' (12 domains) | 'checkin' (priority domains only)
+    contextNote: text("context_note"), // "done in the morning, tired"
+    // The priority cut, frozen at sealing time as domain slugs. Recomputing it
+    // on read would let a later change to THRESHOLDS silently rewrite which
+    // domains a past cycle prioritised, while its direction narratives sat
+    // attached to domains no longer in the list.
+    priorityDomains: varchar("priority_domains", { length: 40 })
+      .array()
+      .notNull()
+      .default([]),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    // Set when an assessment was sealed in error. Never deleted, never edited,
+    // just excluded from reads — the recourse that stops a near-duplicate from
+    // polluting the series.
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    // One open draft per person, enforced by the database rather than hoped
+    // for: it makes "two half-filled grids" unrepresentable and lets the draft
+    // be fetched with a plain upsert.
+    uniqueIndex("assessments_one_open_draft")
+      .on(t.userId)
+      .where(sql`${t.completedAt} IS NULL`),
+    index("idx_assessments_user_taken").on(t.userId, t.takenAt.desc()),
+  ]
+);
+
+// Six numbers for one domain. No user_id: it reaches its owner through
+// assessment_id, exactly as workout_plan_days does through plan_id.
+export const assessmentRatings = pgTable(
+  "assessment_ratings",
+  {
+    id: serial("id").primaryKey(),
+    assessmentId: integer("assessment_id")
+      .notNull()
+      .references(() => assessments.id),
+    domainId: integer("domain_id")
+      .notNull()
+      .references(() => lifeDomains.id),
+    possibility: integer("possibility").notNull(),
+    importanceNow: integer("importance_now").notNull(),
+    importanceGeneral: integer("importance_general").notNull(),
+    action: integer("action").notNull(),
+    actionSatisfaction: integer("action_satisfaction").notNull(),
+    concern: integer("concern").notNull(),
+  },
+  (t) => [
+    unique().on(t.assessmentId, t.domainId),
+    // One check per column rather than one combined check, so a violation
+    // names the column that broke.
+    check("rating_possibility_range", sql`${t.possibility} BETWEEN 1 AND 10`),
+    check("rating_importance_now_range", sql`${t.importanceNow} BETWEEN 1 AND 10`),
+    check(
+      "rating_importance_general_range",
+      sql`${t.importanceGeneral} BETWEEN 1 AND 10`
+    ),
+    check("rating_action_range", sql`${t.action} BETWEEN 1 AND 10`),
+    check(
+      "rating_action_satisfaction_range",
+      sql`${t.actionSatisfaction} BETWEEN 1 AND 10`
+    ),
+    check("rating_concern_range", sql`${t.concern} BETWEEN 1 AND 10`),
+  ]
+);
+
+// The one sentence describing where you want to move in a domain this cycle,
+// plus the free writing it came out of. Written for the priority domains only.
+export const directionNarratives = pgTable(
+  "direction_narratives",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    cycleId: integer("cycle_id")
+      .notNull()
+      .references(() => cycles.id),
+    domainId: integer("domain_id")
+      .notNull()
+      .references(() => lifeDomains.id),
+    rawReflection: text("raw_reflection"), // the long answer
+    narrative: text("narrative"), // the one sentence
+    // 'human' | 'ai_suggested' | 'ai_edited'. Always 'human' today; the column
+    // exists now so that adding generated drafts later needs no backfill.
+    source: varchar("source", { length: 12 }).notNull().default("human"),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [unique().on(t.cycleId, t.domainId)]
+);
