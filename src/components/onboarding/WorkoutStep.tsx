@@ -9,7 +9,7 @@ import {
   OnboardingFooter,
   StepTitle,
 } from "./OnboardingChrome";
-import { CollapsedCard } from "./CollapsedCard";
+import { ListCard } from "./ListCard";
 import type { ExerciseKind, PlannedExercise } from "@/db/schema";
 import { exerciseScheme } from "@/lib/exercise";
 import { format, plural, type Copy } from "@/lib/i18n";
@@ -56,10 +56,14 @@ export function WorkoutStep({
   const [days, setDays] = useState<WorkoutDayDraft[]>(
     initialDays.length ? initialDays : defaultDays()
   );
-  // Only one day is expanded at a time; the rest fold into summaries. Start
-  // with the last one open when there's existing data to extend.
-  const [openIndex, setOpenIndex] = useState<number>(
-    initialDays.length ? initialDays.length - 1 : 0
+  // One day open at a time, and arriving at a configured plan opens nothing:
+  // the step is something to read until you say otherwise. A plan with no days
+  // yet has nothing to read, so it starts in the form.
+  const [openIndex, setOpenIndex] = useState<number | null>(
+    initialDays.length ? null : 0
+  );
+  const [editIndex, setEditIndex] = useState<number | null>(
+    initialDays.length ? null : 0
   );
   const [initialSnapshot] = useState(() =>
     JSON.stringify({
@@ -126,7 +130,9 @@ export function WorkoutStep({
     setDays((prev) => {
       const lastWeekday = prev.length ? prev[prev.length - 1].weekday : 0;
       const nextWeekday = (lastWeekday % 7) + 1;
+      // A day that doesn't exist yet has nothing to read.
       setOpenIndex(prev.length);
+      setEditIndex(prev.length);
       return [
         ...prev,
         { weekday: nextWeekday, focus: "", exercises: [emptyExercise()] },
@@ -162,20 +168,37 @@ export function WorkoutStep({
       />
 
       <ul className="flex flex-col gap-3 mt-6 list-none">
-        {days.map((day, i) =>
-          i !== openIndex && day.focus.trim() ? (
-            <li key={i}>
-              <CollapsedCard
-                title={`${copy.weekdays[day.weekday - 1]} · ${day.focus}`}
-                detail={summaryFor(day)}
-                editLabel={copy.config.edit}
-                onEdit={() => setOpenIndex(i)}
-              />
-            </li>
-          ) : (
-            <li
-              key={i}
-              className="bg-white border-2 border-forest rounded-card shadow-hard p-4"
+        {days.map((day, i) => (
+          <li key={i}>
+            <ListCard
+              title={`${copy.weekdays[day.weekday - 1]} · ${day.focus || copy.workout.focus}`}
+              detail={summaryFor(day)}
+              open={openIndex === i}
+              onToggle={() => {
+                setOpenIndex(openIndex === i ? null : i);
+                setEditIndex(null);
+              }}
+              toggleLabel={copy.workout.viewDay}
+              editing={editIndex === i}
+              onEdit={() => setEditIndex(i)}
+              editLabel={copy.config.edit}
+              read={
+                <ul className="flex flex-col gap-1.5 list-none">
+                  {day.exercises
+                    .filter((e) => e.name.trim())
+                    .map((e, k) => (
+                      <li
+                        key={k}
+                        className="flex items-baseline gap-2 text-sm border-t-2 border-dashed border-sand pt-1.5 first:border-t-0 first:pt-0"
+                      >
+                        <span className="flex-1 min-w-0 truncate">{e.name}</span>
+                        <span className="shrink-0 font-mono text-xs opacity-60">
+                          {exerciseScheme(e)}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              }
             >
               <div className="flex items-center gap-3 justify-between">
                 <select
@@ -198,7 +221,8 @@ export function WorkoutStep({
                     aria-label={copy.workout.removeDay}
                     onClick={() => {
                       setDays((prev) => prev.filter((_, j) => j !== i));
-                      setOpenIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                      setOpenIndex(null);
+                      setEditIndex(null);
                     }}
                     className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
                   >
@@ -236,30 +260,26 @@ export function WorkoutStep({
                         className={inputClass}
                       />
 
-                      {/* How this exercise is measured — a run has no reps. */}
-                      <div
-                        role="group"
-                        aria-label={copy.workout.measuredBy}
-                        className="flex gap-1.5"
-                      >
-                        {KINDS.map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            aria-pressed={kind === option}
-                            onClick={() => updateExercise(i, k, { kind: option })}
-                            className={`min-h-[36px] px-3 rounded-lg border-2 border-forest text-xs font-semibold ${
-                              kind === option
-                                ? "bg-clover text-white"
-                                : "bg-white text-forest"
-                            }`}
-                          >
-                            {kindLabel[option]}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center gap-2">
+                      {/* How it's measured sits on the same row as the
+                          numbers it governs: three toggle buttons above two
+                          inputs made one exercise look like two questions. */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                          aria-label={copy.workout.measuredBy}
+                          value={kind}
+                          onChange={(e) =>
+                            updateExercise(i, k, {
+                              kind: e.target.value as ExerciseKind,
+                            })
+                          }
+                          className={`${fieldBase} w-28 px-2`}
+                        >
+                          {KINDS.map((option) => (
+                            <option key={option} value={option}>
+                              {kindLabel[option]}
+                            </option>
+                          ))}
+                        </select>
                         {kind !== "distance" && (
                           <>
                             <input
@@ -391,9 +411,9 @@ export function WorkoutStep({
                 <Plus className="w-4 h-4 mr-1.5" aria-hidden />
                 {copy.workout.addExercise}
               </button>
-            </li>
-          )
-        )}
+            </ListCard>
+          </li>
+        ))}
       </ul>
 
       <button type="button" onClick={addDay} className={`${ghostButton} mt-4`}>
