@@ -16,8 +16,6 @@ interface DomainStepProps {
   next: string;
   backHref?: string;
   slug: DomainSlug;
-  stepNumber: number;
-  totalDomains: number;
   isLast: boolean;
   copy: Copy["assessment"];
   // Whatever was already answered for this domain, so walking back shows what
@@ -61,8 +59,6 @@ export function DomainStep({
   next,
   backHref,
   slug,
-  stepNumber,
-  totalDomains,
   isLast,
   copy,
   initial,
@@ -76,12 +72,9 @@ export function DomainStep({
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="domain" value={slug} />
 
-      <p className="eyebrow mb-2">
-        {format(copy.domainStep.eyebrow, {
-          current: stepNumber,
-          total: totalDomains,
-        })}
-      </p>
+      {/* No eyebrow here: OnboardingProgress above already renders the
+          "Area n of 12" line in the eyebrow style, and two counters stacked
+          with different denominators is worse than one. */}
       <h1 className="display-title text-3xl sm:text-4xl">{domain.name}</h1>
       <p className="mt-2 opacity-75">{domain.description}</p>
 
