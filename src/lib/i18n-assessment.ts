@@ -77,7 +77,8 @@ export interface AssessmentCopy {
     finish: string;
   };
 
-  scaleValue: string; // {value} {anchor}
+  scaleValue: string; // {value}
+  scaleRange: string; // {low} {high}
   scaleUnanswered: string;
   scales: Record<ScaleKey, ScaleCopy>;
   domains: Record<DomainSlug, DomainCopy>;
@@ -185,7 +186,8 @@ const en: AssessmentCopy = {
     finish: "See the results",
   },
 
-  scaleValue: "{value} of 10, {anchor}",
+  scaleValue: "{value} of 10",
+  scaleRange: "Scale from {low} to {high}.",
   scaleUnanswered: "Not answered yet. Drag or use the arrow keys.",
 
   scales: {
@@ -456,7 +458,8 @@ const pt: AssessmentCopy = {
     finish: "Ver os resultados",
   },
 
-  scaleValue: "{value} de 10, {anchor}",
+  scaleValue: "{value} de 10",
+  scaleRange: "Escala de {low} até {high}.",
   scaleUnanswered: "Ainda sem resposta. Arraste ou use as setas.",
 
   scales: {
