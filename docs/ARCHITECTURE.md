@@ -121,7 +121,7 @@ The tracker records what you did. The values layer records **what you said matte
 
 **Focus mode.** `/assessment` sits outside the `(app)` group, so there is no NavBar to wander off through mid-grid and it renders its own `LanguageSelect`, exactly as `/onboarding` and `/config` do. `src/lib/assessment.ts` is the third instance of the wizard mechanic (after `onboarding.ts` and `daily.ts`); the one thing it adds is a ceiling — `resolveAssessmentStep` clamps a requested step to the first unanswered domain, so backwards is free, forwards is impossible, and the results screen cannot be reached before the grid is finished. That is arithmetic rather than a hidden button, because a UI convention is one URL edit away from being ignored.
 
-**Scripts.** `bun run db:migrate:assessment` creates the layer (idempotent, one transaction, `pg` over TCP). `bun run assessment:seed <file.json>` backfills a grid answered on paper, through the same Zod schema and the same `prioritize()` the app uses; it refuses to overwrite a sealed assessment.
+**Scripts.** `bun run db:migrate:assessment` creates the layer (idempotent, one transaction, `pg` over TCP). `bun run assessment:seed <file.json>` backfills a grid answered on paper, through the same Zod schema and the same `prioritize()` the app uses, and refuses to overwrite a sealed assessment. In that file `ratings` is optional: a file carrying only `directions` writes the written half alone, which is what you want when the numbers will be answered in the app but the reflections already exist on paper. Seed them first and the writing step opens with your own words in it, to review rather than retype. It never prefills a rating.
 
 ## Timezone Handling (the most important decision)
 
