@@ -51,7 +51,7 @@ This document explains *how* the system is built and *why*. For scope, screens a
 Three strict layers, dependencies pointing downward only:
 
 1. **Route handlers** (`app/api/checks/**`) — thin. They parse and validate input, call one function from the query layer, and shape the HTTP response (status codes, JSON errors). No Drizzle, no SQL, no business math here.
-2. **Query layer** (`src/db/queries.ts`) — the only file that touches Drizzle. Concentrates every read and write: fetch-or-create today's checks, toggle a check, week window, month stats. Business calculations (streak, adherence %) are delegated to pure helpers.
+2. **Query layer** (`src/db/`) — the only place that touches Drizzle. Nothing outside this directory imports it. `queries.ts` holds the tracker (fetch-or-create today's checks, toggle a check, week window, month stats), with per-area siblings beside it: `users.ts` for accounts, `assessment.ts` for the values layer. Business calculations (streak, adherence %, the diagnostic patterns) are delegated to pure helpers.
 3. **Schema** (`src/db/schema.ts`) — Drizzle table definitions, mirrored by TypeScript interfaces in `src/types/habit.ts`.
 
 Pure helpers live in `src/lib/utils.ts` (date/timezone handling, streak and adherence math). They take plain data in and return plain data out — no I/O — which keeps the tricky logic trivially testable.
