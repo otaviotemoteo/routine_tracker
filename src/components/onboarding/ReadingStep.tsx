@@ -9,7 +9,7 @@ import {
   OnboardingFooter,
   StepTitle,
 } from "./OnboardingChrome";
-import { CollapsedCard } from "./CollapsedCard";
+import { ListCard } from "./ListCard";
 import { PaceInfo } from "@/components/PaceInfo";
 import { format, type Copy } from "@/lib/i18n";
 
@@ -66,8 +66,13 @@ export function ReadingStep({
   const [rows, setRows] = useState<BookDraft[]>(
     initialBooks.length ? initialBooks : defaultBooks()
   );
-  const [openIndex, setOpenIndex] = useState<number>(
-    initialBooks.length ? initialBooks.length - 1 : 0
+  // Nothing opens on arrival when there is something to read: the step is a
+  // record until you ask to change it.
+  const [openIndex, setOpenIndex] = useState<number | null>(
+    initialBooks.length ? null : 0
+  );
+  const [editIndex, setEditIndex] = useState<number | null>(
+    initialBooks.length ? null : 0
   );
   const [initialSnapshot] = useState(() =>
     JSON.stringify({
@@ -179,22 +184,36 @@ export function ReadingStep({
       </div>
 
       <ul className="flex flex-col gap-3 list-none">
-        {rows.map((b, i) =>
-          i !== openIndex && b.title.trim() ? (
-            <li key={b.id ?? `new-${i}`}>
-              <CollapsedCard
-                title={`${i + 1}. ${b.title}`}
-                detail={[b.author, b.pages && `${b.pages} p`]
-                  .filter(Boolean)
-                  .join(" · ")}
-                editLabel={copy.config.edit}
-                onEdit={() => setOpenIndex(i)}
-              />
-            </li>
-          ) : (
-            <li
-              key={b.id ?? `new-${i}`}
-              className="bg-white border-2 border-forest rounded-card shadow-hard p-4"
+        {rows.map((b, i) => (
+          <li key={b.id ?? `new-${i}`}>
+            <ListCard
+              title={`${i + 1}. ${b.title || copy.reading.bookTitle}`}
+              detail={[b.author, b.pages && `${b.pages} p`].filter(Boolean).join(" · ")}
+              open={openIndex === i}
+              onToggle={() => {
+                setOpenIndex(openIndex === i ? null : i);
+                setEditIndex(null);
+              }}
+              toggleLabel={copy.workout.viewDay}
+              editing={editIndex === i}
+              onEdit={() => setEditIndex(i)}
+              editLabel={copy.config.edit}
+              read={(
+                <dl className="text-sm flex flex-col gap-1">
+                  {b.author && (
+                    <div className="flex gap-2">
+                      <dt className="opacity-60">{copy.reading.author}</dt>
+                      <dd className="font-medium">{b.author}</dd>
+                    </div>
+                  )}
+                  {b.pages ? (
+                    <div className="flex gap-2">
+                      <dt className="opacity-60">{copy.reading.pages}</dt>
+                      <dd className="font-mono">{b.pages}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              )}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-sm opacity-50 shrink-0">
@@ -233,7 +252,8 @@ export function ReadingStep({
                     aria-label={copy.reading.removeBook}
                     onClick={() => {
                       setRows((prev) => prev.filter((_, j) => j !== i));
-                      setOpenIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                      setOpenIndex(null);
+                      setEditIndex(null);
                     }}
                     className="min-h-[44px] min-w-[44px] shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
                   >
@@ -292,9 +312,9 @@ export function ReadingStep({
                   />
                 )}
               </div>
-            </li>
-          )
-        )}
+            </ListCard>
+          </li>
+        ))}
       </ul>
 
       {missing > 0 && (
