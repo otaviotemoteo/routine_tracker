@@ -358,6 +358,7 @@ export interface Copy {
       focusPlaceholder: string;
       exercises: string;
       exerciseName: string;
+      viewDay: string;
       sets: string;
       reps: string;
       kindReps: string;
@@ -784,6 +785,7 @@ export const COPY: Record<Lang, Copy> = {
         focusPlaceholder: "Chest + triceps, Legs, Rest…",
         exercises: "Exercises",
         exerciseName: "Exercise",
+        viewDay: "Show or hide",
         sets: "Sets",
         reps: "Reps",
         kindReps: "Reps",
@@ -896,7 +898,7 @@ export const COPY: Record<Lang, Copy> = {
         title: "Unsaved changes",
         text: "You changed things here but didn't save. Going back discards them.",
         keepEditing: "Keep editing",
-        leave: "Discard and go back",
+        leave: "Discard",
       },
     },
   },
@@ -1220,6 +1222,7 @@ export const COPY: Record<Lang, Copy> = {
         focusPlaceholder: "Peito + tríceps, Perna, Descanso…",
         exercises: "Exercícios",
         exerciseName: "Exercício",
+        viewDay: "Mostrar ou ocultar",
         sets: "Séries",
         reps: "Reps",
         kindReps: "Reps",
@@ -1332,7 +1335,7 @@ export const COPY: Record<Lang, Copy> = {
         title: "Alterações não salvas",
         text: "Você mudou coisas aqui e não salvou. Voltar vai descartar tudo.",
         keepEditing: "Continuar editando",
-        leave: "Descartar e voltar",
+        leave: "Descartar",
       },
     },
   },
