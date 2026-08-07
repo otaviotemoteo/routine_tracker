@@ -6,6 +6,7 @@ import { MonthCalendar } from "@/components/overview/MonthCalendar";
 import { ConsistencyPanel } from "@/components/overview/ConsistencyPanel";
 import { StatCards, type StatCard } from "@/components/overview/StatCards";
 import { ActivitiesSection } from "@/components/ActivitiesSection";
+import { ValuesCard } from "@/components/assessment/ValuesCard";
 import { getSetupSummary } from "@/lib/setup-summary";
 import {
   getMonthData,
@@ -84,6 +85,10 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
           trackingStart={trackingStart}
         />
       )}
+
+      {/* The same question at a different timescale: the views above cover
+          this week and this month, this covers the half-year. */}
+      <ValuesCard userId={userId} lang={lang} copy={copy.assessment} />
 
       {/* Editable setup, below the frequency views. */}
       <ActivitiesSection
