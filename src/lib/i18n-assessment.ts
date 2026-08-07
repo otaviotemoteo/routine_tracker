@@ -45,7 +45,6 @@ export interface AssessmentCopy {
   back: string;
   continueLabel: string;
   saving: string;
-  stepOf: string; // {current} {total}
 
   intro: {
     eyebrow: string;
@@ -147,7 +146,6 @@ const en: AssessmentCopy = {
   back: "Back",
   continueLabel: "Continue",
   saving: "Saving…",
-  stepOf: "{current} of {total}",
 
   intro: {
     eyebrow: "Values check-in",
@@ -419,7 +417,6 @@ const pt: AssessmentCopy = {
   back: "Voltar",
   continueLabel: "Continuar",
   saving: "Salvando…",
-  stepOf: "{current} de {total}",
 
   intro: {
     eyebrow: "Check-in de valores",
