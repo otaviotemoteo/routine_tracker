@@ -7,9 +7,11 @@ import {
   getDomainIds,
   getOpenDraft,
   getOrCreateCurrentCycle,
+  getLatestSealed,
   getOrCreateDraft,
   saveRating,
   sealAssessment,
+  upsertDirectionNarrative,
 } from "@/db/assessment";
 import { assessmentStepHref, firstUnanswered } from "@/lib/assessment";
 import { RATING_SCALES, SCALE_MAX, SCALE_MIN, isDomainSlug } from "@/lib/domains";
@@ -94,4 +96,25 @@ export async function restartAssessment(): Promise<void> {
   const cycle = await getOrCreateCurrentCycle(userId, today);
   await getOrCreateDraft(userId, cycle.id, today);
   redirect(assessmentStepHref("intro"));
+}
+
+// Save one direction. Upserts on (cycle, domain) so revisiting a domain edits
+// what is there rather than stacking rows. Narratives are not sealed the way
+// ratings are: the grid is a measurement and must not move, a direction is
+// something you are allowed to word better next week.
+export async function saveDirection(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
+  const slug = String(formData.get("domain") ?? "");
+  if (!isDomainSlug(slug)) redirect("/assessment/directions");
+
+  const sealed = await getLatestSealed(userId);
+  if (!sealed) redirect("/assessment");
+
+  const domainIds = await getDomainIds();
+  await upsertDirectionNarrative(userId, sealed.cycleId, domainIds[slug], {
+    rawReflection: String(formData.get("rawReflection") ?? "").trim().slice(0, 4000),
+    narrative: String(formData.get("narrative") ?? "").trim().slice(0, 400),
+  });
+
+  redirect(safeNext(formData));
 }
