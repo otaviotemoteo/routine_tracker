@@ -36,27 +36,35 @@ export default async function Loading() {
         {/* "Complete daily" */}
         <div className="h-[52px] rounded-full bg-sand animate-pulse" />
 
+        {/* Same grid and row height as TodayBoard, so the cards don't resize
+            when the real content lands. */}
         <div
           className="grid gap-3.5 sm:gap-4"
           style={{
-            gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-            gridAutoRows: "1fr",
+            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+            gridAutoRows: "320px",
           }}
         >
           {Array.from({ length: 7 }, (_, i) => (
             <div
               key={i}
-              className="h-[188px] rounded-card border-2 border-sand bg-white p-4 flex flex-col"
+              className="h-full overflow-hidden flex flex-col gap-2.5 p-4 rounded-card border-2 border-forest shadow-hard bg-white"
             >
-              <div className="flex items-start justify-between">
-                <div className="h-4 w-20 rounded bg-sand animate-pulse" />
-                <div className="h-[22px] w-16 rounded-full bg-sand animate-pulse" />
+              {/* Icon + name + status pill */}
+              <div className="flex items-start gap-2">
+                <div className="w-4 h-4 shrink-0 rounded bg-sand animate-pulse mt-0.5" />
+                <div className="h-4 flex-1 max-w-[6rem] rounded bg-sand animate-pulse" />
+                <div className="h-[22px] w-16 shrink-0 rounded-full bg-sand animate-pulse" />
               </div>
               {/* Hero number + unit */}
-              <div className="h-9 w-16 rounded bg-sand animate-pulse mt-3" />
-              {/* The context panel takes the slack, as it does on a real card */}
-              <div className="flex-1 min-h-[52px] rounded-lg bg-sand animate-pulse mt-2.5" />
-              <div className="h-[40px] rounded-lg bg-sand animate-pulse mt-2.5" />
+              <div className="flex items-baseline gap-1.5">
+                <div className="h-7 w-12 rounded bg-sand animate-pulse" />
+                <div className="h-4 w-24 rounded bg-sand animate-pulse" />
+              </div>
+              {/* The context panel is the band that absorbs the height */}
+              <div className="flex-1 min-h-0 rounded-lg bg-sand animate-pulse" />
+              {/* Pinned note */}
+              <div className="h-[46px] rounded-lg bg-sand animate-pulse" />
             </div>
           ))}
         </div>
