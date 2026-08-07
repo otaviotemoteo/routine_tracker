@@ -41,6 +41,20 @@ for the full record of it. Underneath are the numbers worth knowing: which day
 went best, which habit is slipping, whether your reading pace still reaches your
 goal.
 
+**Twice a year.** The **values check-in** asks a different question: not what
+you did, but what you meant to. It walks through twelve areas of life, from
+family and work to health, rest and art, and asks six short things about each
+one. How much does this matter in the life you want? How much did you actually
+do about it last week? Then it puts the two side by side and names the distance.
+
+That distance is the whole point. It is easy to spend a year being consistent
+about the things you already do and never notice which part of your life went
+quiet. Every question says in one line why it is being asked, because the
+questions come from a therapy worksheet and nobody should have to guess what
+they are for. There are no right answers and no score at the end. A low answer
+in an area that is not yours right now is a true answer, and the app treats it
+as one.
+
 **Once, at the start.** A short setup asks what you're actually tracking: your
 training plan, the books you mean to read, the hours you're aiming for, the
 blocks your day is built from, which languages, which practices. Everything the
@@ -96,8 +110,13 @@ deliberately doesn't try to interpret it for you.
 bun install
 cp .env.example .env.local   # DATABASE_URL (Neon), AUTH_SECRET
 bun run db:push && bun run db:seed
+bun run db:migrate:assessment    # the values layer, additive and re-runnable
 bun run user:create <name>
 bun run dev
 ```
+
+`bun test` runs the diagnostic engine's tests. `bun run assessment:seed
+answers.json` backfills a values check-in answered on paper, using
+`answers.example.json` as the shape.
 
 Built with Next.js, Drizzle and Neon, deployed on Vercel.
