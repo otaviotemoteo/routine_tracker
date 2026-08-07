@@ -20,17 +20,12 @@ export const ASSESSMENT_STEPS = [
 
 export type AssessmentStep = (typeof ASSESSMENT_STEPS)[number];
 
-// The intro plus the twelve domains. `results` sits outside the count: it is
-// the payoff, not another thing to get through, so the bar reads 100% when the
-// last domain is answered rather than 92%.
-export const TOTAL_ASSESSMENT_STEPS = ASSESSMENT_STEPS.length - 1;
+// The progress bar counts AREAS, not steps in this array: the intro carries no
+// bar and `results` is the payoff rather than another thing to get through, so
+// the bar runs 1..12 over the domains (see domainPosition in domains.ts).
 
 export function assessmentStepHref(step: AssessmentStep): string {
   return `/assessment?step=${step}`;
-}
-
-export function assessmentStepNumber(step: AssessmentStep): number {
-  return ASSESSMENT_STEPS.indexOf(step) + 1;
 }
 
 export function isAssessmentStep(value: string): value is AssessmentStep {
