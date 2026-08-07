@@ -8,7 +8,7 @@ import {
   OnboardingFooter,
   StepTitle,
 } from "./OnboardingChrome";
-import { CollapsedCard } from "./CollapsedCard";
+import { ListCard } from "./ListCard";
 import type { Copy } from "@/lib/i18n";
 
 export interface RoutineBlockDraft {
@@ -61,8 +61,13 @@ export function RoutineStep({
   const [blocks, setBlocks] = useState<RoutineBlockDraft[]>(
     initialBlocks.length ? initialBlocks : defaultBlocks()
   );
-  const [openIndex, setOpenIndex] = useState<number>(
-    initialBlocks.length ? initialBlocks.length - 1 : 0
+  // Nothing opens on arrival when there is something to read: the step is a
+  // record until you ask to change it.
+  const [openIndex, setOpenIndex] = useState<number | null>(
+    initialBlocks.length ? null : 0
+  );
+  const [editIndex, setEditIndex] = useState<number | null>(
+    initialBlocks.length ? null : 0
   );
   const [initialSnapshot] = useState(() =>
     JSON.stringify(initialBlocks.length ? initialBlocks : defaultBlocks())
@@ -117,22 +122,33 @@ export function RoutineStep({
       <p className="mt-2 opacity-75">{copy.routine.lead}</p>
 
       <ul className="flex flex-col gap-3 mt-6 list-none">
-        {blocks.map((block, i) =>
-          i !== openIndex && block.activity.trim() ? (
-            <li key={i}>
-              <CollapsedCard
-                title={`${block.startTime} – ${block.endTime} · ${block.activity}`}
-                detail={block.weekdays
-                  .map((d) => copy.weekdays[d - 1])
-                  .join(", ")}
-                editLabel={copy.config.edit}
-                onEdit={() => setOpenIndex(i)}
-              />
-            </li>
-          ) : (
-            <li
-              key={i}
-              className="bg-white border-2 border-forest rounded-card shadow-hard p-4"
+        {blocks.map((block, i) => (
+          <li key={i}>
+            <ListCard
+              title={`${block.startTime} – ${block.endTime} · ${
+                block.activity || copy.routine.activity
+              }`}
+              detail={block.weekdays.map((d) => copy.weekdays[d - 1]).join(", ")}
+              open={openIndex === i}
+              onToggle={() => {
+                setOpenIndex(openIndex === i ? null : i);
+                setEditIndex(null);
+              }}
+              toggleLabel={copy.workout.viewDay}
+              editing={editIndex === i}
+              onEdit={() => setEditIndex(i)}
+              editLabel={copy.config.edit}
+              read={
+                <p className="text-sm">
+                  <span className="font-mono">
+                    {block.startTime} – {block.endTime}
+                  </span>
+                  <span className="opacity-60">
+                    {" · "}
+                    {block.weekdays.map((d) => copy.weekdays[d - 1]).join(", ")}
+                  </span>
+                </p>
+              }
             >
               {/* One line even at 360px: narrow time inputs, no wrapping. */}
               <div className="flex items-center gap-1.5">
@@ -171,7 +187,8 @@ export function RoutineStep({
                     aria-label={copy.routine.removeBlock}
                     onClick={() => {
                       setBlocks((prev) => prev.filter((_, j) => j !== i));
-                      setOpenIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                      setOpenIndex(null);
+                      setEditIndex(null);
                     }}
                     className="min-h-[44px] min-w-[44px] shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
                   >
@@ -209,9 +226,9 @@ export function RoutineStep({
                   );
                 })}
               </div>
-            </li>
-          )
-        )}
+            </ListCard>
+          </li>
+        ))}
       </ul>
 
       <button type="button" onClick={addBlock} className={`${ghostButton} mt-4`}>
