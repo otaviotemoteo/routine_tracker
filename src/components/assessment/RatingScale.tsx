@@ -16,9 +16,13 @@ interface RatingScaleProps {
   highAnchor: string;
   whyLabel: string;
   unansweredLabel: string;
-  // "{value} of 10, {anchor}" — read out instead of the bare number, because
-  // "7" alone says nothing about which end is which.
+  // "{value} of 10". Deliberately just the number: naming the nearest anchor
+  // would have a 6 announced as "wide open", which is a claim the answer never
+  // made. Which end is which is said once, on focus, by rangeTemplate.
   valueTemplate: string;
+  // "from {low} to {high}" — the orientation, announced when the control takes
+  // focus rather than repeated on every arrow press.
+  rangeTemplate: string;
   value: number | null;
   onChange: (value: number) => void;
 }
@@ -51,16 +55,16 @@ export function RatingScale({
   whyLabel,
   unansweredLabel,
   valueTemplate,
+  rangeTemplate,
   value,
   onChange,
 }: RatingScaleProps) {
   const id = useId();
+  const rangeId = `${id}-range`;
   const [dragging, setDragging] = useState(false);
   const answered = value !== null;
   const shown = value ?? RESTING;
-  const anchor = shown <= (SCALE_MIN + SCALE_MAX) / 2 ? lowAnchor : highAnchor;
-  // 0 at the low end, 1 at the high end. Used to inset the fill and the thumb
-  // shadow by half a thumb at each edge so neither overhangs the track.
+  // 0 at the low end, 1 at the high end.
   const ratio = (shown - SCALE_MIN) / (SCALE_MAX - SCALE_MIN);
 
   return (
@@ -100,11 +104,15 @@ export function RatingScale({
             }`}
             style={{ width: `${ratio * 100}%` }}
           />
-          <div className="absolute inset-0 flex justify-between px-[10%]">
-            {Array.from({ length: STEPS - 2 }, (_, i) => (
-              <span key={i} className="w-px h-full bg-forest/20" />
-            ))}
-          </div>
+          {/* One notch per step, at the exact value positions, so the scale
+              reads as ten choices rather than as a continuum. */}
+          {Array.from({ length: STEPS - 2 }, (_, i) => (
+            <span
+              key={i}
+              className="absolute top-0 w-px h-full bg-forest/20"
+              style={{ left: `${((i + 1) / (STEPS - 1)) * 100}%` }}
+            />
+          ))}
         </div>
 
         <input
@@ -117,10 +125,9 @@ export function RatingScale({
           value={shown}
           data-answered={answered}
           aria-label={question}
+          aria-describedby={rangeId}
           aria-valuetext={
-            answered
-              ? format(valueTemplate, { value: shown, anchor })
-              : unansweredLabel
+            answered ? format(valueTemplate, { value: shown }) : unansweredLabel
           }
           onChange={(e) => onChange(Number(e.target.value))}
           // Tapping the track exactly where the thumb already sits fires no
@@ -144,10 +151,17 @@ export function RatingScale({
       </div>
 
       {/* Both ends named in words. The number alone never says which end is
-          "good", and on most of these scales neither end is. */}
-      <div className="flex justify-between gap-3 text-xs opacity-70">
+          "good", and on most of these scales neither end is. The top margin
+          keeps this clear of the 3px focus ring on the input above. */}
+      <div
+        id={rangeId}
+        className="flex justify-between gap-3 mt-1.5 text-xs opacity-70"
+      >
         <span>{lowAnchor}</span>
         <span className="text-right">{highAnchor}</span>
+        <span className="sr-only">
+          {format(rangeTemplate, { low: lowAnchor, high: highAnchor })}
+        </span>
       </div>
 
       {!answered && (
