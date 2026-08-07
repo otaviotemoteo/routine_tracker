@@ -44,44 +44,53 @@ export function ListCard({
         open ? "bg-white" : "bg-mint"
       }`}
     >
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-label={`${toggleLabel}: ${title}`}
-        onClick={onToggle}
-        className="w-full min-h-[56px] flex items-center justify-between gap-3 px-4 py-3 text-left"
-      >
-        <span className="min-w-0">
+      <div className="flex items-center">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={`${toggleLabel}: ${title}`}
+          onClick={onToggle}
+          className="flex-1 min-w-0 min-h-[56px] px-4 py-3 text-left"
+        >
           <span className="block font-semibold truncate">{title}</span>
           {detail && !open && (
             <span className="block text-xs opacity-70 truncate">{detail}</span>
           )}
-        </span>
-        <ChevronRight
+        </button>
+
+        {/* Edit sits next to the chevron rather than under the content: the two
+            things you can do to an entry belong together, at its edge. */}
+        {open && !editing && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="shrink-0 min-h-[44px] inline-flex items-center gap-1.5 px-3 rounded-full border-2 border-forest bg-mint font-semibold text-xs"
+          >
+            <Pencil className="w-3.5 h-3.5" aria-hidden />
+            {editLabel}
+          </button>
+        )}
+
+        {/* A second handle on the same action: the title button is the one
+            keyboard and screen readers use, this is just the visible chevron. */}
+        <button
+          type="button"
           aria-hidden
-          className={`w-5 h-5 shrink-0 transition-transform duration-150 ${
-            open ? "rotate-90" : ""
-          }`}
-        />
-      </button>
+          tabIndex={-1}
+          onClick={onToggle}
+          className="shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+        >
+          <ChevronRight
+            className={`w-5 h-5 transition-transform duration-150 ${
+              open ? "rotate-90" : ""
+            }`}
+          />
+        </button>
+      </div>
 
       {open && (
         <div className="px-4 pb-4 border-t-2 border-dashed border-sand pt-3">
-          {editing ? (
-            children
-          ) : (
-            <>
-              {read}
-              <button
-                type="button"
-                onClick={onEdit}
-                className="mt-3 min-h-[44px] inline-flex items-center gap-1.5 px-4 rounded-full border-2 border-forest bg-white font-semibold text-sm shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm"
-              >
-                <Pencil className="w-4 h-4" aria-hidden />
-                {editLabel}
-              </button>
-            </>
-          )}
+          {editing ? children : read}
         </div>
       )}
     </div>
