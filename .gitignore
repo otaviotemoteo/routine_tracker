@@ -48,3 +48,4 @@ identidade-visual.html
 # Your own assessment answers — a description of your life, not code.
 answers*.json
 !answers.example.json
+action-notes.txt
