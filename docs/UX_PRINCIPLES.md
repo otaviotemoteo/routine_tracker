@@ -160,8 +160,10 @@ settle decisions that were already made, not re-open them.
   planned focus, current book and page, sleep target, routine blocks.
 - **Collapse what's finished.** Filled rows (training days, books, routine
   blocks) fold into a mint summary card — "Mon · Chest + triceps / 2
-  exercises / Edit" — so a long list stays short while you build the next one
-  (`src/components/onboarding/CollapsedCard.tsx`).
+  exercises" — so a long list stays short while you build the next one. Opening
+  one shows what it says; changing it takes a second, explicit tap on Edit
+  (`src/components/onboarding/ListCard.tsx`), because arriving at a step you
+  filled in weeks ago should let you *look* at it.
 - **Smart defaults over repeated typing.** A new training day advances to the
   next weekday; a new routine block starts where the previous one ended; time
   inputs carry `min` so a block can't start before the last one finished or end
@@ -293,6 +295,55 @@ settle decisions that were already made, not re-open them.
   yet.
 
 ---
+
+## Measuring the person, not the habit
+
+The values check-in (`/assessment`) asks about a life rather than about a day,
+and that inverts several rules above. Each inversion is deliberate.
+
+- **Colour encodes the gap, never the score.** A 3 in community life may be
+  perfectly healthy. Colouring absolute answers red and green teaches people to
+  produce the right number instead of the true one, and the true one is the
+  only thing the instrument is for. The results chart colours the *distance*
+  between importance and action, on a three-step `sand → straw/45 → straw`
+  ramp, and never uses `clover`: in this palette clover means done and
+  positive, and no rating on that screen is either.
+- **No streaks on self-report. Ever.** A streak on a values check-in measures
+  your wish to keep the streak, and because it contaminates the series the
+  damage is permanent. Habits may have streaks, since a habit is an observable
+  behaviour. An opinion about your own life may not.
+- **A control with no answer must look like it has no answer.** A range input
+  always holds a value and always draws a thumb, so rendering one with a
+  default silently answers the question. `RatingScale` carries `value: number |
+  null` and says "unanswered" three ways at once: a dash instead of the number,
+  a `sand` thumb, and a disabled Continue. It also treats `pointerdown` as an
+  answer, because tapping the track exactly where the thumb already sits fires
+  no change event.
+- **Never a wall of inputs** is suspended here: six sliders share one screen.
+  The rule guards against *heterogeneous* fields, and this is one repeated
+  control answering six variations of one question about one subject. Splitting
+  it would make 24 steps and destroy the ninety-seconds-per-area rhythm the
+  method depends on.
+- **Everything is skippable** is suspended too. There is no Skip, and Continue
+  stays disabled until all six are answered, because a partial grid is not a
+  weaker grid, it is one that cannot be compared to the next cycle. The
+  check-in as a whole is still abandonable: the draft keeps whatever is in it.
+- **Prefill from what you already know** is suspended hardest. Answers from an
+  earlier check-in are never shown while answering. Seeing that you said 7 last
+  time anchors you at 7 and the instrument becomes self-confirmatory noise. The
+  comparison belongs on the results screen, after the answers are in.
+- **Say why you are asking.** Every scale carries one plain line explaining what
+  the answer is for. The questions come from a clinical instrument, the people
+  answering them do not, and a question whose point is invisible gets a careless
+  answer or no answer at all.
+- **Name the resolution of your own ranking.** When the distances across the
+  twelve areas are bunched, the results screen says so rather than presenting a
+  confident order. A ranking over twelve self-reported numbers is not precise
+  enough to pretend otherwise.
+- **Never grade a person.** Copy says "this goal was not completed, which layer
+  did it stall in", never "you failed", and never infers a mood from a number.
+  A screen whose job is to show you a distance becomes a machine for feeling bad
+  the moment it starts scoring.
 
 ## Checklist for a new screen
 
