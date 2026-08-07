@@ -103,6 +103,26 @@ The authenticated app lives in an `app/(app)/` route group whose layout renders 
 
 Books are reconciled **by id** (`saveReadingList`): existing rows update, new ones insert, and only removed-and-untouched books are deleted — a book with progress or a done/abandoned status is never deleted, since past `details.book_id` references it.
 
+## The values layer (M1)
+
+The tracker records what you did. The values layer records **what you said mattered**, so that the two can be compared. It is additive: it shares only the `users` table with everything above, and nothing in the tracker reads it.
+
+**Shape.** `life_domains` (12 seeded rows, global like `habits`) → `cycles` (a half-year, derived from the date, no UI) → `assessments` → `assessment_ratings` (six 1–10 answers per domain) and `direction_narratives` (one written direction per priority domain). No display text is stored: names, descriptions, boundary notes and writing prompts live in `src/lib/i18n-assessment.ts` keyed by slug, because the app is bilingual and `habits.name` already shows what it costs to bake one language into a table.
+
+**Draft, then sealed.** This is the one place where "append-only" and "every step saves on advance" appear to collide. They don't: an assessment is **mutable while `completed_at IS NULL` and immutable forever once it is set**, because a draft isn't the record yet. Since neon-http has no interactive transactions, each guard is a predicate inside a single statement rather than a read-then-write:
+
+- a rating write is an `INSERT … SELECT … FROM assessments WHERE id = ? AND user_id = ? AND completed_at IS NULL … ON CONFLICT DO UPDATE`, so ownership and the seal are checked in the same round trip;
+- a partial unique index (`assessments (user_id) WHERE completed_at IS NULL`) makes two open drafts unrepresentable;
+- sealing only fires when all twelve ratings are present, and a double-tapped Continue returns no row, which means "already sealed" and not an error.
+
+**The engine is pure.** `src/lib/diagnose.ts` takes a grid and returns patterns, distances and a ranking with no I/O, so it is tested directly (`bun test`). It ranks by the **raw** value-action gap, not a z-score: within one assessment, subtracting a column mean cannot change the ordering, and standardising the two columns separately would silently weight them by their own spread — importance answers cluster, so its deviation is small, and the ranking would stop being about action at all. Z-scores earn their place as `gapSpread()`, which tells the results screen when the domains are too bunched for the cut at five to mean much.
+
+**One thing is stored that could be computed.** `assessments.priority_domains` freezes the top-five cut at sealing time. Recomputing it on read would let a later change to `THRESHOLDS` rewrite which domains a past cycle prioritised, while its direction narratives sat attached to domains no longer on the list, which is history rewritten by a deploy.
+
+**Focus mode.** `/assessment` sits outside the `(app)` group, so there is no NavBar to wander off through mid-grid and it renders its own `LanguageSelect`, exactly as `/onboarding` and `/config` do. `src/lib/assessment.ts` is the third instance of the wizard mechanic (after `onboarding.ts` and `daily.ts`); the one thing it adds is a ceiling — `resolveAssessmentStep` clamps a requested step to the first unanswered domain, so backwards is free, forwards is impossible, and the results screen cannot be reached before the grid is finished. That is arithmetic rather than a hidden button, because a UI convention is one URL edit away from being ignored.
+
+**Scripts.** `bun run db:migrate:assessment` creates the layer (idempotent, one transaction, `pg` over TCP). `bun run assessment:seed <file.json>` backfills a grid answered on paper, through the same Zod schema and the same `prioritize()` the app uses; it refuses to overwrite a sealed assessment.
+
 ## Timezone Handling (the most important decision)
 
 **The check date never comes from the database.** Neon and Vercel run in UTC, so a `DEFAULT CURRENT_DATE` would roll the day over at 21:00 São Paulo time — checks made at night would land on the wrong day.
