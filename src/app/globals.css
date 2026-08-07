@@ -52,4 +52,55 @@
     content: "";
     @apply w-9 h-0.5 bg-clover;
   }
+
+  /* The 1–10 rating slider (RatingScale). Tailwind can't reach these vendor
+     pseudo-elements, so the thumb lives here. The track itself is a plain
+     absolutely-positioned div behind the input: the input keeps its full 44px
+     height for the touch target while the ink stays thin. */
+  .rating-range {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+  }
+  .rating-range::-webkit-slider-runnable-track {
+    background: transparent;
+    height: 100%;
+  }
+  .rating-range::-moz-range-track {
+    background: transparent;
+    height: 100%;
+  }
+
+  .rating-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 9999px;
+    border: 2px solid theme(colors.forest);
+    background: theme(colors.clover);
+    box-shadow: theme(boxShadow.hard-sm);
+    cursor: pointer;
+  }
+  .rating-range::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+    border-radius: 9999px;
+    border: 2px solid theme(colors.forest);
+    background: theme(colors.clover);
+    box-shadow: theme(boxShadow.hard-sm);
+    cursor: pointer;
+  }
+
+  /* Unanswered. A range input always draws a thumb somewhere, so "no answer"
+     has to be said in the styling as well as in the readout beside it, or the
+     resting position reads as a choice the person never made. */
+  .rating-range[data-answered="false"]::-webkit-slider-thumb {
+    background: theme(colors.sand);
+    box-shadow: none;
+  }
+  .rating-range[data-answered="false"]::-moz-range-thumb {
+    background: theme(colors.sand);
+    box-shadow: none;
+  }
 }
