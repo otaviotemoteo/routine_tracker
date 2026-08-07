@@ -59,14 +59,16 @@ export function ListCard({
         </button>
 
         {/* Edit sits next to the chevron rather than under the content: the two
-            things you can do to an entry belong together, at its edge. */}
+            things you can do to an entry belong together, at its edge.
+            A 28px chip, with an ::after stretching the hit area back to 44px —
+            small to look at, still big enough to hit with a thumb. */}
         {open && !editing && (
           <button
             type="button"
             onClick={onEdit}
-            className="shrink-0 min-h-[44px] inline-flex items-center gap-1.5 px-3 rounded-full border-2 border-forest bg-mint font-semibold text-xs"
+            className="relative shrink-0 h-7 inline-flex items-center gap-1.5 px-2.5 rounded-full border-2 border-forest bg-mint font-semibold text-xs after:absolute after:content-[''] after:inset-x-0 after:-inset-y-2"
           >
-            <Pencil className="w-3.5 h-3.5" aria-hidden />
+            <Pencil className="w-3 h-3" aria-hidden />
             {editLabel}
           </button>
         )}
