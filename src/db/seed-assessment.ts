@@ -11,6 +11,12 @@
 // to touch a cycle that already holds a sealed assessment — that record is
 // closed, and the way to correct one is to void it, not to overwrite it.
 //
+// `ratings` is optional. A file with only `directions` writes the written half
+// on its own, which is what you want when the numbers are going to be answered
+// in the app but the reflections already exist on paper: seed them first and
+// the writing step opens with your own words already in it, to review rather
+// than retype. It does NOT prefill any rating, ever — see getOpenDraft.
+//
 // node-postgres over plain TCP, not the app's neon-http driver: this writes an
 // assessment, its twelve ratings and its narratives, and either all of it lands
 // or none of it does.
@@ -40,11 +46,12 @@ const fileSchema = z
     takenAt: z.string().date(),
     handle: z.string().min(1),
     contextNote: z.string().optional(),
-    // All twelve, because a partial grid is not a weaker grid — it is one that
-    // cannot be compared to the next cycle, which is the only reason to keep it.
-    ratings: z.object(
-      Object.fromEntries(DOMAIN_SLUGS.map((slug) => [slug, ratingSchema]))
-    ),
+    // Omit to write only the directions. Present means all twelve, because a
+    // partial grid is not a weaker grid — it is one that cannot be compared to
+    // the next cycle, which is the only reason to keep it.
+    ratings: z
+      .object(Object.fromEntries(DOMAIN_SLUGS.map((slug) => [slug, ratingSchema])))
+      .optional(),
     directions: z
       .record(
         z.enum(DOMAIN_SLUGS),
@@ -79,8 +86,7 @@ async function main(): Promise<void> {
   }
   const answers = parsed.data;
 
-  const ratings = answers.ratings as DomainRatings;
-  const priority = prioritize(ratings);
+  const ratings = answers.ratings as DomainRatings | undefined;
   const label = cycleLabel(answers.takenAt);
   const { startsAt, endsAt } = cycleBounds(answers.takenAt);
 
@@ -114,69 +120,75 @@ async function main(): Promise<void> {
     );
     const cycleId = cycle.rows[0].id;
 
-    const sealed = await client.query<{ id: number; taken_at: string }>(
-      // to_char, because node-postgres would hand back a Date and the message
-      // would print a timezone nobody asked about.
-      `SELECT id, to_char(taken_at, 'YYYY-MM-DD') AS taken_at FROM assessments
-        WHERE user_id = $1 AND cycle_id = $2
-          AND completed_at IS NOT NULL AND voided_at IS NULL`,
-      [userId, cycleId]
-    );
-    if (sealed.rowCount) {
-      throw new Error(
-        `${label} already holds a sealed assessment (id ${sealed.rows[0].id}, ` +
-          `taken ${sealed.rows[0].taken_at}). A sealed record is not overwritten. ` +
-          `To replace it, set its voided_at first — the original stays on disk.`
-      );
-    }
-
-    // Any open draft for this cycle is superseded by what's in the file.
-    await client.query(
-      `DELETE FROM assessment_ratings WHERE assessment_id IN (
-         SELECT id FROM assessments
-          WHERE user_id = $1 AND cycle_id = $2 AND completed_at IS NULL)`,
-      [userId, cycleId]
-    );
-    await client.query(
-      `DELETE FROM assessments
-        WHERE user_id = $1 AND cycle_id = $2 AND completed_at IS NULL`,
-      [userId, cycleId]
-    );
-
-    const assessment = await client.query<{ id: number }>(
-      `INSERT INTO assessments
-         (user_id, cycle_id, taken_at, kind, context_note, priority_domains, completed_at)
-       VALUES ($1, $2, $3, 'full', $4, $5, now()) RETURNING id`,
-      [userId, cycleId, answers.takenAt, answers.contextNote ?? null, priority]
-    );
-    const assessmentId = assessment.rows[0].id;
-
     const domains = await client.query<{ id: number; slug: string }>(
       "SELECT id, slug FROM life_domains"
     );
     const domainId = new Map(domains.rows.map((d) => [d.slug, d.id]));
 
-    for (const slug of DOMAIN_SLUGS) {
-      const r = answers.ratings[slug];
-      await client.query(
-        `INSERT INTO assessment_ratings
-           (assessment_id, domain_id, possibility, importance_now,
-            importance_general, action, action_satisfaction, concern)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          assessmentId,
-          domainId.get(slug),
-          r.possibility,
-          r.importanceNow,
-          r.importanceGeneral,
-          r.action,
-          r.actionSatisfaction,
-          r.concern,
-        ]
+    if (ratings && answers.ratings) {
+      const sealed = await client.query<{ id: number; taken_at: string }>(
+        // to_char, because node-postgres would hand back a Date and the message
+        // would print a timezone nobody asked about.
+        `SELECT id, to_char(taken_at, 'YYYY-MM-DD') AS taken_at FROM assessments
+          WHERE user_id = $1 AND cycle_id = $2
+            AND completed_at IS NOT NULL AND voided_at IS NULL`,
+        [userId, cycleId]
       );
+      if (sealed.rowCount) {
+        throw new Error(
+          `${label} already holds a sealed assessment (id ${sealed.rows[0].id}, ` +
+            `taken ${sealed.rows[0].taken_at}). A sealed record is not overwritten. ` +
+            `To replace it, set its voided_at first — the original stays on disk.`
+        );
+      }
+
+      // Any open draft for this cycle is superseded by what's in the file.
+      await client.query(
+        `DELETE FROM assessment_ratings WHERE assessment_id IN (
+           SELECT id FROM assessments
+            WHERE user_id = $1 AND cycle_id = $2 AND completed_at IS NULL)`,
+        [userId, cycleId]
+      );
+      await client.query(
+        `DELETE FROM assessments
+          WHERE user_id = $1 AND cycle_id = $2 AND completed_at IS NULL`,
+        [userId, cycleId]
+      );
+
+      const priority = prioritize(ratings);
+      const assessment = await client.query<{ id: number }>(
+        `INSERT INTO assessments
+           (user_id, cycle_id, taken_at, kind, context_note, priority_domains, completed_at)
+         VALUES ($1, $2, $3, 'full', $4, $5, now()) RETURNING id`,
+        [userId, cycleId, answers.takenAt, answers.contextNote ?? null, priority]
+      );
+      const assessmentId = assessment.rows[0].id;
+
+      for (const slug of DOMAIN_SLUGS) {
+        const r = answers.ratings[slug];
+        await client.query(
+          `INSERT INTO assessment_ratings
+             (assessment_id, domain_id, possibility, importance_now,
+              importance_general, action, action_satisfaction, concern)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            assessmentId,
+            domainId.get(slug),
+            r.possibility,
+            r.importanceNow,
+            r.importanceGeneral,
+            r.action,
+            r.actionSatisfaction,
+            r.concern,
+          ]
+        );
+      }
+      console.log(`Sealed assessment ${assessmentId} for ${label}, 12 domains.`);
+      console.log(`Priority: ${priority.join(", ")}`);
+    } else {
+      console.log(`No ratings in the file, so none were written.`);
+      console.log(`The grid stays for the app to ask; only the writing lands here.`);
     }
-    console.log(`Sealed assessment ${assessmentId} for ${label}, 12 domains.`);
-    console.log(`Priority: ${priority.join(", ")}`);
 
     let written = 0;
     for (const [slug, direction] of Object.entries(answers.directions ?? {})) {
