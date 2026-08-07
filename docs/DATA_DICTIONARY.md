@@ -146,6 +146,89 @@ Editing a plan inserts `version+1` and flips `active`; history = `ORDER BY versi
 | user_id | int FK→users | Whose window |
 | bedtime / wake_time | time | Target window; sets the daily sleep-hours default. Not referenced by `details` |
 
+## Tier 4 — the values layer
+
+Where Tiers 1–3 record what you did, this records what you said mattered. It is
+**append-only**: the question it exists to answer is "what did I say I'd do, and
+what happened?", and no system that lets you edit the past can answer it.
+
+Display text is deliberately absent from every table here. Domain names,
+descriptions, boundary notes and writing prompts live in
+`src/lib/i18n-assessment.ts` keyed by `life_domains.slug`, because the app is
+bilingual and a name stored in one language has to be undone on read.
+
+### `life_domains` (12 rows, seeded, shared by everyone)
+| Column | Type | Meaning |
+|--------|------|---------|
+| id | serial PK | |
+| slug | varchar(40) UNIQUE | `family`, `couple`, `parenting`, `friends`, `work`, `education`, `recreation`, `spirituality`, `community`, `health`, `environment`, `art`. Stable, never renamed |
+| position | int | Fixed display order, 1–12. Never randomised: shuffling would cut order-effect but destroy comparability between cycles |
+
+### `cycles`
+| Column | Type | Meaning |
+|--------|------|---------|
+| id | serial PK | |
+| user_id | int FK→users | Whose cycle |
+| label | varchar(20) | `2026-H2`. Unique per account, derived from the date — there is no cycle UI |
+| starts_at / ends_at | date | The half-year the cycle covers |
+| status | varchar(10) | `draft` \| `active` \| `closed`. Only `active` is written today |
+| closed_at | timestamptz | Set when the cycle is closed (not yet built) |
+
+### `assessments` (one filling-in of the grid)
+| Column | Type | Meaning |
+|--------|------|---------|
+| id | serial PK | |
+| user_id | int FK→users | |
+| cycle_id | int FK→cycles | |
+| taken_at | date | São Paulo day, from app code. **No database default** |
+| kind | varchar(10) | `full` (12 domains) \| `checkin` (priority only). Only `full` is written today |
+| context_note | text | Free text: "done in the morning, tired". Matters more than it looks |
+| priority_domains | varchar(40)[] | The top-5 cut as domain slugs, **frozen when the assessment is sealed**. Not recomputed on read: a later change to `THRESHOLDS` would otherwise rewrite which domains a past cycle prioritised, while its direction narratives stayed attached to domains no longer in the list |
+| completed_at | timestamptz | NULL = a **draft**, still editable. Once set the assessment is sealed and every write is refused |
+| voided_at | timestamptz | Sealed in error. Never deleted, never edited, just excluded from reads |
+
+**One open draft per account**, enforced by a partial unique index
+(`assessments_one_open_draft ON (user_id) WHERE completed_at IS NULL`) rather
+than by convention, so two half-filled grids are unrepresentable.
+
+### `assessment_ratings` (six numbers for one domain)
+No `user_id`: it reaches its owner through `assessment_id`, exactly as
+`workout_plan_days` does through `plan_id`. Unique on `(assessment_id, domain_id)`.
+
+| Column | Type | Meaning |
+|--------|------|---------|
+| assessment_id | int FK→assessments | |
+| domain_id | int FK→life_domains | |
+| possibility | int 1–10 | How possible real change feels here |
+| importance_now | int 1–10 | How much it is on your mind this month |
+| importance_general | int 1–10 | How much it matters in the life you want. The steady one |
+| action | int 1–10 | How much you actually did in the last week |
+| action_satisfaction | int 1–10 | How satisfied you are with that action |
+| concern | int 1–10 | How much the area worries you |
+
+Each column carries its own named `CHECK … BETWEEN 1 AND 10`, so a violation
+names the column that broke.
+
+### `direction_narratives` (written for the priority domains only)
+| Column | Type | Meaning |
+|--------|------|---------|
+| id | serial PK | |
+| user_id | int FK→users | Redundant with `cycle_id`, kept so an ownership filter is one predicate rather than a join |
+| cycle_id | int FK→cycles | Unique together with `domain_id` |
+| domain_id | int FK→life_domains | |
+| raw_reflection | text | The long answer to the domain's writing prompt |
+| narrative | text | The one sentence naming the direction |
+| source | varchar(12) | `human` \| `ai_suggested` \| `ai_edited`. Always `human` today; the column exists so adding generated drafts needs no backfill |
+| accepted_at | timestamptz | When the sentence was accepted as written |
+
+**Derived, never stored:** the seven diagnostic patterns, severities,
+`valueActionGap` / `hopeGap` / `anxietyLoad` / `alignment`, and the gap ranking
+are all pure functions in `src/lib/diagnose.ts`. Only `priority_domains` is
+persisted, and only because freezing it is the point.
+
+**Known gap:** the values layer is **not** in `GET /api/export` yet. Until it
+is, an export is a complete record of what you did and no record of why.
+
 ## Tier 2 — `daily_checks.details` by habit slug
 
 Validated on every write against `src/lib/details-schemas.ts`. `?` = optional.
