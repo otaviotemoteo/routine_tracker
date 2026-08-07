@@ -190,7 +190,9 @@ export function OnboardingFooter({
         aria-labelledby="unsaved-changes-title"
         className="bg-transparent p-0 backdrop:bg-forest/40"
       >
-        <div className="bg-white border-2 border-forest rounded-card shadow-hard p-6 w-[min(22rem,90vw)] text-forest">
+        {/* Wider than the default sheet so the two actions fit on one row:
+            at 22rem "Continuar editando" wrapped and the buttons went ragged. */}
+        <div className="bg-white border-2 border-forest rounded-card shadow-hard p-6 w-[min(26rem,92vw)] text-forest">
           <h2 id="unsaved-changes-title" className="display-title text-xl">
             {copy.unsaved.title}
           </h2>
@@ -199,14 +201,14 @@ export function OnboardingFooter({
             <button
               type="button"
               onClick={keepEditing}
-              className={`${ghostButton} flex-1`}
+              className={`${ghostButton} flex-1 whitespace-nowrap`}
             >
               {copy.unsaved.keepEditing}
             </button>
             <button
               type="button"
               onClick={confirmLeave}
-              className={`${primaryButton} flex-1`}
+              className={`${primaryButton} flex-1 whitespace-nowrap`}
             >
               {copy.unsaved.leave}
             </button>
