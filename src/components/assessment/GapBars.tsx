@@ -1,105 +1,86 @@
-import { SCALE_MAX } from "@/lib/domains";
+import { domainIcon } from "@/lib/domain-icons";
 import type { DomainGap } from "@/lib/diagnose";
+import { cardSurface } from "@/components/ui/styles";
 import { format, type Copy } from "@/lib/i18n";
+import { ScoreBar } from "./ScoreBar";
 
 interface GapBarsProps {
   rows: DomainGap[];
   copy: Copy["assessment"];
 }
 
-// Where a distance stops being noise. Three steps, so the ramp is readable
-// without a key you have to memorise.
-const WIDE = 5;
-const SOME = 3;
-
-function band(gap: number): string {
-  if (gap >= WIDE) return "bg-straw";
-  if (gap >= SOME) return "bg-straw/45";
-  return "bg-sand";
-}
-
-// Importance against action, one row per domain, widest distance first.
+// Importance against action, one block per domain, widest distance first.
 //
-// The colour encodes the DISTANCE, never the score. A 3 in community life can
-// be a perfectly healthy answer, and colouring absolute values green and red
-// would teach you to produce the right number instead of the true one. Nothing
-// here is clover either: in this palette clover means done and positive, and
-// no rating on this screen is either.
+// The first version drew a single track carrying three variables at once and
+// it did not read: a grey fill for action, a tick for importance, and a
+// straw/sand ramp for the distance between them. "Family, 6 apart" is not a
+// sentence anyone can act on.
+//
+// This draws the two answers plainly and lets the distance be the thing you
+// see rather than a number you have to decode. The figure stays on the right
+// because it is the sort key, but it is now explained by the two bars under it
+// instead of asserted on its own.
 export function GapBars({ rows, copy }: GapBarsProps) {
-  const pct = (n: number) => (n / SCALE_MAX) * 100;
-
   return (
-    <figure className="mt-4">
+    <figure className={`${cardSurface} mt-4 p-4 sm:p-5`}>
       <figcaption className="sr-only">{copy.results.chartTitle}</figcaption>
 
-      <ul className="flex flex-col gap-3 list-none">
-        {rows.map((row) => {
+      <ul className="flex flex-col list-none">
+        {rows.map((row, i) => {
           const domain = copy.domains[row.domainSlug];
-          const inverted = row.gap < 0;
-          const lo = Math.min(row.action, row.importanceGeneral);
-          const width = Math.abs(row.importanceGeneral - row.action);
+          const Icon = domainIcon(row.domainSlug);
           const gapText =
             row.gap === 0
               ? copy.results.gapNone
-              : inverted
+              : row.gap < 0
                 ? format(copy.results.gapInverted, { n: Math.abs(row.gap) })
                 : format(copy.results.gapLabel, { n: row.gap });
 
           return (
-            <li key={row.domainSlug}>
+            <li
+              key={row.domainSlug}
+              className={
+                i === 0 ? "" : "border-t-2 border-dashed border-sand mt-3 pt-3"
+              }
+            >
               <div className="flex items-baseline justify-between gap-3">
-                <span className="font-semibold text-sm">{domain.name}</span>
-                {/* The figure and its name in words, because a bare number
-                    needs decoding and a bare colour cannot be read at all. */}
+                <span className="flex items-center gap-2 min-w-0">
+                  <Icon className="w-4 h-4 shrink-0 opacity-60" aria-hidden />
+                  <span className="font-semibold text-sm truncate">
+                    {domain.name}
+                  </span>
+                </span>
                 <span className="font-mono text-xs opacity-70 shrink-0">
                   {gapText}
                 </span>
               </div>
 
-              <div className="relative mt-1.5 h-4 rounded-full border-2 border-forest bg-cream overflow-hidden">
-                {/* The distance itself, as a band between the two answers. */}
-                <div
-                  className={`absolute inset-y-0 ${
-                    inverted ? "bg-sand" : band(row.gap)
-                  }`}
-                  style={{ left: `${pct(lo)}%`, width: `${pct(width)}%` }}
+              <div className="flex flex-col gap-1.5 mt-2">
+                <ScoreBar
+                  label={copy.results.importanceLabel}
+                  value={row.importanceGeneral}
+                  valueLabel={format(copy.results.scoreOutOf, {
+                    n: row.importanceGeneral,
+                  })}
                 />
-                {/* What you did. */}
-                <div
-                  className="absolute inset-y-0 left-0 bg-forest/20"
-                  style={{ width: `${pct(row.action)}%` }}
-                />
-                {/* What you said it matters. */}
-                <div
-                  className="absolute inset-y-0 w-0.5 bg-forest"
-                  style={{ left: `calc(${pct(row.importanceGeneral)}% - 1px)` }}
+                <ScoreBar
+                  label={copy.results.actionLabel}
+                  value={row.action}
+                  valueLabel={format(copy.results.scoreOutOf, { n: row.action })}
                 />
               </div>
 
+              {/* The bars are aria-hidden, so the row still has to say its
+                  figures once in reading order. */}
               <p className="sr-only">
-                {copy.results.importanceLabel}: {row.importanceGeneral}.{" "}
-                {copy.results.actionLabel}: {row.action}. {gapText}.
+                {domain.name}. {copy.results.importanceLabel}:{" "}
+                {row.importanceGeneral}. {copy.results.actionLabel}: {row.action}.{" "}
+                {gapText}.
               </p>
             </li>
           );
         })}
       </ul>
-
-      {/* A ramp nobody can read is decoration. */}
-      <div
-        aria-hidden
-        className="flex items-center gap-2 mt-4 text-xs opacity-70"
-      >
-        <span>{copy.results.legendLess}</span>
-        <span className="h-3 w-6 rounded-sm border-2 border-forest bg-sand" />
-        <span className="h-3 w-6 rounded-sm border-2 border-forest bg-straw/45" />
-        <span className="h-3 w-6 rounded-sm border-2 border-forest bg-straw" />
-        <span>{copy.results.legendMore}</span>
-        <span className="ml-auto flex items-center gap-1.5">
-          <span className="h-3 w-0.5 bg-forest" />
-          {copy.results.importanceLabel}
-        </span>
-      </div>
     </figure>
   );
 }
