@@ -4,11 +4,7 @@ import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import {
-  ghostButton,
-  inputClass,
-  primaryButton,
-} from "@/components/onboarding/OnboardingChrome";
+import { ghostButton, inputClass, primaryButton } from "@/components/ui/styles";
 import type { DomainSlug } from "@/lib/domains";
 import { format, type Copy } from "@/lib/i18n";
 
