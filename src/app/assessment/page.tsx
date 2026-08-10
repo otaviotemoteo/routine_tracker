@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingChrome";
-import { LanguageSelect } from "@/components/landing/LanguageSelect";
+import { AssessmentShell } from "@/components/assessment/AssessmentShell";
 import { DomainStep } from "@/components/assessment/DomainStep";
 import { IntroStep } from "@/components/assessment/IntroStep";
 import { ResumeStep } from "@/components/assessment/ResumeStep";
@@ -48,9 +48,9 @@ export default async function AssessmentPage({
       redirect("/assessment/results");
     }
     return (
-      <Shell lang={lang}>
+      <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="focus">
         <IntroStep action={startAssessment} copy={copy} />
-      </Shell>
+      </AssessmentShell>
     );
   }
 
@@ -60,7 +60,7 @@ export default async function AssessmentPage({
   if (draft.takenAt !== today && requested !== "intro") {
     const next = firstUnanswered(draft.ratings);
     return (
-      <Shell lang={lang}>
+      <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="focus">
         <ResumeStep
           restart={restartAssessment}
           resumeHref={assessmentStepHref(next ?? "results")}
@@ -68,7 +68,7 @@ export default async function AssessmentPage({
           answered={answeredCount(draft.ratings)}
           copy={copy}
         />
-      </Shell>
+      </AssessmentShell>
     );
   }
 
@@ -79,9 +79,9 @@ export default async function AssessmentPage({
 
   if (step === "intro") {
     return (
-      <Shell lang={lang}>
+      <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="focus">
         <IntroStep action={startAssessment} copy={copy} />
-      </Shell>
+      </AssessmentShell>
     );
   }
 
@@ -92,7 +92,7 @@ export default async function AssessmentPage({
   const areaNumber = domainPosition(step);
 
   return (
-    <Shell lang={lang}>
+    <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="focus">
       <OnboardingProgress
         stepNumber={areaNumber}
         total={TOTAL_DOMAINS}
@@ -110,23 +110,7 @@ export default async function AssessmentPage({
         copy={copy}
         initial={draft.ratings[step] ?? {}}
       />
-    </Shell>
+    </AssessmentShell>
   );
 }
 
-function Shell({
-  lang,
-  children,
-}: {
-  lang: "en" | "pt";
-  children: React.ReactNode;
-}) {
-  return (
-    <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-24">
-      <div className="flex justify-end mb-4">
-        <LanguageSelect current={lang} />
-      </div>
-      {children}
-    </main>
-  );
-}
