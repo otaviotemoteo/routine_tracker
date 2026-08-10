@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ghostButton, primaryButton } from "@/components/onboarding/OnboardingChrome";
+import { ghostButton, primaryButton } from "@/components/ui/styles";
 import { TOTAL_DOMAINS } from "@/lib/domains";
 import { format, type Copy } from "@/lib/i18n";
 
