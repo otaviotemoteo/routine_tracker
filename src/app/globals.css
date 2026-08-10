@@ -57,6 +57,13 @@
      pseudo-elements, so the thumb lives here. The track itself is a plain
      absolutely-positioned div behind the input: the input keeps its full 44px
      height for the touch target while the ink stays thin. */
+  /* Inset so the ring hugs the 44px input instead of pushing into the anchor
+     words directly underneath it. */
+  .rating-range:focus-visible {
+    outline-offset: -2px;
+    border-radius: 9999px;
+  }
+
   .rating-range {
     -webkit-appearance: none;
     appearance: none;
