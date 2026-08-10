@@ -50,6 +50,10 @@ const config: Config = {
       },
       animation: {
         fill: "fill 5s linear forwards",
+        // The values check-in's completion dialog: the button fills while a
+        // matching timer runs. Both are cancellable, and the timer — never
+        // this — is what navigates.
+        "fill-slow": "fill 10s linear forwards",
         "dialog-in": "dialog-in 150ms ease-out",
         "dialog-out": "dialog-out 140ms ease-in forwards",
       },
