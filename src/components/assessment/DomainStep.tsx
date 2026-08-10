@@ -100,6 +100,7 @@ export function DomainStep({
               highAnchor={scale.highAnchor}
               whyLabel={copy.domainStep.whyLabel}
               unansweredLabel={copy.domainStep.unanswered}
+              unansweredHint={copy.scaleUnanswered}
               valueTemplate={copy.scaleValue}
               rangeTemplate={copy.scaleRange}
               value={answers[key] ?? null}
