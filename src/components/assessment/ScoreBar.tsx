@@ -1,7 +1,12 @@
 import { SCALE_MAX } from "@/lib/domains";
 
 interface ScoreBarProps {
-  label: string;
+  // A node, not a string: some rows label themselves with the scale ("Action")
+  // and some with the thing being scored (an icon and an area name).
+  label: React.ReactNode;
+  // Tailwind width for the label column. Fixed, never `max-w`, so the bar
+  // starts at the same x on every row and the column can be read down.
+  labelWidth?: string;
   value: number;
   // "{n}/10", already formatted by the caller so this stays language-free.
   valueLabel: string;
@@ -20,12 +25,19 @@ interface ScoreBarProps {
 // stays forbidden is colouring importance and action *differently*, or
 // colouring by value, because that is the version that teaches you to produce
 // a high number instead of a true one.
-export function ScoreBar({ label, value, valueLabel }: ScoreBarProps) {
+export function ScoreBar({
+  label,
+  labelWidth = "w-[5.5rem]",
+  value,
+  valueLabel,
+}: ScoreBarProps) {
   const pct = Math.max(0, Math.min(1, value / SCALE_MAX)) * 100;
 
   return (
     <div className="flex items-center gap-2.5">
-      <span className="w-[5.5rem] shrink-0 text-xs opacity-70">{label}</span>
+      <span className={`${labelWidth} shrink-0 min-w-0 text-xs opacity-70`}>
+        {label}
+      </span>
       <div
         className="flex-1 min-w-0 h-3 rounded-full border-2 border-forest bg-white overflow-hidden"
         aria-hidden
