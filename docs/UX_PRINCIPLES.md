@@ -379,6 +379,16 @@ Each of these came from watching the shipped screens fail at something.
   redirect fired by `animationend` lands instantly on exactly the people least
   likely to want it. Run a `setTimeout`, let the fill be decoration, and let
   Escape, the backdrop or any interaction cancel both.
+- **Focus mode is per screen, not per route.** The nav bar is hidden while the
+  app is *asking* you something, and present once it is *reporting* — the
+  results and the directions list are places you visit, not steps you are
+  inside. `AssessmentShell` takes `chrome: "focus" | "nav"` so one route can be
+  both, and the standalone language toggle renders only in focus mode because
+  the nav bar already carries one.
+- **Saving an edit returns you where you came from.** Marching a user through
+  areas they already finished is the replay problem again, one screen later:
+  when every direction is written, Save says "Save" and goes back to the list
+  rather than "Save and continue" and advancing.
 - **A screen whose only job is to say "done" is a dialog wearing a route.**
   Show it over the list the user is returning to, so finishing reads as landing
   back on their own work.
