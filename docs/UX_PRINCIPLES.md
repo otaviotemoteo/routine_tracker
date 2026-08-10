@@ -301,13 +301,18 @@ settle decisions that were already made, not re-open them.
 The values check-in (`/assessment`) asks about a life rather than about a day,
 and that inverts several rules above. Each inversion is deliberate.
 
-- **Colour encodes the gap, never the score.** A 3 in community life may be
-  perfectly healthy. Colouring absolute answers red and green teaches people to
-  produce the right number instead of the true one, and the true one is the
-  only thing the instrument is for. The results chart colours the *distance*
-  between importance and action, on a three-step `sand → straw/45 → straw`
-  ramp, and never uses `clover`: in this palette clover means done and
-  positive, and no rating on that screen is either.
+- **Two quantities compared share one colour, and length carries the
+  difference.** The first results chart put three variables on one track —
+  action as a fill, importance as a tick, the distance as a `sand → straw`
+  ramp — and a real reader could not decode any of them. It now draws both
+  answers as separate bars in the *same* colour, so neither reads as the good
+  one, and the gap is simply the difference in length. What stays forbidden is
+  colouring the two differently, or colouring by value: a 3 in community life
+  may be perfectly healthy, and a palette that says otherwise teaches people to
+  produce the right number instead of the true one.
+- **A number a reader cannot act on is not a summary.** "Family — 6 apart"
+  failed review; `8/10` beside a filled bar did not. Derived figures earn their
+  place by being legible on their own, not by being correct.
 - **No streaks on self-report. Ever.** A streak on a values check-in measures
   your wish to keep the streak, and because it contaminates the series the
   damage is permanent. Habits may have streaks, since a habit is an observable
@@ -344,6 +349,45 @@ and that inverts several rules above. Each inversion is deliberate.
   did it stall in", never "you failed", and never infers a mood from a number.
   A screen whose job is to show you a distance becomes a machine for feeling bad
   the moment it starts scoring.
+
+## Lessons from the values review
+
+Each of these came from watching the shipped screens fail at something.
+
+- **A card must not change height when it gets its answer.** State goes where
+  the value will go, not on a line that appears and disappears — otherwise
+  answering makes the page reflow under the thumb that just answered. Fix the
+  width of that slot too: a `max-width` lets the neighbouring text re-wrap, and
+  the card changes height anyway.
+- **Repeated facts of the same shape are a table, not a run of sentences.**
+  Seven findings phrased as prose read as vague; the same seven as
+  Area / Importance / Action became scannable, and the repetition started
+  working for the reader instead of against them. Below `sm` the columns stack
+  into labelled blocks — a three-column table at 360px is not a table.
+- **Group an explanation into one titled surface.** Three loose ticks on the
+  page are three things; the same three inside a card called "About the
+  questions" are one thing, and the title says what they are for.
+- **Internal rules are not user copy.** The check-in hides your previous
+  answers to stop you anchoring on them. Saying so on screen only makes a
+  reader wonder what else is being withheld. Protect the data quietly.
+- **Cite the source when the content came from somewhere real.** The twelve
+  domains are an ACT worksheet, so the screen links to ACT. Copy crosses into
+  Client Components and cannot carry markup, so split the sentence into
+  before / link / after and let the component assemble it.
+- **Auto-advance is always cancellable, and its timer is never the CSS
+  animation.** `prefers-reduced-motion` collapses animations to 0.01ms, so a
+  redirect fired by `animationend` lands instantly on exactly the people least
+  likely to want it. Run a `setTimeout`, let the fill be decoration, and let
+  Escape, the backdrop or any interaction cancel both.
+- **A screen whose only job is to say "done" is a dialog wearing a route.**
+  Show it over the list the user is returning to, so finishing reads as landing
+  back on their own work.
+- **Shared Tailwind class strings live in a module with no `"use client"`.**
+  Every export of a client module becomes a client-reference proxy; a Server
+  Component that interpolates one (`` `${primaryButton} mt-4` ``) emits a class
+  attribute containing a thrown error, silently, while direct assignment
+  happens to survive. `src/components/ui/styles.ts` carries no directive for
+  this reason.
 
 ## Checklist for a new screen
 
