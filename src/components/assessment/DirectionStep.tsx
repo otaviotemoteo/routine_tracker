@@ -84,13 +84,15 @@ export function DirectionStep({
         {copy.directions.reflectionLabel}
       </label>
       <p className="mb-2 text-sm opacity-70">{copy.directions.reflectionHelp}</p>
+      {/* Fixed height and white: resizable fields make the page jump while you
+          write, and cream reads as disabled next to the white cards around it. */}
       <textarea
         id="rawReflection"
         name="rawReflection"
         rows={7}
         value={reflection}
         onChange={(e) => setReflection(e.target.value)}
-        className={`${inputClass} py-2.5 leading-relaxed resize-y`}
+        className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
       />
 
       <label htmlFor="narrative" className="block mt-6 mb-1 font-semibold text-sm">
@@ -100,11 +102,11 @@ export function DirectionStep({
       <textarea
         id="narrative"
         name="narrative"
-        rows={2}
+        rows={3}
         placeholder={copy.directions.narrativePlaceholder}
         value={narrative}
         onChange={(e) => setNarrative(e.target.value)}
-        className={`${inputClass} py-2.5 leading-relaxed resize-y`}
+        className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
       />
 
       <div className="flex items-center justify-between gap-3 flex-wrap mt-7">
