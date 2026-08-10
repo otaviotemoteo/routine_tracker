@@ -36,6 +36,12 @@ interface DomainCopy {
 
 interface PatternCopy {
   name: string;
+  // The same finding split into the two columns the results table shows.
+  // `action` is null where a pattern makes only one claim (BLIND_SPOT says
+  // nothing about action separately), and that row spans both columns rather
+  // than inventing a second clause to fill it.
+  importance: string;
+  action: string | null;
   means: string;
   next: string;
 }
@@ -52,9 +58,16 @@ export interface AssessmentCopy {
     lead: string;
     time: string;
     items: string[];
-    hidden: string;
+    itemsTitle: string;
     notApplicable: string;
-    caution: string;
+    // The clinical-origin note, split so the component can wrap a real link
+    // around the technique's name. Copy crosses into Client Components, so it
+    // can never carry JSX.
+    funFactTitle: string;
+    cautionBefore: string;
+    cautionLink: string;
+    cautionAfter: string;
+    cautionHref: string;
     start: string;
   };
 
@@ -95,8 +108,10 @@ export interface AssessmentCopy {
     gapLabel: string; // {n}
     gapNone: string;
     gapInverted: string; // {n}
-    legendLess: string;
-    legendMore: string;
+    scoreOutOf: string; // {n}
+    colArea: string;
+    colImportance: string;
+    colAction: string;
     findingsTitle: string;
     findingsFirst: string;
     findingsRest: string;
@@ -137,7 +152,8 @@ export interface AssessmentCopy {
     doneTitle: string;
     doneLead: string; // {date}
     doneAction: string;
-    biggestGaps: string;
+    doneSubtitle: string;
+    relevantAreas: string;
   };
 }
 
@@ -157,12 +173,15 @@ const en: AssessmentCopy = {
       "Every question says why it is being asked. Read that line if the question feels odd.",
       "You can stop anywhere. Whatever you have answered is kept.",
     ],
-    hidden:
-      "Your answers from previous check-ins stay hidden until you finish. If you could see that you said 7 last time, you would say 7 again, and the whole exercise would stop telling you anything.",
+    itemsTitle: "About the questions",
     notApplicable:
       "If an area is not part of your life right now, that is a real answer. Rate its importance low and move on.",
-    caution:
-      "These questions come from a therapy tool, used here for planning. If an area opens something heavy, that is a sign to talk to a person, not to fill in another box.",
+    funFactTitle: "Where this comes from",
+    cautionBefore: "These twelve areas are the values worksheet from ",
+    cautionLink: "Acceptance and Commitment Therapy",
+    cautionAfter:
+      ", used here for planning rather than therapy. If an area opens something heavy, that is a sign to talk to a person, not to fill in another box.",
+    cautionHref: "https://contextualscience.org/act",
     start: "Start",
   },
 
@@ -311,36 +330,50 @@ const en: AssessmentCopy = {
   patterns: {
     LIVING_GAP: {
       name: "Matters a lot. Barely happening.",
+      importance: "Matters a lot",
+      action: "Barely happening",
       means: "You put this among the things you care most about, and among the things you did least last week.",
       next: "This is the most common distance there is, and the most workable. Pick the smallest action that would count, then make it smaller.",
     },
     EMPTY_ACTION: {
       name: "Plenty of doing. Little to show for it.",
+      importance: "Plenty of doing",
+      action: "Little to show for it",
       means: "You put real effort into this area and came away unsatisfied with it.",
       next: "Usually the effort is going somewhere that is not yours. Worth asking what you would do here if nobody were watching.",
     },
     HOPELESSNESS: {
       name: "Matters a lot. Feels closed.",
+      importance: "Matters a lot",
+      action: "Feels closed",
       means: "You care about this and do not believe much can change here.",
       next: "Whatever you plan next, this area gets dropped quietly unless the belief moves first. Look for the smallest piece of it that is not closed.",
     },
     ANXIETY_NO_ACTION: {
       name: "On your mind. Not in your week.",
+      importance: "On your mind",
+      action: "Not in your week",
       means: "This worries you more than most areas, and you acted on it less than most.",
       next: "Worry can stand in for action for years. One concrete step, however small, usually costs less than another week of thinking about it.",
     },
     POSTPONED: {
       name: "Important in general. Parked for now.",
+      importance: "Important in general",
+      action: "Parked for now",
       means: "You rate this highly for the life you want, and low for what is on your mind this month.",
       next: "That can be a fair call, since not everything belongs in every season. Worth knowing whether you chose it or it just happened.",
     },
     AUTOPILOT: {
       name: "A lot of your week. Not much of your life.",
+      importance: "A lot of your week",
+      action: "Not much of your life",
       means: "You act here more than the area matters to you.",
       next: "Some of that is unavoidable. Some of it is time that could go to something at the top of this list.",
     },
     BLIND_SPOT: {
       name: "Every answer here is low.",
+      importance: "Every answer here is low",
+      action: null,
       means: "Nothing in this area registered. Not importance, not action, not worry.",
       next: "Sometimes that is an area you have not looked at in a while. Sometimes it is one that honestly is not yours right now. Only you can tell which, and both are fine answers.",
     },
@@ -352,14 +385,17 @@ const en: AssessmentCopy = {
     lead: "Nothing here is a score. The number worth reading is the distance between what you said matters and what you said you did.",
     takenOn: "Taken on {date}",
     chartTitle: "Importance against action",
-    chartLead: "The bar is what you did. The mark is what you said it matters. The band between them is the distance.",
+    chartLead:
+      "Two answers per area: how much it matters in the life you want, and how much you actually did last week. The distance between the two bars is the point.",
     importanceLabel: "Importance",
     actionLabel: "Action",
     gapLabel: "{n} apart",
     gapNone: "no distance",
     gapInverted: "{n} past it",
-    legendLess: "closer",
-    legendMore: "further",
+    scoreOutOf: "{n}/10",
+    colArea: "Area",
+    colImportance: "Importance",
+    colAction: "Action",
     findingsTitle: "What stands out",
     findingsFirst: "Worth reading first",
     findingsRest: "Everything else that crossed a line",
@@ -408,7 +444,9 @@ const en: AssessmentCopy = {
     doneTitle: "Values check-in",
     doneLead: "Taken on {date}",
     doneAction: "See the results",
-    biggestGaps: "Widest distances",
+    doneSubtitle:
+      "A read of your values, to help you set goals and build everyday habits.",
+    relevantAreas: "Areas that matter",
   },
 };
 
@@ -428,12 +466,15 @@ const pt: AssessmentCopy = {
       "Toda pergunta diz por que está sendo feita. Leia essa linha se a pergunta parecer estranha.",
       "Você pode parar onde quiser. O que já respondeu fica salvo.",
     ],
-    hidden:
-      "Suas respostas dos check-ins anteriores ficam escondidas até o fim. Se desse para ver que você respondeu 7 da última vez, você responderia 7 de novo, e o exercício inteiro deixaria de te dizer qualquer coisa.",
+    itemsTitle: "Sobre as perguntas",
     notApplicable:
       "Se uma área não faz parte da sua vida agora, isso é uma resposta de verdade. Dê uma importância baixa e siga em frente.",
-    caution:
-      "Estas perguntas vêm de uma ferramenta de terapia, usada aqui para planejamento. Se alguma área abrir algo que pesa, isso é sinal de conversa com gente, não de mais um campo preenchido.",
+    funFactTitle: "De onde isso vem",
+    cautionBefore: "Estas doze áreas são a folha de valores da ",
+    cautionLink: "Terapia de Aceitação e Compromisso",
+    cautionAfter:
+      ", usada aqui para planejamento, não para terapia. Se alguma área abrir algo que pesa, isso é sinal de conversa com gente, não de mais um campo preenchido.",
+    cautionHref: "https://contextualscience.org/act",
     start: "Começar",
   },
 
@@ -582,36 +623,50 @@ const pt: AssessmentCopy = {
   patterns: {
     LIVING_GAP: {
       name: "Importa muito. Quase não acontece.",
+      importance: "Importa muito",
+      action: "Quase não acontece",
       means: "Você colocou essa área entre as que mais importam e entre as que menos aconteceram na última semana.",
       next: "É a distância mais comum que existe, e a mais trabalhável. Escolha a menor ação que já contaria, e depois diminua ela.",
     },
     EMPTY_ACTION: {
       name: "Muita dedicação. Pouco retorno.",
+      importance: "Muita dedicação",
+      action: "Pouco retorno",
       means: "Você se dedicou de verdade a essa área e saiu insatisfeito com ela.",
       next: "Em geral o esforço está indo para um lugar que não é seu. Vale perguntar o que você faria aqui se ninguém estivesse olhando.",
     },
     HOPELESSNESS: {
       name: "Importa muito. Parece fechado.",
+      importance: "Importa muito",
+      action: "Parece fechado",
       means: "Você se importa com isso e não acredita que muita coisa possa mudar aqui.",
       next: "Qualquer plano que você fizer vai abandonar essa área em silêncio enquanto a crença não se mexer. Procure o menor pedaço dela que não esteja fechado.",
     },
     ANXIETY_NO_ACTION: {
       name: "Na sua cabeça. Fora da sua semana.",
+      importance: "Na sua cabeça",
+      action: "Fora da sua semana",
       means: "Essa área te preocupa mais que a maioria, e você agiu nela menos que na maioria.",
       next: "A preocupação consegue substituir a ação por anos. Um passo concreto, por menor que seja, costuma custar menos que mais uma semana pensando nisso.",
     },
     POSTPONED: {
       name: "Importante no geral. Guardada por enquanto.",
+      importance: "Importante no geral",
+      action: "Guardada por enquanto",
       means: "Você deu uma nota alta pensando na vida que quer, e uma nota baixa para o que está na sua cabeça neste mês.",
       next: "Pode ser uma escolha justa, já que nem tudo cabe em toda temporada. Vale saber se você escolheu isso ou se apenas aconteceu.",
     },
     AUTOPILOT: {
       name: "Muito da sua semana. Pouco da sua vida.",
+      importance: "Muito da sua semana",
+      action: "Pouco da sua vida",
       means: "Você age aqui mais do que essa área importa para você.",
       next: "Parte disso é inevitável. Parte é tempo que poderia estar em algo no topo desta lista.",
     },
     BLIND_SPOT: {
       name: "Todas as respostas aqui são baixas.",
+      importance: "Todas as respostas aqui são baixas",
+      action: null,
       means: "Nada nessa área registrou. Nem importância, nem ação, nem preocupação.",
       next: "Às vezes é uma área que você não olha há um tempo. Às vezes é uma que honestamente não é sua agora. Só você sabe qual, e as duas são respostas legítimas.",
     },
@@ -623,14 +678,17 @@ const pt: AssessmentCopy = {
     lead: "Nada aqui é nota. O número que vale ler é a distância entre o que você disse que importa e o que você disse que fez.",
     takenOn: "Preenchido em {date}",
     chartTitle: "Importância contra ação",
-    chartLead: "A barra é o que você fez. A marca é o quanto você disse que importa. A faixa entre as duas é a distância.",
+    chartLead:
+      "Duas respostas por área: o quanto ela importa na vida que você quer, e o quanto você realmente fez na última semana. A distância entre as duas barras é o ponto.",
     importanceLabel: "Importância",
     actionLabel: "Ação",
     gapLabel: "{n} de distância",
     gapNone: "sem distância",
     gapInverted: "{n} além",
-    legendLess: "mais perto",
-    legendMore: "mais longe",
+    scoreOutOf: "{n}/10",
+    colArea: "Área",
+    colImportance: "Importância",
+    colAction: "Ação",
     findingsTitle: "O que salta aos olhos",
     findingsFirst: "Vale ler primeiro",
     findingsRest: "Todo o resto que cruzou uma linha",
@@ -679,7 +737,9 @@ const pt: AssessmentCopy = {
     doneTitle: "Check-in de valores",
     doneLead: "Preenchido em {date}",
     doneAction: "Ver os resultados",
-    biggestGaps: "Maiores distâncias",
+    doneSubtitle:
+      "Uma leitura dos seus valores, para ajudar a definir metas e construir hábitos do dia a dia.",
+    relevantAreas: "Áreas relevantes",
   },
 };
 
