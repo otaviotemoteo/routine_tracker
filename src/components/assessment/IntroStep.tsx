@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { primaryButton } from "@/components/onboarding/OnboardingChrome";
+import { primaryButton } from "@/components/ui/styles";
 import type { Copy } from "@/lib/i18n";
 
 interface IntroStepProps {
