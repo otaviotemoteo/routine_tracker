@@ -4,7 +4,7 @@ import { LanguageSelect } from "@/components/landing/LanguageSelect";
 import { GapBars } from "@/components/assessment/GapBars";
 import { FindingCard, FindingLine } from "@/components/assessment/FindingCard";
 import { PriorityList } from "@/components/assessment/PriorityList";
-import { ghostButton, primaryButton } from "@/components/onboarding/OnboardingChrome";
+import { ghostButton, primaryButton } from "@/components/ui/styles";
 import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import { diagnose, gapSpread, NARROW_SPREAD, rankByGap } from "@/lib/diagnose";
 import { getLang } from "@/lib/get-lang";
