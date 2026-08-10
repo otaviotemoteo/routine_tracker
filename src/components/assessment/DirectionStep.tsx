@@ -13,7 +13,7 @@ interface DirectionStepProps {
   next: string;
   backHref?: string;
   slug: DomainSlug;
-  isLast: boolean;
+  submitLabel: string;
   copy: Copy["assessment"];
   unsaved: Copy["onboarding"]["unsaved"];
   initialReflection: string;
@@ -42,7 +42,7 @@ export function DirectionStep({
   next,
   backHref,
   slug,
-  isLast,
+  submitLabel,
   copy,
   unsaved,
   initialReflection,
@@ -117,10 +117,7 @@ export function DirectionStep({
             </button>
           )}
         </div>
-        <SubmitButton
-          label={isLast ? copy.directions.finish : copy.directions.save}
-          savingLabel={copy.saving}
-        />
+        <SubmitButton label={submitLabel} savingLabel={copy.saving} />
       </div>
 
       <dialog
