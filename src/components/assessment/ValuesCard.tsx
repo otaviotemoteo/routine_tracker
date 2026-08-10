@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ghostButton, primaryButton } from "@/components/ui/styles";
+import { cardSurface, primaryButton } from "@/components/ui/styles";
+import { domainIcon } from "@/lib/domain-icons";
+import { ScoreBar } from "./ScoreBar";
 import { getLatestSealed, getOpenDraft } from "@/db/assessment";
 import { rankByGap } from "@/lib/diagnose";
 import { answeredCount } from "@/lib/assessment";
@@ -71,14 +73,17 @@ export async function ValuesCard({ userId, lang, copy }: ValuesCardProps) {
     );
   }
 
-  // The three widest distances, as a reminder of what the last check-in said.
+  // The three areas the check-in put at the top, as a reminder of what it
+  // said. "Widest distances" was the old label and it named a number nobody
+  // could act on; these are simply the areas that matter.
   const top = rankByGap(sealed.ratings)
     .filter((row) => row.gap > 0)
     .slice(0, 3);
 
   return (
     <Frame eyebrow={copy.card.eyebrow} title={copy.card.doneTitle}>
-      <p className="mt-2 text-sm opacity-75">
+      <p className="mt-1.5 text-sm opacity-80">{copy.card.doneSubtitle}</p>
+      <p className="mt-2 font-mono text-xs opacity-60">
         {format(copy.card.doneLead, {
           date: formatShortDayMonth(sealed.takenAt, lang),
         })}
@@ -86,24 +91,40 @@ export async function ValuesCard({ userId, lang, copy }: ValuesCardProps) {
 
       {top.length > 0 && (
         <>
-          <p className="mt-4 font-semibold text-sm">{copy.card.biggestGaps}</p>
-          <ul className="flex flex-col gap-1.5 mt-2 list-none">
-            {top.map((row) => (
-              <li
-                key={row.domainSlug}
-                className="flex items-baseline justify-between gap-3 text-sm"
-              >
-                <span>{copy.domains[row.domainSlug].name}</span>
-                <span className="font-mono text-xs opacity-70">
-                  {format(copy.results.gapLabel, { n: row.gap })}
-                </span>
-              </li>
-            ))}
+          <p className="mt-5 font-semibold text-sm">{copy.card.relevantAreas}</p>
+          <ul className="flex flex-col mt-2 list-none">
+            {top.map((row, i) => {
+              const Icon = domainIcon(row.domainSlug);
+              return (
+                <li
+                  key={row.domainSlug}
+                  className={
+                    i === 0
+                      ? "py-2"
+                      : "py-2 border-t-2 border-dashed border-sand"
+                  }
+                >
+                  <span className="flex items-center gap-2 mb-1.5 min-w-0">
+                    <Icon className="w-4 h-4 shrink-0 opacity-60" aria-hidden />
+                    <span className="font-semibold text-sm truncate">
+                      {copy.domains[row.domainSlug].name}
+                    </span>
+                  </span>
+                  <ScoreBar
+                    label={copy.results.importanceLabel}
+                    value={row.importanceGeneral}
+                    valueLabel={format(copy.results.scoreOutOf, {
+                      n: row.importanceGeneral,
+                    })}
+                  />
+                </li>
+              );
+            })}
           </ul>
         </>
       )}
 
-      <Link href="/assessment/results" className={`${ghostButton} mt-4`}>
+      <Link href="/assessment/results" className={`${primaryButton} mt-5`}>
         {copy.card.doneAction}
       </Link>
     </Frame>
@@ -120,7 +141,7 @@ function Frame({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-10 border-2 border-forest rounded-card bg-white shadow-hard p-5">
+    <section className={`${cardSurface} mt-10 p-5`}>
       <p className="eyebrow mb-2">{eyebrow}</p>
       <h2 className="display-title text-2xl">{title}</h2>
       {children}
