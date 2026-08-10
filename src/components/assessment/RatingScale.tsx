@@ -15,7 +15,11 @@ interface RatingScaleProps {
   lowAnchor: string;
   highAnchor: string;
   whyLabel: string;
+  // Short, and shown where the number will go.
   unansweredLabel: string;
+  // The longer sentence, for aria-valuetext only — it says how to answer,
+  // which is useful read aloud and noise on screen.
+  unansweredHint: string;
   // "{value} of 10". Deliberately just the number: naming the nearest anchor
   // would have a 6 announced as "wide open", which is a claim the answer never
   // made. Which end is which is said once, on focus, by rangeTemplate.
@@ -40,8 +44,8 @@ const RESTING = Math.round((SCALE_MIN + SCALE_MAX) / 2);
 // invisibly, and in exactly the direction that makes the whole grid worthless.
 //
 // So `value` is `number | null`, and null is carried in three places at once:
-// the readout shows a dash, the thumb greys out, and the parent's Continue
-// stays disabled. The `input` event covers dragging and the arrow keys, and
+// the readout says so in words where the number will go, the thumb greys out,
+// and the parent's Continue stays disabled. The `input` event covers dragging and the arrow keys, and
 // `pointerdown` covers the case the `input` event misses: tapping the track at
 // exactly the resting position, where the value never changes and no event
 // fires, leaving the answer null under the person's finger.
@@ -54,6 +58,7 @@ export function RatingScale({
   highAnchor,
   whyLabel,
   unansweredLabel,
+  unansweredHint,
   valueTemplate,
   rangeTemplate,
   value,
@@ -72,17 +77,25 @@ export function RatingScale({
       <legend className="sr-only">{label}</legend>
 
       <div className="flex items-start justify-between gap-3">
-        <p className="font-semibold leading-snug">{question}</p>
-        {/* The answer is the one number that matters here, so it reads as the
-            hero rather than as a caption on the control. */}
+        <p className="font-semibold leading-snug min-w-0">{question}</p>
+        {/* The answer, or the words "not answered yet" in its place.
+            Deliberately the same slot: when the state lived on its own line
+            below, answering a question made the card shrink and the page
+            reflowed under the thumb that had just moved the slider. */}
         <output
           htmlFor={id}
           aria-hidden
-          className={`shrink-0 font-mono text-2xl font-bold tabular-nums leading-none pt-0.5 ${
-            answered ? "text-forest" : "text-forest/25"
-          }`}
+          className="shrink-0 w-[4.75rem] min-h-[2rem] flex items-start justify-end text-right leading-tight"
         >
-          {answered ? value : "—"}
+          {answered ? (
+            <span className="font-mono text-2xl font-bold tabular-nums">
+              {value}
+            </span>
+          ) : (
+            <span className="text-xs font-semibold text-straw">
+              {unansweredLabel}
+            </span>
+          )}
         </output>
       </div>
 
@@ -127,7 +140,7 @@ export function RatingScale({
           aria-label={question}
           aria-describedby={rangeId}
           aria-valuetext={
-            answered ? format(valueTemplate, { value: shown }) : unansweredLabel
+            answered ? format(valueTemplate, { value: shown }) : unansweredHint
           }
           onChange={(e) => onChange(Number(e.target.value))}
           // Tapping the track exactly where the thumb already sits fires no
@@ -152,10 +165,11 @@ export function RatingScale({
 
       {/* Both ends named in words. The number alone never says which end is
           "good", and on most of these scales neither end is. The top margin
-          keeps this clear of the 3px focus ring on the input above. */}
+          sits close to it: the focus ring is inset (see globals.css) so it no
+          longer needs clearing. */}
       <div
         id={rangeId}
-        className="flex justify-between gap-3 mt-1.5 text-xs opacity-70"
+        className="flex justify-between gap-3 mt-0.5 text-xs opacity-70"
       >
         <span>{lowAnchor}</span>
         <span className="text-right">{highAnchor}</span>
@@ -164,9 +178,6 @@ export function RatingScale({
         </span>
       </div>
 
-      {!answered && (
-        <p className="mt-2 text-xs font-semibold text-straw">{unansweredLabel}</p>
-      )}
     </fieldset>
   );
 }
