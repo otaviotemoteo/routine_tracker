@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LanguageSelect } from "@/components/landing/LanguageSelect";
+import { AssessmentShell } from "@/components/assessment/AssessmentShell";
+import { StepTitle } from "@/components/onboarding/OnboardingChrome";
 import { GapBars } from "@/components/assessment/GapBars";
 import { FindingCard, FindingTable } from "@/components/assessment/FindingCard";
 import { PriorityList } from "@/components/assessment/PriorityList";
-import { cardSurface, ghostButton, primaryButton } from "@/components/ui/styles";
+import { cardSurface, primaryButton } from "@/components/ui/styles";
 import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import { diagnose, gapSpread, NARROW_SPREAD, rankByGap } from "@/lib/diagnose";
 import { getLang } from "@/lib/get-lang";
@@ -39,13 +40,13 @@ export default async function ResultsPage() {
   const hasDirections = Object.keys(written).length > 0;
 
   return (
-    <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-24">
-      <div className="flex justify-end mb-4">
-        <LanguageSelect current={lang} />
-      </div>
-
+    <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="nav">
       <p className="eyebrow mb-2">{copy.results.eyebrow}</p>
-      <h1 className="display-title text-3xl sm:text-4xl">{copy.results.title}</h1>
+      {/* The way back rides on the title, so there is one of it and nothing to
+          scroll past to find it. */}
+      <StepTitle backHref="/overview" backLabel={copy.backToOverview}>
+        {copy.results.title}
+      </StepTitle>
 
       {/* The one paragraph that says how to read the whole screen earns a
           surface of its own rather than floating as loose prose. */}
@@ -106,18 +107,17 @@ export default async function ResultsPage() {
         copy={copy}
       />
 
-      <div className="flex flex-wrap items-center gap-3 mt-10">
-        {sealed.priorityDomains.length > 0 && (
+      {/* Only the way forward down here: the title carries the way back, and
+          stacking two of those is what the nav bar is already for. */}
+      {sealed.priorityDomains.length > 0 && (
+        <div className="mt-10">
           <Link href="/assessment/directions" className={primaryButton}>
             {hasDirections
               ? copy.results.reviewDirections
               : copy.results.writeDirections}
           </Link>
-        )}
-        <Link href="/overview" className={ghostButton}>
-          {copy.results.backHome}
-        </Link>
-      </div>
-    </main>
+        </div>
+      )}
+    </AssessmentShell>
   );
 }
