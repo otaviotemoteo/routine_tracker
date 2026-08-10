@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LanguageSelect } from "@/components/landing/LanguageSelect";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingChrome";
-import { primaryButton } from "@/components/onboarding/OnboardingChrome";
+import { primaryButton } from "@/components/ui/styles";
 import { DirectionStep } from "@/components/assessment/DirectionStep";
 import { saveDirection } from "../actions";
 import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
