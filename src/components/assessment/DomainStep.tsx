@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
-import { primaryButton, ghostButton } from "@/components/onboarding/OnboardingChrome";
+import { primaryButton, ghostButton } from "@/components/ui/styles";
 import { RatingScale } from "./RatingScale";
 import { RATING_SCALES, type DomainSlug, type ScaleKey } from "@/lib/domains";
 import { format, plural, type Copy } from "@/lib/i18n";
