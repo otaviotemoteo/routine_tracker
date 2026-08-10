@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import {
-  ghostButton,
-  inputClass,
   OnboardingFooter,
   StepTitle,
 } from "./OnboardingChrome";
+import { ghostButton, inputClass } from "@/components/ui/styles";
 import type { Copy } from "@/lib/i18n";
 
 export interface PracticeDraft {
