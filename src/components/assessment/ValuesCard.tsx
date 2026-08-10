@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ghostButton, primaryButton } from "@/components/onboarding/OnboardingChrome";
+import { ghostButton, primaryButton } from "@/components/ui/styles";
 import { getLatestSealed, getOpenDraft } from "@/db/assessment";
 import { rankByGap } from "@/lib/diagnose";
 import { answeredCount } from "@/lib/assessment";
