@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LanguageSelect } from "@/components/landing/LanguageSelect";
 import { GapBars } from "@/components/assessment/GapBars";
-import { FindingCard, FindingLine } from "@/components/assessment/FindingCard";
+import { FindingCard, FindingTable } from "@/components/assessment/FindingCard";
 import { PriorityList } from "@/components/assessment/PriorityList";
-import { ghostButton, primaryButton } from "@/components/ui/styles";
+import { cardSurface, ghostButton, primaryButton } from "@/components/ui/styles";
 import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import { diagnose, gapSpread, NARROW_SPREAD, rankByGap } from "@/lib/diagnose";
 import { getLang } from "@/lib/get-lang";
@@ -46,12 +46,17 @@ export default async function ResultsPage() {
 
       <p className="eyebrow mb-2">{copy.results.eyebrow}</p>
       <h1 className="display-title text-3xl sm:text-4xl">{copy.results.title}</h1>
-      <p className="mt-3 opacity-80">{copy.results.lead}</p>
-      <p className="mt-1 font-mono text-sm opacity-60">
-        {format(copy.results.takenOn, {
-          date: formatShortDayMonth(sealed.takenAt, lang),
-        })}
-      </p>
+
+      {/* The one paragraph that says how to read the whole screen earns a
+          surface of its own rather than floating as loose prose. */}
+      <div className={`${cardSurface} mt-4 px-4 py-3.5`}>
+        <p className="text-sm">{copy.results.lead}</p>
+        <p className="mt-1.5 font-mono text-xs opacity-60">
+          {format(copy.results.takenOn, {
+            date: formatShortDayMonth(sealed.takenAt, lang),
+          })}
+        </p>
+      </div>
 
       <section className="mt-8">
         <h2 className="display-title text-2xl">{copy.results.chartTitle}</h2>
@@ -86,15 +91,7 @@ export default async function ResultsPage() {
                 <p className="mt-6 text-sm font-semibold">
                   {copy.results.findingsRest}
                 </p>
-                <ul className="flex flex-col gap-2.5 mt-2 list-none">
-                  {findings.slice(EXPANDED).map((finding) => (
-                    <FindingLine
-                      key={`${finding.domainSlug}-${finding.pattern}`}
-                      finding={finding}
-                      copy={copy}
-                    />
-                  ))}
-                </ul>
+                <FindingTable findings={findings.slice(EXPANDED)} copy={copy} />
               </>
             )}
           </>
