@@ -49,6 +49,8 @@ interface PatternCopy {
 export interface AssessmentCopy {
   navLabel: string;
   back: string;
+  backToResults: string;
+  backToOverview: string;
   continueLabel: string;
   saving: string;
 
@@ -135,6 +137,7 @@ export interface AssessmentCopy {
     narrativeHelp: string;
     narrativePlaceholder: string;
     save: string;
+    saveOnly: string;
     finish: string;
     doneTitle: string;
     doneLead: string;
@@ -164,6 +167,8 @@ export interface AssessmentCopy {
 const en: AssessmentCopy = {
   navLabel: "Values",
   back: "Back",
+  backToResults: "Back to the results",
+  backToOverview: "Back to Overview",
   continueLabel: "Continue",
   saving: "Saving…",
 
@@ -429,6 +434,7 @@ const en: AssessmentCopy = {
       "This is the sentence you will see on a hard Tuesday, so write it for that version of you.",
     narrativePlaceholder: "I want to move toward…",
     save: "Save and continue",
+    saveOnly: "Save",
     finish: "Finish",
     doneTitle: "Cycle set",
     doneLead:
@@ -462,6 +468,8 @@ const en: AssessmentCopy = {
 const pt: AssessmentCopy = {
   navLabel: "Valores",
   back: "Voltar",
+  backToResults: "Voltar para os resultados",
+  backToOverview: "Voltar para a visão geral",
   continueLabel: "Continuar",
   saving: "Salvando…",
 
@@ -727,6 +735,7 @@ const pt: AssessmentCopy = {
       "Essa é a frase que você vai ver numa terça-feira difícil, então escreva ela para aquela versão de você.",
     narrativePlaceholder: "Quero caminhar na direção de…",
     save: "Salvar e continuar",
+    saveOnly: "Salvar",
     finish: "Concluir",
     doneTitle: "Ciclo montado",
     doneLead:
