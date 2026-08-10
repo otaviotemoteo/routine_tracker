@@ -102,7 +102,7 @@ export default async function ResultsPage() {
       <PriorityList
         priority={sealed.priorityDomains}
         rows={rows}
-        spread={spread}
+        findings={findings}
         narrowSpread={spread !== null && spread < NARROW_SPREAD}
         copy={copy}
       />
