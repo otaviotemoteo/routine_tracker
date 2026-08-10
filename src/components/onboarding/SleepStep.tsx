@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { inputClass, OnboardingFooter, StepTitle } from "./OnboardingChrome";
+import {
+  OnboardingFooter,
+  StepTitle,
+} from "./OnboardingChrome";
+import { inputClass } from "@/components/ui/styles";
 import type { Copy } from "@/lib/i18n";
 
 interface SleepStepProps {
