@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { finishOnboarding } from "@/app/onboarding/actions";
-import { ghostButton, primaryButton } from "./OnboardingChrome";
+import { ghostButton, primaryButton } from "@/components/ui/styles";
 import type { Copy } from "@/lib/i18n";
 
 export interface ReviewRow {
