@@ -364,6 +364,17 @@ Each of these came from watching the shipped screens fail at something.
   Area / Importance / Action became scannable, and the repetition started
   working for the reader instead of against them. Below `sm` the columns stack
   into labelled blocks — a three-column table at 360px is not a table.
+- **A long list previews, then expands.** Twelve two-bar rows is a wall. Three
+  plus a faded fourth under a "See all 12 areas" button says both what is here
+  and that there is more, and the count in the label says how much more. The
+  collapse control names the number so it is never a mystery meat "show more".
+- **A label repeated down every row is not a label.** When every bar in a group
+  measures the same thing, naming the scale on each row wastes the slot. Put
+  the thing being measured there instead and let the group's heading carry the
+  scale.
+- **A ranked item has to say why it ranked.** "4 apart" under a number and a
+  name is a sort key, not a reason. The card that asks you to work on an area
+  shows the two answers that put it there.
 - **Group an explanation into one titled surface.** Three loose ticks on the
   page are three things; the same three inside a card called "About the
   questions" are one thing, and the title says what they are for.
