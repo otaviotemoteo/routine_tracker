@@ -114,6 +114,8 @@ export interface AssessmentCopy {
     colArea: string;
     colImportance: string;
     colAction: string;
+    showAllAreas: string; // {n}
+    showFewerAreas: string;
     findingsTitle: string;
     findingsFirst: string;
     findingsRest: string;
@@ -390,7 +392,7 @@ const en: AssessmentCopy = {
 
   results: {
     eyebrow: "Your check-in",
-    title: "Where the distances are",
+    title: "Where your values are",
     lead: "Nothing here is a score. The number worth reading is the distance between what you said matters and what you said you did.",
     takenOn: "Taken on {date}",
     chartTitle: "Importance against action",
@@ -405,6 +407,8 @@ const en: AssessmentCopy = {
     colArea: "Area",
     colImportance: "Importance",
     colAction: "Action",
+    showAllAreas: "See all {n} areas",
+    showFewerAreas: "Show fewer",
     findingsTitle: "What stands out",
     findingsFirst: "Worth reading first",
     findingsRest: "Everything else that crossed a line",
@@ -691,7 +695,7 @@ const pt: AssessmentCopy = {
 
   results: {
     eyebrow: "Seu check-in",
-    title: "Onde estão as distâncias",
+    title: "Onde estão os seus valores",
     lead: "Nada aqui é nota. O número que vale ler é a distância entre o que você disse que importa e o que você disse que fez.",
     takenOn: "Preenchido em {date}",
     chartTitle: "Importância contra ação",
@@ -706,6 +710,8 @@ const pt: AssessmentCopy = {
     colArea: "Área",
     colImportance: "Importância",
     colAction: "Ação",
+    showAllAreas: "Ver todas as {n} áreas",
+    showFewerAreas: "Mostrar menos",
     findingsTitle: "O que salta aos olhos",
     findingsFirst: "Vale ler primeiro",
     findingsRest: "Todo o resto que cruzou uma linha",
