@@ -3,12 +3,10 @@
 import { useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import {
-  fieldBase,
-  ghostButton,
-  inputClass,
   OnboardingFooter,
   StepTitle,
 } from "./OnboardingChrome";
+import { fieldBase, ghostButton, inputClass } from "@/components/ui/styles";
 import { ListCard } from "./ListCard";
 import { PaceInfo } from "@/components/PaceInfo";
 import { format, type Copy } from "@/lib/i18n";
