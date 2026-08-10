@@ -104,14 +104,19 @@ export async function ValuesCard({ userId, lang, copy }: ValuesCardProps) {
                       : "py-2 border-t-2 border-dashed border-sand"
                   }
                 >
-                  <span className="flex items-center gap-2 mb-1.5 min-w-0">
-                    <Icon className="w-4 h-4 shrink-0 opacity-60" aria-hidden />
-                    <span className="font-semibold text-sm truncate">
-                      {copy.domains[row.domainSlug].name}
-                    </span>
-                  </span>
+                  {/* Every bar here measures the same thing, so naming the
+                      scale on each row is a word repeated three times. The
+                      area goes in that slot instead, on the bar's own line. */}
                   <ScoreBar
-                    label={copy.results.importanceLabel}
+                    labelWidth="w-28"
+                    label={
+                      <span className="flex items-center gap-1.5 min-w-0 text-forest">
+                        <Icon className="w-3.5 h-3.5 shrink-0 opacity-60" aria-hidden />
+                        <span className="font-semibold truncate">
+                          {copy.domains[row.domainSlug].name}
+                        </span>
+                      </span>
+                    }
                     value={row.importanceGeneral}
                     valueLabel={format(copy.results.scoreOutOf, {
                       n: row.importanceGeneral,
