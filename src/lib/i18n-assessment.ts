@@ -139,6 +139,10 @@ export interface AssessmentCopy {
     doneTitle: string;
     doneLead: string;
     doneAction: string;
+    indexTitle: string;
+    indexLead: string;
+    indexEdit: string;
+    indexEmpty: string;
   };
 
   card: {
@@ -426,10 +430,15 @@ const en: AssessmentCopy = {
     narrativePlaceholder: "I want to move toward…",
     save: "Save and continue",
     finish: "Finish",
-    doneTitle: "That is the cycle laid out",
+    doneTitle: "Cycle set",
     doneLead:
       "Your answers are sealed and will not change. When you come back to this in six months, what you see will be what you actually said.",
-    doneAction: "Back to the app",
+    doneAction: "See the results",
+    indexTitle: "Your directions",
+    indexLead:
+      "One sentence per area, for the days when the reason is hard to remember. Edit any of them whenever the wording stops being true.",
+    indexEdit: "Edit",
+    indexEmpty: "Not written yet",
   },
 
   card: {
@@ -719,10 +728,15 @@ const pt: AssessmentCopy = {
     narrativePlaceholder: "Quero caminhar na direção de…",
     save: "Salvar e continuar",
     finish: "Concluir",
-    doneTitle: "O ciclo está montado",
+    doneTitle: "Ciclo montado",
     doneLead:
       "Suas respostas estão lacradas e não mudam mais. Quando você voltar aqui daqui a seis meses, o que estiver na tela é o que você realmente disse.",
-    doneAction: "Voltar para o app",
+    doneAction: "Ver os resultados",
+    indexTitle: "Suas direções",
+    indexLead:
+      "Uma frase por área, para os dias em que o motivo é difícil de lembrar. Edite qualquer uma quando a escrita deixar de ser verdade.",
+    indexEdit: "Editar",
+    indexEmpty: "Ainda não escrita",
   },
 
   card: {
