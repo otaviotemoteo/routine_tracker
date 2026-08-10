@@ -3,12 +3,10 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import {
-  fieldBase,
-  ghostButton,
-  inputClass,
   OnboardingFooter,
   StepTitle,
 } from "./OnboardingChrome";
+import { fieldBase, ghostButton, inputClass } from "@/components/ui/styles";
 import { ListCard } from "./ListCard";
 import type { ExerciseKind, PlannedExercise } from "@/db/schema";
 import { exerciseScheme } from "@/lib/exercise";
