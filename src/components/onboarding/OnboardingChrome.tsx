@@ -6,17 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import type { Copy } from "@/lib/i18n";
-
-// Shared Tailwind class strings so every step's inputs look identical.
-// `fieldBase` carries no width — use it when the caller sets its own (two
-// width utilities on one element fight, and the stylesheet order decides).
-export const fieldBase =
-  "min-h-[44px] px-3 border-2 border-forest rounded-lg bg-cream focus:bg-white";
-export const inputClass = `${fieldBase} w-full`;
-export const primaryButton =
-  "min-h-[48px] inline-flex items-center justify-center gap-2 px-7 rounded-full border-2 border-forest bg-clover text-white font-semibold shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-hard";
-export const ghostButton =
-  "min-h-[44px] inline-flex items-center justify-center px-5 rounded-full border-2 border-forest bg-white font-semibold text-sm shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm";
+import { ghostButton, primaryButton } from "@/components/ui/styles";
 
 interface ProgressProps {
   stepNumber: number;
