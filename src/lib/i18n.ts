@@ -105,6 +105,7 @@ export interface Copy {
   nav: {
     label: string;
     today: string;
+    habits: string;
     overview: string;
     logout: string;
   };
@@ -222,6 +223,22 @@ export interface Copy {
     panelPlanned: string;
     panelTarget: string;
     panelOptional: string;
+    // The generic card — every habit that isn't one of the original seven.
+    // It has no per-area knowledge to draw on, so it leans on the habit's own
+    // metric, target and minimal action.
+    plainDone: string;
+    plainPending: string;
+    plainUnitCount: string; // fallback when a count habit names no unit
+    plainUnitMinutes: string;
+    ctxTarget: string; // {n} {unit}
+    ctxMinimal: string; // {action}
+    ctxNoTarget: string;
+    plainOfTarget: string; // {value} {target} {unit} — the meter's caption
+    // Today with nothing to track yet — a new account, since habits now come
+    // out of the values check-in rather than from a seed.
+    emptyTitle: string;
+    emptyLead: string;
+    emptyAction: string;
     hobbyWeekSessions: string;
     hobbyWeekMinutes: string;
     nextBooks: string;
@@ -270,6 +287,67 @@ export interface Copy {
     agoDays: string; // {n}
     agoNever: string;
   };
+  // The habits screens: the list, the form, and the suggestion review.
+  habits: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    add: string;
+    edit: string;
+    remove: string;
+    removeConfirm: string; // {name}
+    removeKeep: string;
+    removeGo: string;
+    back: string;
+    emptyTitle: string;
+    emptyLead: string;
+    unanchored: string; // group heading for habits with no life area yet
+    newTitle: string;
+    editTitle: string;
+    name: string;
+    namePlaceholder: string;
+    area: string;
+    areaNone: string;
+    metric: string;
+    metricBinary: string;
+    metricBinaryHint: string;
+    metricCount: string;
+    metricCountHint: string;
+    metricDuration: string;
+    metricDurationHint: string;
+    unit: string;
+    unitPlaceholder: string;
+    unitHint: string;
+    target: string;
+    targetHint: string;
+    minimalAction: string;
+    minimalActionPlaceholder: string;
+    minimalActionHint: string;
+    save: string;
+    saving: string;
+    cancel: string;
+    nameRequired: string;
+    rowBinary: string;
+    rowCount: string; // {unit}
+    rowDuration: string; // {unit}
+    rowTarget: string; // {n} {unit}
+    // The suggestion review screen
+    reviewEyebrow: string;
+    reviewTitle: string;
+    reviewLead: string;
+    suggested: string;
+    edited: string;
+    startTracking: string;
+    starting: string;
+    generating: string;
+    generatingLead: string;
+    generateFailed: string;
+    pendingNotice: string;
+    pendingAction: string;
+    addManually: string;
+    reviewEmptyTitle: string;
+    reviewEmptyLead: string;
+  };
   sheets: {
     save: string;
     saving: string;
@@ -309,6 +387,15 @@ export interface Copy {
     duolingo: { lessons: string; noLanguages: string };
     spirituality: { noPractices: string };
     hobby: { activity: string; activityPlaceholder: string; minutes: string };
+    // The generic check-in step, for any habit without a template.
+    plain: {
+      value: string;
+      valueWithUnit: string; // {unit}
+      target: string; // {n} {unit}
+      minimal: string; // {action}
+      binary: string;
+      binaryWithMinimal: string; // {action}
+    };
   };
   week: {
     eyebrow: string;
@@ -509,6 +596,7 @@ export const COPY: Record<Lang, Copy> = {
     nav: {
       label: "Main navigation",
       today: "Today",
+      habits: "Habits",
       overview: "Overview",
       logout: "Logout",
     },
@@ -634,6 +722,18 @@ export const COPY: Record<Lang, Copy> = {
       panelPlanned: "planned",
       panelTarget: "target",
       panelOptional: "optional",
+      plainDone: "done today",
+      plainPending: "not logged yet",
+      plainUnitCount: "today",
+      plainUnitMinutes: "minutes today",
+      ctxTarget: "Aiming for {n} {unit}",
+      ctxMinimal: "On a hard day: {action}",
+      ctxNoTarget: "No target set — just whether you did it.",
+      plainOfTarget: "{value} of {target} {unit}",
+      emptyTitle: "Nothing to track yet",
+      emptyLead:
+        "Your habits come from the values check-in, or you can write them yourself. Either way they start here.",
+      emptyAction: "Set up your habits",
       hobbyWeekSessions: "sessions",
       hobbyWeekMinutes: "minutes",
       nextBooks: "next up",
@@ -677,6 +777,65 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "yesterday",
       agoDays: "{n} days ago",
       agoNever: "never",
+    },
+    habits: {
+      eyebrow: "Your habits",
+      title: "Habits",
+      lead: "What you're tracking, and the area of life each one serves.",
+      add: "Add a habit",
+      edit: "Edit",
+      remove: "Remove",
+      removeConfirm: "Stop tracking {name}?",
+      removeKeep: "Keep it",
+      removeGo: "Stop tracking",
+      back: "Back to today",
+      emptyTitle: "No habits yet",
+      emptyLead: "Habits come out of the values check-in, or you can write your own. Either way, this is where they live.",
+      unanchored: "Not tied to an area yet",
+      newTitle: "New habit",
+      editTitle: "Edit habit",
+      name: "Name",
+      namePlaceholder: "Call my parents",
+      area: "Area of life",
+      areaNone: "None for now",
+      metric: "How you'll measure it",
+      metricBinary: "Did it, or didn't",
+      metricBinaryHint: "A yes or no each day.",
+      metricCount: "How many",
+      metricCountHint: "Pages, lessons, calls.",
+      metricDuration: "How long",
+      metricDurationHint: "Minutes spent.",
+      unit: "Unit",
+      unitPlaceholder: "pages",
+      unitHint: "What the number counts. Shown next to it everywhere.",
+      target: "Target",
+      targetHint: "Optional. Shown for comparison, never enforced.",
+      minimalAction: "The smallest version",
+      minimalActionPlaceholder: "One page",
+      minimalActionHint: "What still counts on a bad day. This is what the card offers you when the day has gone wrong.",
+      save: "Save habit",
+      saving: "Saving…",
+      cancel: "Cancel",
+      nameRequired: "Give the habit a name.",
+      rowBinary: "done or not",
+      rowCount: "counted in {unit}",
+      rowDuration: "measured in {unit}",
+      rowTarget: "target {n} {unit}",
+      reviewEyebrow: "Build your habits",
+      reviewTitle: "Your daily habits",
+      reviewLead: "Suggestions, one set per area. Change anything that isn't right, remove what doesn't fit, and add your own. Nothing is tracked until you start.",
+      suggested: "Suggested",
+      edited: "Edited by you",
+      startTracking: "Start tracking",
+      starting: "Starting…",
+      generating: "Writing your habits",
+      generatingLead: "Reading your directions and drafting a few habits for each area. This takes a few seconds.",
+      generateFailed: "Couldn't reach the suggestion service. Your habits are safe — write them yourself below, or come back later.",
+      pendingNotice: "Suggestions are still pending — we'll add them when we can.",
+      pendingAction: "Try again",
+      addManually: "Add habits manually",
+      reviewEmptyTitle: "Nothing suggested yet",
+      reviewEmptyLead: "Add the habits you want to keep. You can always change them later.",
     },
     sheets: {
       save: "Save",
@@ -722,6 +881,14 @@ export const COPY: Record<Lang, Copy> = {
       duolingo: { lessons: "Lessons", noLanguages: "No languages. Add some in settings." },
       spirituality: { noPractices: "No practices. Add some in settings." },
       hobby: { activity: "Activity", activityPlaceholder: "Guitar, drawing…", minutes: "Minutes" },
+      plain: {
+        value: "How much today",
+        valueWithUnit: "How many {unit} today",
+        target: "You're aiming for {n} {unit}",
+        minimal: "On a hard day this counts: {action}",
+        binary: "Saving marks this done for today.",
+        binaryWithMinimal: "Saving marks this done for today. On a hard day this counts: {action}",
+      },
     },
     week: {
       eyebrow: "Day-by-day consistency",
@@ -947,6 +1114,7 @@ export const COPY: Record<Lang, Copy> = {
     nav: {
       label: "Navegação principal",
       today: "Hoje",
+      habits: "Hábitos",
       overview: "Visão geral",
       logout: "Sair",
     },
@@ -1072,6 +1240,18 @@ export const COPY: Record<Lang, Copy> = {
       panelPlanned: "planejado",
       panelTarget: "meta",
       panelOptional: "opcional",
+      plainDone: "feito hoje",
+      plainPending: "ainda não registrado",
+      plainUnitCount: "hoje",
+      plainUnitMinutes: "minutos hoje",
+      ctxTarget: "Meta de {n} {unit}",
+      ctxMinimal: "Em um dia difícil: {action}",
+      ctxNoTarget: "Sem meta — só se você fez ou não.",
+      plainOfTarget: "{value} de {target} {unit}",
+      emptyTitle: "Nada para acompanhar ainda",
+      emptyLead:
+        "Seus hábitos vêm do check-in de valores, ou você mesmo pode escrevê-los. De um jeito ou de outro, eles começam aqui.",
+      emptyAction: "Configurar seus hábitos",
       hobbyWeekSessions: "sessões",
       hobbyWeekMinutes: "minutos",
       nextBooks: "próximos",
@@ -1115,6 +1295,65 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "ontem",
       agoDays: "há {n} dias",
       agoNever: "nunca",
+    },
+    habits: {
+      eyebrow: "Seus hábitos",
+      title: "Hábitos",
+      lead: "O que você acompanha, e a área da vida que cada um serve.",
+      add: "Adicionar hábito",
+      edit: "Editar",
+      remove: "Remover",
+      removeConfirm: "Parar de acompanhar {name}?",
+      removeKeep: "Manter",
+      removeGo: "Parar de acompanhar",
+      back: "Voltar para hoje",
+      emptyTitle: "Nenhum hábito ainda",
+      emptyLead: "Os hábitos saem do check-in de valores, ou você pode escrever os seus. De um jeito ou de outro, é aqui que eles ficam.",
+      unanchored: "Ainda sem área",
+      newTitle: "Novo hábito",
+      editTitle: "Editar hábito",
+      name: "Nome",
+      namePlaceholder: "Ligar para meus pais",
+      area: "Área da vida",
+      areaNone: "Nenhuma por enquanto",
+      metric: "Como você vai medir",
+      metricBinary: "Fez ou não fez",
+      metricBinaryHint: "Um sim ou não por dia.",
+      metricCount: "Quantos",
+      metricCountHint: "Páginas, lições, ligações.",
+      metricDuration: "Quanto tempo",
+      metricDurationHint: "Minutos dedicados.",
+      unit: "Unidade",
+      unitPlaceholder: "páginas",
+      unitHint: "O que o número conta. Aparece ao lado dele em todo lugar.",
+      target: "Meta",
+      targetHint: "Opcional. Mostrada para comparação, nunca cobrada.",
+      minimalAction: "A menor versão",
+      minimalActionPlaceholder: "Uma página",
+      minimalActionHint: "O que ainda conta num dia ruim. É isso que o cartão te oferece quando o dia deu errado.",
+      save: "Salvar hábito",
+      saving: "Salvando…",
+      cancel: "Cancelar",
+      nameRequired: "Dê um nome ao hábito.",
+      rowBinary: "feito ou não",
+      rowCount: "contado em {unit}",
+      rowDuration: "medido em {unit}",
+      rowTarget: "meta de {n} {unit}",
+      reviewEyebrow: "Monte seus hábitos",
+      reviewTitle: "Seus hábitos diários",
+      reviewLead: "Sugestões, um conjunto por área. Mude o que não estiver certo, remova o que não serve e adicione os seus. Nada é acompanhado até você começar.",
+      suggested: "Sugerido",
+      edited: "Editado por você",
+      startTracking: "Começar a acompanhar",
+      starting: "Começando…",
+      generating: "Escrevendo seus hábitos",
+      generatingLead: "Lendo suas direções e rascunhando alguns hábitos para cada área. Isso leva alguns segundos.",
+      generateFailed: "Não foi possível alcançar o serviço de sugestões. Seus hábitos estão seguros — escreva os seus abaixo, ou volte mais tarde.",
+      pendingNotice: "As sugestões ainda estão pendentes — vamos adicioná-las assim que der.",
+      pendingAction: "Tentar de novo",
+      addManually: "Adicionar hábitos manualmente",
+      reviewEmptyTitle: "Nada sugerido ainda",
+      reviewEmptyLead: "Adicione os hábitos que você quer manter. Sempre dá para mudar depois.",
     },
     sheets: {
       save: "Salvar",
@@ -1160,6 +1399,14 @@ export const COPY: Record<Lang, Copy> = {
       duolingo: { lessons: "Lições", noLanguages: "Nenhum idioma. Adicione nas configurações." },
       spirituality: { noPractices: "Nenhuma prática. Adicione nas configurações." },
       hobby: { activity: "Atividade", activityPlaceholder: "Violão, desenho…", minutes: "Minutos" },
+      plain: {
+        value: "Quanto hoje",
+        valueWithUnit: "Quantos {unit} hoje",
+        target: "Sua meta é {n} {unit}",
+        minimal: "Num dia difícil, isto conta: {action}",
+        binary: "Salvar marca como feito hoje.",
+        binaryWithMinimal: "Salvar marca como feito hoje. Num dia difícil, isto conta: {action}",
+      },
     },
     week: {
       eyebrow: "Consistência dia a dia",
