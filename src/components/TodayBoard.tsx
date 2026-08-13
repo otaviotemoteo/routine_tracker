@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ListChecks } from "lucide-react";
 import { HabitCard } from "@/components/HabitCard";
 import { TodayStats } from "@/components/today/TodayStats";
-import { DAILY_STEPS } from "@/lib/daily";
+import { dailyStepHref } from "@/lib/daily";
 import type { Copy, Lang } from "@/lib/i18n";
 import type { ReadingPace } from "@/lib/today-card";
 import type { PaceValues } from "@/lib/setup-summary";
@@ -53,6 +53,30 @@ export function TodayBoard({
   const anyLogged = checks.some((c) => c.done);
   const allLogged = checks.every((c) => c.done);
 
+  // A brand-new account tracks nothing yet — habits come out of the values
+  // check-in rather than from a seed. Show what to do and link straight to it,
+  // instead of an empty grid with a progress bar reading 0%: a bar with no
+  // habits behind it is a number the data can't support.
+  if (checks.length === 0) {
+    return (
+      <>
+        <p className="eyebrow">{eyebrow}</p>
+        <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-6">{title}</h1>
+        <div className="bg-white border-2 border-forest rounded-card shadow-hard px-6 py-8 text-center">
+          <h2 className="display-title text-2xl">{copy.emptyTitle}</h2>
+          <p className="mt-2 opacity-75 max-w-prose mx-auto">{copy.emptyLead}</p>
+          <Link
+            href="/habits"
+            className="mt-6 min-h-[52px] inline-flex items-center justify-center gap-2 px-7 rounded-full border-2 border-forest bg-clover text-white font-semibold shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm"
+          >
+            <ListChecks aria-hidden className="w-5 h-5" />
+            {copy.emptyAction}
+          </Link>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
@@ -102,7 +126,7 @@ export function TodayBoard({
         {/* Nothing logged yet → walk the whole flow. Once something is in,
             the index is the faster way to whatever is left. */}
         <Link
-          href={anyLogged ? "/day" : `/day?step=${DAILY_STEPS[0]}`}
+          href={anyLogged ? "/day" : dailyStepHref(checks[0].slug)}
           className="min-h-[52px] inline-flex items-center justify-center gap-2 px-7 rounded-full border-2 border-forest bg-clover text-white font-semibold shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm"
         >
           <ListChecks aria-hidden className="w-5 h-5" />
@@ -135,8 +159,10 @@ export function TodayBoard({
                 readingCopy={readingCopy}
                 today={today}
                 comparisons={comparisons}
-                pace={check.slug === "leitura" ? pace : undefined}
-                paceValues={check.slug === "leitura" ? paceValues : undefined}
+                pace={check.templateKind === "leitura" ? pace : undefined}
+                paceValues={
+                  check.templateKind === "leitura" ? paceValues : undefined
+                }
               />
             </li>
           ))}
