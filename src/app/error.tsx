@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { CircleAlert, RotateCcw } from "lucide-react";
 import { COPY, readLangCookieClient } from "@/lib/i18n";
 
@@ -11,7 +13,14 @@ interface ErrorPageProps {
 // Route-level error boundary: shown when a page's server fetch throws (e.g.
 // the database is unreachable). Error boundaries are always Client
 // Components, so the language comes from document.cookie, not cookies().
-export default function ErrorPage({ reset }: ErrorPageProps) {
+export default function ErrorPage({ error, reset }: ErrorPageProps) {
+  // React swallows the error once a boundary has caught it, so without this
+  // the screen below would be the only evidence it ever happened. What the
+  // report is allowed to carry is decided in src/lib/sentry-scrub.ts.
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   const copy = COPY[readLangCookieClient()].errorPage;
 
   return (
