@@ -1,3 +1,4 @@
+import type { UserId } from "@/db/scope";
 import Link from "next/link";
 import { cardSurface, primaryButton } from "@/components/ui/styles";
 import { domainIcon } from "@/lib/domain-icons";
@@ -10,7 +11,7 @@ import { format, type Copy, type Lang } from "@/lib/i18n";
 import { formatShortDayMonth } from "@/lib/utils";
 
 interface ValuesCardProps {
-  userId: number;
+  userId: UserId;
   lang: Lang;
   copy: Copy["assessment"];
 }
