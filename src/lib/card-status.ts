@@ -1,5 +1,6 @@
 import { format, plural, type Copy } from "@/lib/i18n";
 import { summarizeDetails } from "@/lib/summaries";
+import { templateKindOf } from "@/lib/templates";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
 
 // The one-line status a Today card reports: what was logged when the habit is
@@ -18,21 +19,26 @@ export function cardStatus(
     return {
       done: true,
       detail:
-        summarizeDetails(check.slug, check.details, context, copy) ??
-        copy.doneLabel,
+        summarizeDetails(
+          check.templateKind,
+          check.details,
+          context,
+          copy,
+          check.unit
+        ) ?? copy.doneLabel,
     };
   }
-  return { done: false, detail: plannedToday(check.slug, context, copy) };
+  return { done: false, detail: plannedToday(check, context, copy) };
 }
 
 // What the user's configuration says about today for this habit. `null` means
 // "nothing worth showing" — the card just reads as pending.
 function plannedToday(
-  slug: string,
+  check: CheckWithHabit,
   ctx: TodayContext,
   copy: Copy["today"]
 ): string | null {
-  switch (slug) {
+  switch (templateKindOf(check.templateKind)) {
     case "treino":
       if (!ctx.plan) return copy.notConfigured;
       // A plan exists but today isn't a training day.
@@ -66,8 +72,23 @@ function plannedToday(
         ? format(plural(n, copy.practiceToday, copy.practicesToday), { n })
         : copy.notConfigured;
     }
+    case "hobby":
+      // Free-form and optional — the "optional" tag says enough.
+      return null;
+
+    // A generic habit has no configured plan to report, so it says the thing
+    // that is actually useful on a day it hasn't been done: the version that
+    // still counts when the day has gone badly, or the target to aim at.
     default:
-      // Hobby is free-form and optional — the "optional" tag says enough.
+      if (check.minimalAction) {
+        return format(copy.ctxMinimal, { action: check.minimalAction });
+      }
+      if (check.target !== null) {
+        return format(copy.ctxTarget, {
+          n: check.target,
+          unit: check.unit ?? "",
+        }).trim();
+      }
       return null;
   }
 }
