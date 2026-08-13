@@ -1,5 +1,6 @@
 import type { AuditLookups } from "@/db/queries";
 import { format, plural, type Copy } from "@/lib/i18n";
+import { templateKindOf } from "@/lib/templates";
 
 // Turns a habit's `details` into presentation blocks for the Day Audit, so the
 // page can give each shape its own treatment (a list of ticked exercises reads
@@ -40,17 +41,23 @@ export type AuditBlock =
   | { kind: "rating"; label: string; value: number; max: number };
 
 export function describeDetails(
-  slug: string,
+  kind: string | null,
   details: unknown,
   lookups: AuditLookups,
   copy: Copy["sheets"],
-  todayCopy: Copy["today"]
+  todayCopy: Copy["today"],
+  // A generic habit's own unit and target, which have no per-area table to
+  // come from. Null for the seven, which name their own.
+  habit: { unit: string | null; target: number | null } = {
+    unit: null,
+    target: null,
+  }
 ): AuditBlock[] {
   const d = rec(details);
   if (!d) return [];
   const blocks: AuditBlock[] = [];
 
-  switch (slug) {
+  switch (templateKindOf(kind)) {
     case "treino": {
       const focus = lookups.planDays[Number(d.plan_day_id)];
       if (focus) {
@@ -210,6 +217,29 @@ export function describeDetails(
         });
       }
       if (tiles.length) blocks.push({ kind: "tiles", items: tiles });
+      break;
+    }
+
+    // A generic habit has one figure. It becomes a tile beside its target
+    // when there is one — two tiles being the smallest thing that reads as a
+    // comparison rather than a lone number.
+    case "plain": {
+      if (typeof d.value !== "number") break;
+      const tiles: AuditValue[] = [
+        {
+          label: habit.unit ?? todayCopy.plainUnitCount,
+          value: String(d.value),
+          mono: true,
+        },
+      ];
+      if (habit.target !== null) {
+        tiles.push({
+          label: todayCopy.panelTarget,
+          value: String(habit.target),
+          mono: true,
+        });
+      }
+      blocks.push({ kind: "tiles", items: tiles });
       break;
     }
   }
