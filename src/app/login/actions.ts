@@ -7,15 +7,16 @@ import {
   AUTH_MAX_AGE_SECONDS,
   createAuthCookieValue,
 } from "@/lib/auth";
-import { verifyPassword } from "@/lib/password";
+import { DUMMY_PASSWORD_HASH, toHandle, verifyPassword } from "@/lib/password";
 import { isPasswordValid } from "@/lib/password-rules";
 import { claimAccount, findUserByName } from "@/db/users";
 import type { LoginErrorCode } from "@/lib/i18n";
 import {
+  checkLoginGuard,
   clearLoginFailures,
-  isLoginBlocked,
   registerLoginFailure,
-} from "@/lib/rate-limit";
+  sleep,
+} from "@/lib/login-guard";
 
 // Errors travel as codes; LoginForm renders them in the selected language.
 export interface LoginState {
@@ -61,7 +62,7 @@ export async function submitName(
     return { step: "name", name: "", error: "missing" };
   }
 
-  const limit = isLoginBlocked(await clientIp());
+  const limit = await checkLoginGuard(await clientIp());
   if (limit.blocked) {
     return {
       step: "name",
@@ -92,9 +93,11 @@ export async function login(
     return { step: "password", name, error: "missing" };
   }
 
-  // Brute-force guard: 5 wrong attempts per IP per 15 min.
+  // Progressive backoff, then a block by IP — never a lock on the handle. See
+  // src/lib/login-guard.ts for why that distinction is the important one.
   const ip = await clientIp();
-  const limit = isLoginBlocked(ip);
+  const handle = toHandle(name);
+  const limit = await checkLoginGuard(ip);
   if (limit.blocked) {
     return {
       step: "password",
@@ -105,16 +108,27 @@ export async function login(
   }
 
   const user = await findUserByName(name);
-  if (
-    !user ||
-    user.passwordHash === null ||
-    !(await verifyPassword(password, user.passwordHash))
-  ) {
-    registerLoginFailure(ip);
+
+  // ALWAYS verify, even when there is no such account.
+  //
+  // The wording of the answer was already identical for an unknown name and a
+  // wrong password; the timing was not. Falling back to a real hash of a
+  // password nobody has means the miss path pays the same 600k iterations as
+  // the hit path, so the two cannot be told apart by a stopwatch. An unclaimed
+  // account takes the same branch, for the same reason.
+  const stored = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
+  const ok = await verifyPassword(password, stored);
+
+  if (!user || user.passwordHash === null || !ok) {
+    await registerLoginFailure(ip, handle);
+    // The growing delay is what makes automated guessing pointless. It is
+    // spent after the check, so a person who finally gets it right is not
+    // made to wait for their earlier mistakes.
+    await sleep(limit.delayMs);
     return { step: "password", name, error: "wrong" };
   }
-  clearLoginFailures(ip);
 
+  await clearLoginFailures(ip, handle);
   await startSession(user.id);
   redirect("/");
 }
