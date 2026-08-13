@@ -1,4 +1,4 @@
-import type { PlannedExercise } from "@/db/schema";
+import type { MetricType, PlannedExercise } from "@/db/schema";
 
 export interface Habit {
   id: number;
@@ -58,6 +58,20 @@ export interface CheckWithHabit {
   name: string;
   slug: string;
   optional: boolean;
+  // Which renderer this habit uses. Null is the generic one — the normal case
+  // for anything created after the remodel. The seven migrated habits carry
+  // their old slug here and keep their original cards.
+  templateKind: string | null;
+  // The metric spine, which is what the generic renderer draws instead of the
+  // per-area knowledge the seven templates have.
+  metricType: MetricType;
+  unit: string | null;
+  target: number | null;
+  minimalAction: string | null;
+  // The life area this habit descends from — the icon a plain habit falls
+  // back to. Null for a habit written before any values check-in, which is
+  // rendered as not yet anchored to a value rather than as an error.
+  domainSlug: string | null;
 }
 
 export interface WeekCell {
@@ -74,6 +88,8 @@ export interface WeekHabitRow {
   name: string;
   slug: string;
   optional: boolean;
+  templateKind: string | null;
+  domainSlug: string | null;
   // Monday-first, aligned with WeekData.days; a day with no row in the
   // database counts as not done.
   done: boolean[];
@@ -101,6 +117,8 @@ export interface MonthHabitStats {
   name: string;
   slug: string;
   optional: boolean;
+  templateKind: string | null;
+  domainSlug: string | null;
   doneCount: number;
   countedDays: number; // elapsed days for the current month, total for past
   percent: number;
