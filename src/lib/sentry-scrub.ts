@@ -113,6 +113,36 @@ export function scrubEvent(event: ErrorEvent, _hint: EventHint): ErrorEvent {
 // one variable configures all three runtimes.
 const DSN = process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN;
 
+// Which deployment an error came from.
+//
+// Without this every event lands under Sentry's catch-all "All Envs", which
+// means a crash on a throwaway branch preview and a crash your friends hit in
+// production are the same row — and the alert you actually care about is the
+// one you learn to scroll past. Vercel sets VERCEL_ENV to exactly
+// "production" | "preview" | "development".
+//
+// The NEXT_PUBLIC_ copy has to come first because it is the only one of the
+// two that Next inlines into the browser bundle; the bare name is what the
+// server and edge runtimes see.
+//
+// The last fallback is the literal "development", NOT NODE_ENV, and that is a
+// correction rather than a preference: bun sets NODE_ENV=production when it
+// runs a script, so a NODE_ENV fallback quietly filed local runs under
+// "production" — which is precisely the mixing this option exists to stop, and
+// it fails in the direction that costs you the most. Off Vercel means local.
+// The one case this mislabels is a self-hosted production deploy, and this app
+// deploys to Vercel.
+const ENVIRONMENT =
+  process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.VERCEL_ENV ?? "development";
+
+// Which build an error came from. The commit SHA is what
+// `sentry-cli releases propose-version` also produces, so events line up with
+// the releases created at deploy time instead of sitting in a separate bucket.
+const RELEASE =
+  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
+  process.env.VERCEL_GIT_COMMIT_SHA ??
+  process.env.SENTRY_RELEASE;
+
 // Shared options. Errors only: no tracing, no replay, no logs — that is the
 // entire observability scope, and the sample rates say so here rather than
 // leaving it to a setting on the dashboard.
@@ -126,6 +156,8 @@ export const SHARED_OPTIONS = {
   // Without a DSN the SDK is inert, which is what makes local development and
   // a credential-free build machine work unchanged.
   enabled: Boolean(DSN),
+  environment: ENVIRONMENT,
+  release: RELEASE,
   tracesSampleRate: 0,
 
   // WHAT THE SDK IS ALLOWED TO COLLECT ON ITS OWN.
