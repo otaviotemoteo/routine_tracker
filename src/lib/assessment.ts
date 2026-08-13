@@ -81,3 +81,25 @@ export function prevAssessmentHref(step: AssessmentStep): string | undefined {
   const i = ASSESSMENT_STEPS.indexOf(step);
   return i <= 0 ? undefined : assessmentStepHref(ASSESSMENT_STEPS[i - 1]);
 }
+
+// The areas this cycle is actually being built on: the frozen priority cut,
+// plus any area the person added on the review screen by writing a direction
+// for it.
+//
+// Derived rather than stored, and that is the point. `priority_domains` was
+// written once when the assessment was sealed and is the record of what the
+// engine said from the answers given — rewriting it to include a sixth area
+// would be exactly the history-editing the seal exists to prevent. So an added
+// area is simply an area with a direction, and this function is the one place
+// that definition lives. The areas screen and the habit generator both read
+// it, which is what keeps them from disagreeing about what the cycle is about.
+export function buildingAreas(
+  priority: DomainSlug[],
+  written: Record<string, { narrative: string }>
+): DomainSlug[] {
+  const added = DOMAIN_SLUGS.filter(
+    (slug) => !priority.includes(slug) && written[slug]?.narrative?.trim()
+  );
+  // Priority first, in the engine's order; additions after, in domain order.
+  return [...priority, ...added];
+}
