@@ -7,10 +7,13 @@ import { RoutineBody } from "./RoutineBody";
 import { DuolingoBody } from "./DuolingoBody";
 import { SpiritualityBody } from "./SpiritualityBody";
 import { HobbyBody } from "./HobbyBody";
+import { PlainBody } from "./PlainBody";
+import { templateKindOf } from "@/lib/templates";
 
-// Habit slug → its detail-sheet body. A slug with no entry gets a note-only
-// sheet (the shell still renders the note + save).
-export const SHEET_BODIES: Record<string, ComponentType<SheetBodyProps>> = {
+// Template kind → its detail-sheet body. Keyed on the kind rather than the
+// slug, because slugs are per-account now and two people may both have one
+// called "leitura" without both meaning a reading habit.
+const BODIES: Record<string, ComponentType<SheetBodyProps>> = {
   treino: WorkoutBody,
   leitura: ReadingBody,
   sono: SleepBody,
@@ -18,4 +21,13 @@ export const SHEET_BODIES: Record<string, ComponentType<SheetBodyProps>> = {
   duolingo: DuolingoBody,
   espiritualidade: SpiritualityBody,
   hobby: HobbyBody,
+  plain: PlainBody,
 };
+
+// Always resolves to something: an unknown or absent kind is a plain habit,
+// so there is no longer a note-only fallback with no form at all.
+export function sheetBodyFor(
+  templateKind: string | null
+): ComponentType<SheetBodyProps> {
+  return BODIES[templateKindOf(templateKind)] ?? PlainBody;
+}
