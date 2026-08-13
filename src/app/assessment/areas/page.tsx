@@ -8,8 +8,9 @@ import { AddAreaPicker } from "@/components/assessment/AddAreaPicker";
 import { goToHabitsAction } from "./actions";
 import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import { canGenerate } from "@/lib/ai/harness";
+import { buildingAreas } from "@/lib/assessment";
 import { rankByGap } from "@/lib/diagnose";
-import { DOMAIN_SLUGS, isDomainSlug } from "@/lib/domains";
+import { isDomainSlug } from "@/lib/domains";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { primaryButton } from "@/components/ui/styles";
@@ -45,13 +46,9 @@ export default async function AreasPage() {
   const priority = sealed.priorityDomains.filter(isDomainSlug);
 
   // What the cycle is actually about: the frozen cut, plus any area added by
-  // writing a direction for it. Reading the additions back out of the
-  // narratives — rather than out of a second column — is what lets
-  // priority_domains stay untouched.
-  const added = DOMAIN_SLUGS.filter(
-    (slug) => !priority.includes(slug) && written[slug]?.narrative?.trim()
-  );
-  const building = [...priority, ...added];
+  // writing a direction for it. The same function the generator reads, so the
+  // two can't disagree about which areas habits come from.
+  const building = buildingAreas(priority, written);
 
   // Whether the harness could answer at all right now: no provider key, or
   // today's quota already spent. Decided before any I/O, which is the whole
