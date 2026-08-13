@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   applyReadingProgress,
-  getCheckHabitSlug,
+  getCheckTemplateKind,
   saveCheckDetails,
   toggleCheck,
 } from "@/db/queries";
@@ -62,18 +62,21 @@ export async function PATCH(
     }
 
     // Sheet save: validate details (when present) against the habit's schema.
+    // Keyed on the TEMPLATE KIND, not the slug — slugs are per-account now, so
+    // another user's habit could be slugged "leitura" without being one.
     let validated: unknown = null;
-    let slug: string | null = null;
+    let templateKind: string | null = null;
     if (details !== undefined && details !== null) {
-      slug = await getCheckHabitSlug(userId, checkId);
-      if (!slug) {
+      const habit = await getCheckTemplateKind(userId, checkId);
+      if (!habit) {
         return NextResponse.json(
           { error: "Check não encontrado" },
           { status: 404 }
         );
       }
+      templateKind = habit.templateKind;
       try {
-        validated = parseDetails(slug, details);
+        validated = parseDetails(templateKind, details);
       } catch (err) {
         if (err instanceof z.ZodError) {
           return NextResponse.json(
@@ -97,8 +100,10 @@ export async function PATCH(
       );
     }
 
-    // Reading side-effect: advance the book's page / finish it.
-    if (slug === "leitura" && validated) {
+    // Reading side-effect: advance the book's page / finish it. Only the
+    // owner's migrated reading habit carries this kind, so a friend's habit
+    // that happens to share the slug never reaches it.
+    if (templateKind === "leitura" && validated) {
       const d = validated as { book_id: number; ended_on_page: number };
       await applyReadingProgress(userId, d.book_id, d.ended_on_page, check.checkedAt);
     }
