@@ -14,6 +14,7 @@ import {
   directionNarratives,
   lifeDomains,
 } from "./schema";
+import type { UserId } from "./scope";
 import { prioritize, type DomainRatings, type Rating } from "@/lib/diagnose";
 import { DOMAIN_SLUGS, type DomainSlug } from "@/lib/domains";
 
@@ -83,7 +84,7 @@ export function cycleBounds(date: string): { startsAt: string; endsAt: string } 
 // `today` is passed in rather than read here: dates always come from
 // todayInSaoPaulo() in app code, never from the database clock.
 export async function getOrCreateCurrentCycle(
-  userId: number,
+  userId: UserId,
   today: string
 ): Promise<CycleRow> {
   const label = cycleLabel(today);
@@ -142,7 +143,7 @@ async function ratingsFor(assessmentId: number): Promise<DomainRatings> {
 // Previous scores appear on the results screen, after the answers are in, and
 // nowhere else.
 export async function getOpenDraft(
-  userId: number
+  userId: UserId
 ): Promise<DraftAssessment | null> {
   const [row] = await db
     .select({
@@ -158,7 +159,7 @@ export async function getOpenDraft(
 }
 
 export async function getOrCreateDraft(
-  userId: number,
+  userId: UserId,
   cycleId: number,
   today: string
 ): Promise<DraftAssessment> {
@@ -182,7 +183,7 @@ export async function getOrCreateDraft(
 // still a draft. A read-then-write would be a race, and there are no
 // interactive transactions to close it with.
 export async function saveRating(
-  userId: number,
+  userId: UserId,
   assessmentId: number,
   domainId: number,
   r: Rating
@@ -212,7 +213,7 @@ export async function saveRating(
 // Abandon a draft. Only ever deletes rows that were never sealed, so the
 // append-only rule is untouched: a draft is not the record yet.
 export async function discardDraft(
-  userId: number,
+  userId: UserId,
   assessmentId: number
 ): Promise<void> {
   const owned = await db
@@ -246,7 +247,7 @@ export type SealOutcome = "sealed" | "already-sealed" | "incomplete";
 // completed_at already set, returns no row, and is reported as
 // "already-sealed" rather than as an error.
 export async function sealAssessment(
-  userId: number,
+  userId: UserId,
   assessmentId: number
 ): Promise<SealOutcome> {
   const ratings = await ratingsFor(assessmentId);
@@ -271,7 +272,7 @@ export async function sealAssessment(
 // ─── Reading a finished assessment ───────────────────────────────────────────
 
 export async function getLatestSealed(
-  userId: number
+  userId: UserId
 ): Promise<SealedAssessment | null> {
   const [row] = await db
     .select({
@@ -312,7 +313,7 @@ export interface NarrativeRow {
 }
 
 export async function listDirectionNarratives(
-  userId: number,
+  userId: UserId,
   cycleId: number
 ): Promise<Record<string, NarrativeRow>> {
   const slugs = await getDomainSlugs();
@@ -339,7 +340,7 @@ export async function listDirectionNarratives(
 }
 
 export async function upsertDirectionNarrative(
-  userId: number,
+  userId: UserId,
   cycleId: number,
   domainId: number,
   input: { rawReflection: string; narrative: string }
