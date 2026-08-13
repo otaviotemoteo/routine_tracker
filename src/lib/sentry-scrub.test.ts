@@ -146,4 +146,13 @@ describe("SHARED_OPTIONS", () => {
     // What makes a credential-free machine build and run unchanged.
     expect(SHARED_OPTIONS.enabled).toBe(Boolean(SHARED_OPTIONS.dsn));
   });
+
+  test("never labels a non-Vercel run as production", () => {
+    // Regression guard. This fell back to NODE_ENV once, and because bun sets
+    // NODE_ENV=production when it runs a script, local errors were being filed
+    // under "production" — mixing developer noise into the environment you
+    // actually watch. Off Vercel is local, full stop.
+    expect(process.env.VERCEL_ENV).toBeUndefined();
+    expect(SHARED_OPTIONS.environment).toBe("development");
+  });
 });
