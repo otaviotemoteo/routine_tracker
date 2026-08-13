@@ -71,6 +71,25 @@ export async function verifyPassword(
   return diff === 0;
 }
 
+// A real hash of a password no account has, used to close a timing oracle.
+//
+// The login form already answers "wrong" identically for an unknown name and a
+// bad password. The CLOCK did not: `!user` short-circuited before
+// verifyPassword, so a nonexistent handle came back without paying 600,000
+// PBKDF2 iterations and answered measurably faster than a real one. Timed over
+// a few dozen attempts that is a reliable account-enumeration oracle, and it
+// makes the identical wording cosmetic.
+//
+// Verifying against this constant when no user is found makes both paths do
+// the same work. It is a fixed literal rather than something derived at
+// startup so that the miss path costs exactly one derivation, the same as the
+// hit path — deriving it lazily would make the first miss cost two and put the
+// oracle back, inverted.
+//
+// It is not a secret. Knowing it proves only that no account has this password.
+export const DUMMY_PASSWORD_HASH =
+  "600000.ee99688834663288101160a3555e8da4.28f86936d8c86d76d1171c863ce911b7dc814c4d9761034d1b54f44b8570fc52";
+
 // "Sofia" and "sofia" are the same account; the handle carries the uniqueness.
 export function toHandle(name: string): string {
   return name.trim().toLowerCase();
