@@ -319,20 +319,43 @@ installing it is a decision that stays made.
 
 `src/lib/sentry-scrub.ts` is the one place the rules live, shared by all three
 runtimes because a rule in three files is a rule that will be right in two of
-them. It denies by category rather than by pattern: the auth cookie and all
-headers, request bodies (which carry reflection text verbatim), and query
-strings are dropped whole; anything key-shaped like `narrative`, `reflection`,
-`prompt` or `rating` is redacted at any depth; and `user` is reduced to the
-integer id, never the handle — which in this app is a person's name *and* their
-login.
+them. Two lines of defence, deliberately overlapping:
+
+1. **`dataCollection`, which stops the SDK collecting in the first place.** Every
+   category is named explicitly — cookies, request and response headers, all
+   HTTP bodies, URL query params, `userInfo`, database query data, stack-frame
+   locals, `genAI` inputs and outputs. **This must never be shortened.** It
+   replaced `sendDefaultPii: false` (deprecated in v10, removed in v11), and the
+   migration is not a rename: `sendDefaultPii: false` denied everything, whereas
+   passing a `dataCollection` object flips every category *not* named to its own
+   permissive default, most of which are `true`. `dataCollection: {}` would
+   therefore be the single most damaging edit anyone could make to this repo.
+   The object is `satisfies`-checked against the SDK's own options type so a
+   misspelled key is a compile error rather than a silent re-enable — without
+   that, an untyped const passed to `Sentry.init()` skips excess-property
+   checking entirely.
+2. **`beforeSend`, which scrubs what still got through.** The auth cookie,
+   headers, request bodies and query strings are deleted whole; anything
+   key-shaped like `narrative`, `reflection`, `prompt` or `rating` is redacted
+   at any depth; and `user` is reduced to the integer id, never the handle —
+   which in this app is a person's name *and* their login.
 
 Harness non-`ok` outcomes go as **breadcrumbs, not exceptions**. A provider
 being down is an expected outcome of a three-provider design, is already
 recorded in `ai_runs`, and paging on a working failover trains you to ignore
 alerts.
 
-Without `NEXT_PUBLIC_SENTRY_DSN` the SDK is inert, which is what keeps local
-development and a credential-free build machine working unchanged.
+Without a DSN the SDK is inert, which is what keeps local development and a
+credential-free build machine working unchanged.
+
+**This setup diverges from Sentry's own recommended defaults, on purpose.** Their
+Next.js guide recommends errors *plus* tracing plus Session Replay, and says not
+to pare the base `init` back to errors-only. Three deliberate departures:
+`tracesSampleRate: 0`, no Replay, and no `tunnelRoute`. The first two are the
+scope decision above; the third is because a tunnel needs a public route while
+the middleware protects everything else, and an unauthenticated proxy endpoint
+is a bigger thing to own than ad-blocker evasion is worth at this size. Each is
+a one-line change if the trade ever stops being worth it.
 
 ## Onboarding churn (M2)
 
