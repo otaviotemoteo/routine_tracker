@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
-import { SHEET_BODIES } from "@/components/sheets";
+import { sheetBodyFor } from "@/components/sheets";
 import { format, habitName, type Copy, type Lang } from "@/lib/i18n";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
 
@@ -37,7 +37,9 @@ export function DailyStep({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
 
-  const Body = SHEET_BODIES[check.slug];
+  // Always resolves — a habit with no template gets the generic body rather
+  // than a note-only step with nothing to answer.
+  const Body = sheetBodyFor(check.templateKind);
   const name = habitName(lang, check.slug, check.name);
 
   async function saveAndContinue() {
@@ -84,15 +86,14 @@ export function DailyStep({
       </div>
 
       <div className="mt-6 bg-white border-2 border-forest rounded-card shadow-hard p-5">
-        {Body && (
-          <Body
-            context={context}
-            initial={check.details}
-            copy={sheetCopy}
-            lang={lang}
-            onChange={setDetails}
-          />
-        )}
+        <Body
+          context={context}
+          initial={check.details}
+          copy={sheetCopy}
+          lang={lang}
+          onChange={setDetails}
+          habit={check}
+        />
 
         <label
           htmlFor="daily-note"
