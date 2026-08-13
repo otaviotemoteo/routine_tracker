@@ -133,7 +133,30 @@ export const hobbyDetails = z
   })
   .strict();
 
-// Keyed by habit slug. A slug with no entry accepts no details.
+// The generic habit's daily answer: one number on the habit's own metric.
+//
+// A `binary` habit stores 1 or 0 — redundant with `done`, and deliberately so.
+// The alternative is a null `details` for binary habits, which would make
+// every reader branch on the metric before it could read the value. One shape
+// for all three metrics is worth one duplicated bit.
+export const plainDetails = z
+  .object({
+    value: z
+      .number()
+      .min(0)
+      .describe(
+        "The day's figure on the habit's own metric: 1/0 for binary, " +
+          "a count for count, minutes for duration"
+      ),
+  })
+  .strict();
+
+// Keyed by TEMPLATE KIND, not by slug.
+//
+// It used to be keyed by slug, and for the seven original habits nothing
+// changed — their template kind IS their old slug. What the rekeying buys is
+// that two people can both have a habit slugged "leitura" without colliding,
+// and that a habit with no template still has somewhere to put its number.
 export const DETAILS_SCHEMAS = {
   treino: workoutDetails,
   leitura: readingDetails,
@@ -142,6 +165,7 @@ export const DETAILS_SCHEMAS = {
   duolingo: duolingoDetails,
   espiritualidade: spiritualityDetails,
   hobby: hobbyDetails,
+  plain: plainDetails,
 } as const;
 
 export type DetailsSlug = keyof typeof DETAILS_SCHEMAS;
@@ -153,18 +177,24 @@ export type RoutineDetails = z.infer<typeof routineDetails>;
 export type DuolingoDetails = z.infer<typeof duolingoDetails>;
 export type SpiritualityDetails = z.infer<typeof spiritualityDetails>;
 export type HobbyDetails = z.infer<typeof hobbyDetails>;
+export type PlainDetails = z.infer<typeof plainDetails>;
 
 export function isDetailsSlug(slug: string): slug is DetailsSlug {
   return slug in DETAILS_SCHEMAS;
 }
 
-// Validates `data` against the schema for `slug`. Returns the parsed value or
-// throws a ZodError; the API layer turns a failure into a 422.
-export function parseDetails(slug: string, data: unknown): unknown {
-  if (!isDetailsSlug(slug)) {
-    throw new z.ZodError([
-      { code: "custom", path: [], message: `No details schema for "${slug}"` },
-    ]);
+// Validates `data` against the schema for a template kind. Returns the parsed
+// value or throws a ZodError; the API layer turns a failure into a 422.
+//
+// A null kind (a habit with no template — the normal case now) validates
+// against the plain schema rather than being rejected. Before the remodel an
+// unknown slug meant a bug; now it means an ordinary habit.
+export function parseDetails(kind: string | null, data: unknown): unknown {
+  const key = kind === null ? "plain" : kind;
+  if (!isDetailsSlug(key)) {
+    // An unknown kind still falls back to plain rather than throwing: a row
+    // written by a newer deploy should degrade on an older one, not 422.
+    return plainDetails.parse(data);
   }
-  return DETAILS_SCHEMAS[slug].parse(data);
+  return DETAILS_SCHEMAS[key].parse(data);
 }
