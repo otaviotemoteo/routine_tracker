@@ -192,14 +192,15 @@ export default async function DayAuditPage({ params }: DayAuditPageProps) {
       ) : (
         <ul className="flex flex-col gap-4 list-none">
           {checks.map((check) => {
-            const Icon = habitIcon(check.slug);
+            const Icon = habitIcon(check.templateKind, check.domainSlug);
             const name = habitName(lang, check.slug, check.name);
             const blocks = describeDetails(
-              check.slug,
+              check.templateKind,
               check.details,
               lookups,
               copy.sheets,
-              copy.today
+              copy.today,
+              { unit: check.unit, target: check.target }
             );
             return (
               <li
