@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Jost, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { getLang } from "@/lib/get-lang";
 import { COPY, htmlLang } from "@/lib/i18n";
 import "./globals.css";
@@ -50,7 +52,19 @@ export default async function RootLayout({
       lang={htmlLang(lang)}
       className={`${fraunces.variable} ${jost.variable} ${jetbrains.variable}`}
     >
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        {children}
+        {/* Page views and Core Web Vitals, both first-party through Vercel.
+            They record the ROUTE and never its query string, which matters
+            here: `?domain=family` would say which part of somebody's life they
+            were looking at, and that is the kind of thing this app collects
+            nothing of. Neither sets a cookie or fingerprints a visitor.
+
+            Both are inert unless enabled in the Vercel project, so they cost
+            nothing locally and nothing on a fork. */}
+        <Analytics />
+        <SpeedInsights />
+      </body>
     </html>
   );
 }
