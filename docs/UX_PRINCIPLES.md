@@ -50,6 +50,15 @@ settle decisions that were already made, not re-open them.
 - **State is always in text too.** Cards carry an `sr-only` "Done"/"Not logged
   yet"; the week grid's cells label themselves per day. Never rely on the fill
   colour alone.
+- **A suggestion looks like a suggestion until it is touched.** On
+  `/habits/review` an untouched proposal wears a straw "Suggested" badge and an
+  edited one a mint "Edited by you"; a hand-written habit wears neither, because
+  a badge on everything says nothing. That marking is what makes
+  accept / edit / reject a legible choice rather than an implicit one — without
+  it, a screen of things a machine wrote is indistinguishable from a screen of
+  things you decided, and the difference is the entire point of the review step.
+  The badge disappears on the habits list afterwards: once you have started
+  tracking it, where it came from stops being the interesting fact about it.
 - **Summaries are sentences, not shorthand.** "5/5", "+9p", "7h" are compact
   but need decoding. Say "All exercises done", "9 pages read", "7h slept",
   "4 of 6 blocks followed" (`src/lib/summaries.ts`).
@@ -119,6 +128,18 @@ settle decisions that were already made, not re-open them.
   about leaves the destination rendering from cache — call `router.refresh()`
   after it, or the user reaches a stale screen and reaches for F5
   (`src/components/daily/DailyStep.tsx`).
+- **A genuinely slow route gets a designed wait, not a spinner.** Habit
+  generation is a 5–20 second model call, and it is the only route in this app
+  that is not a sub-second query — every waiting pattern here was built for
+  something instant. So `/habits/review`'s `loading.tsx` does two things a
+  spinner cannot: it **says what is happening and roughly how long**, because an
+  unexplained wait that long reads as a hang, and it **mirrors the layout it
+  replaces** with skeleton habit cards at the real sizes under real area
+  headings, so nothing jumps when the suggestions land. A centred spinner
+  guarantees that jump.
+- **A wait is announced, not just drawn.** `aria-busy` on the container and
+  `role="status"` on the sentence, so a screen reader is told this is a wait and
+  not a result.
 
 ## Getting in
 
@@ -136,6 +157,19 @@ settle decisions that were already made, not re-open them.
   the form can never accept what the action rejects).
 - **First access lands in onboarding, not on an empty Today.** A brand-new
   account has nothing to show; drop it where it can say what it tracks.
+- **Consent before a machine reads what you wrote.** The first time anything
+  someone typed leaves the machine, they are told before it happens rather than
+  after. `/assessment/areas` exists partly for that: one primary button, and the
+  sentence under it says plainly that the directions go to a language model and
+  that every suggestion is reviewed before anything is tracked. Generating
+  silently behind the completion dialog would have felt like magic when it
+  worked, and silence is the wrong default for that particular moment.
+- **A missing capability removes the button, it does not break it.** With no
+  provider key configured, "Generate habits" is *absent* and "Add habits
+  manually" is in its place, decided before any network call. A button that is
+  present and fails when pressed is a worse experience than one that was never
+  offered, and it is what makes the no-key path a supported configuration rather
+  than a degraded one.
 - **The way out is always visible.** Sign-out sits in the nav on every screen of
   the app — label on desktop, icon alone on a phone where the row is already
   three controls wide.
