@@ -1,5 +1,6 @@
 import { exerciseScheme } from "@/lib/exercise";
 import { format, locale, type Copy, type Lang } from "@/lib/i18n";
+import { templateKindOf } from "@/lib/templates";
 import { relativeDay } from "@/lib/utils";
 import type { TodayComparisons } from "@/db/queries";
 import type { CheckWithHabit, TodayContext } from "@/types/habit";
@@ -134,7 +135,11 @@ export function buildTodayCard(
   const streakLine = streak >= 2 ? streak : null;
   const panelLabel = check.done ? copy.panelLogged : copy.panelPlanned;
 
-  switch (check.slug) {
+  // Dispatch on the TEMPLATE KIND, not the slug. For the seven migrated
+  // habits the two are identical, so every case below is reached exactly as
+  // before; for anything created since, the kind is null and the generic
+  // renderer at the bottom takes it.
+  switch (templateKindOf(check.templateKind)) {
     case "treino": {
       // What was logged wins over what was scheduled — you may have trained
       // another day's session, or trained at all on a rest day.
@@ -523,14 +528,104 @@ export function buildTodayCard(
       };
     }
 
+    // Every habit that isn't one of the original seven — which, after the
+    // remodel, is every habit anyone creates.
+    //
+    // The seven cards above each know something about their area: which
+    // session today's plan holds, which page the book is on, what the sleep
+    // window is. This one knows none of that, and inventing a substitute
+    // would break "never show a number the data can't support". What it has
+    // instead is the habit's own metric, its target and its minimal action —
+    // which is enough for a real card rather than a bare tick.
     default:
-      return {
-        state,
-        hero: { value: check.done ? "✓" : "—", unit: "" },
-        panel: null,
-        note: null,
-      };
+      return plainCard(check, copy, state, panelLabel, streakLine, ago);
   }
+}
+
+// The generic renderer.
+//
+// Kept to the same anatomy as the seven (hero · panel · note) because a grid
+// where one card is shaped differently reads as a broken card, not a simpler
+// one — and because sibling cards have to match in height, which is the
+// panel's job via `flex-1`.
+function plainCard(
+  check: CheckWithHabit,
+  copy: Copy["today"],
+  state: CardState,
+  panelLabel: string,
+  streakLine: number | null,
+  ago: string
+): TodayCard {
+  const d = rec(check.details);
+  const logged = typeof d?.value === "number" ? d.value : null;
+  const target = check.target;
+
+  // What the big number says, per metric. A binary habit genuinely has no
+  // number, and printing "1" for it would be a figure the reader has to
+  // decode into a yes — so it says the word instead.
+  const hero =
+    check.metricType === "binary"
+      ? {
+          value: check.done ? "✓" : "—",
+          unit: check.done ? copy.plainDone : copy.plainPending,
+        }
+      : {
+          value: String(logged ?? 0),
+          unit:
+            check.unit ??
+            (check.metricType === "duration"
+              ? copy.plainUnitMinutes
+              : copy.plainUnitCount),
+        };
+
+  // The panel's eyebrow states the MODE, not the metric: LOGGED once there is
+  // a figure, TARGET when there is one to aim at, PLANNED otherwise.
+  const label =
+    check.done && logged !== null
+      ? copy.panelLogged
+      : target !== null
+        ? copy.panelTarget
+        : panelLabel;
+
+  // A meter only when there is a real proportion to draw. With no target
+  // there is no "how far through" to show, and a bar filled against an
+  // invented maximum would be exactly the number the data can't support.
+  const meter =
+    target !== null && target > 0 && check.metricType !== "binary"
+      ? {
+          value: Math.min(logged ?? 0, target),
+          max: target,
+          caption: format(copy.plainOfTarget, {
+            value: logged ?? 0,
+            target,
+            unit: check.unit ?? "",
+          }).trim(),
+        }
+      : undefined;
+
+  // A pending card still has content: the minimal action is the most useful
+  // thing this habit can say on a day it hasn't been done, because it is
+  // the version that still counts when the day has gone badly.
+  const text =
+    check.minimalAction !== null
+      ? format(copy.ctxMinimal, { action: check.minimalAction })
+      : target !== null
+        ? format(copy.ctxTarget, { n: target, unit: check.unit ?? "" }).trim()
+        : copy.ctxNoTarget;
+
+  return {
+    state,
+    hero,
+    panel: { label, text, meter },
+    // The one comparison line the card is allowed. Days only, never a clock
+    // time — the record is São Paulo calendar days, so "3 days ago" is as
+    // precise as this may honestly get.
+    note: check.done
+      ? streakLine
+        ? { primary: format(copy.noteStreakDays, { n: streakLine }) }
+        : null
+      : { primary: format(copy.noteLastTime, { ago }) },
+  };
 }
 
 // "12 de outubro" — when the current book runs out at the required pace.
