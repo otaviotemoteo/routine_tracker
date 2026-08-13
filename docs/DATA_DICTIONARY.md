@@ -18,10 +18,12 @@ Drizzle tables in `src/db/schema.ts`.
 - **Slugs** (`habits.slug`, `languages.slug`, `spiritual_practices.slug`) are
   stable identifiers — never renamed, only deactivated. `details` references
   entities by id or slug.
-- **Every table carries `user_id`** except `habits` (shared catalogue) and
-  `workout_plan_days` (reaches its owner through `plan_id`). Slugs and years are
-  unique *per account*, not globally: `languages(user_id, slug)`,
-  `spiritual_practices(user_id, slug)`, `reading_goals(user_id, year)`.
+- **Every table carries `user_id`** except `life_domains` (12 seeded rows, the
+  same twelve for everyone), `workout_plan_days` (reaches its owner through
+  `plan_id`) and `login_attempts` (pre-auth: there is no user yet). Slugs and
+  years are unique *per account*, not globally: `habits(user_id, slug)`,
+  `languages(user_id, slug)`, `spiritual_practices(user_id, slug)`,
+  `reading_goals(user_id, year)`.
 - **The export is one account's data.** `GET /api/export` returns only the rows
   belonging to the signed-in user, so `user_id` never appears in the payload.
 - **`schema_version`** in the export is `2`.
@@ -32,24 +34,65 @@ Drizzle tables in `src/db/schema.ts`.
 Created only by `bun run user:create`; there is no sign-up in the app.
 | Column | Type | Meaning |
 |--------|------|---------|
-| id | serial PK | Referenced by `user_id` on every table below except `habits` |
+| id | serial PK | Referenced by `user_id` on every table below |
 | name | varchar(40) | Display form, as typed at creation ("Sofia") |
 | handle | varchar(40) UNIQUE | `name` lowercased; carries the uniqueness, so "Sofia" and "sofia" are one account |
 | password_hash | text NULL | PBKDF2-SHA256 as `iterations.saltHex.hashHex`. **NULL = unclaimed**: the first sign-in with this name sets it |
+| first_run_step | varchar(30) NULL | How far the current first run got. **NULL = no run open** — it is written on each advance and set back to NULL when the run completes, so any non-null value *is* an abandonment. Values: `assessment:<domainSlug>`, `results`, `directions:<domainSlug>`, `areas`, `habits` (vocabulary in `src/lib/first-run.ts`) |
 | created_at | timestamptz | |
+
+The whole churn report:
+`SELECT first_run_step, count(*) FROM users WHERE first_run_step IS NOT NULL GROUP BY 1;`
+
+### `login_attempts`
+Failed sign-ins, in a sliding 15-minute window. **No `user_id` and that is the
+point**: login is pre-auth, and the handle someone types is a *claim*, not an
+identity. See `src/lib/login-guard.ts`.
+| Column | Type | Meaning |
+|--------|------|---------|
+| id | serial PK | |
+| key_kind | varchar(8) | `ip` \| `handle`. **Only `ip` ever blocks.** The `handle` rows exist to detect an attack spread across many addresses; blocking on them would hand anyone a denial-of-service against a named user |
+| key_value | varchar(120) | The address, or the lowercased handle |
+| failures | int | Count inside the current window. 0–2 cost nothing; from 3 the response is delayed, doubling 400ms → 5s; at 12 an `ip` row blocks |
+| window_start | timestamptz | Reset when a failure arrives more than 15 minutes after it |
+| updated_at | timestamptz | |
+
+`UNIQUE(key_kind, key_value)` — the upsert that records a failure leans on it,
+so two concurrent attempts cannot both read 4 and both write 5.
 
 ## Tier 1 — spine
 
 ### `habits`
-The one table **not** scoped to a user: every account tracks the same seven.
+Per-account since the remodel; a new account starts with **none**. Previously
+seven globally shared rows, which is the modelling error that stopped anyone
+else from using the app. `UNIQUE(user_id, slug)`.
 | Column | Type | Meaning |
 |--------|------|---------|
 | id | serial PK | |
-| name | varchar(50) | Display name (seeded pt-BR); UI localizes by slug |
-| slug | varchar(50) UNIQUE | Stable id: treino, leitura, sono, rotina, duolingo, espiritualidade, hobby |
-| icon | varchar(10) | Legacy emoji from seed; **not rendered** (UI maps slug → lucide icon) |
-| optional | boolean | Excluded from progress/adherence/best-worst when true (Hobby) |
+| user_id | int FK→users | Whose habit |
+| name | varchar(50) | Display name, in the user's own words. Never translated |
+| slug | varchar(50) | Stable id, unique **per account** — two people can both have `leitura`. Derived from the name on create |
+| icon | varchar(10) NULL | Legacy emoji from the original seed; **not rendered**. A plain habit falls back to its domain's lucide icon |
+| optional | boolean | Excluded from progress/adherence/best-worst when true |
+| domain_id | int FK→life_domains NULL | The area of life this habit descends from. NULL = added by hand before any assessment; renders under "not tied to an area yet" |
+| goal_id | int NULL | **No FK yet** — there is no `goals` table. The column exists so goals can slot in later without touching a row |
+| metric_type | varchar(10) | `binary` \| `count` \| `duration`. The universal spine: every habit reduces to one of these three, which is what lets the grid, streak and adherence maths be written once |
+| unit | varchar(20) NULL | What the number counts: "pages", "minutes", "lessons". NULL for `binary` |
+| target | int NULL | Optional, shown for comparison and **never enforced**. Always human-entered: no generator can produce one |
+| minimal_action | varchar(200) NULL | The bad-day version — what still counts when the day has gone wrong |
+| template_kind | varchar(30) NULL | How it renders. **NULL = plain** (the generic renderer). The seven legacy kinds equal their old slug and read owner-shaped per-domain tables, so only the owner's migrated rows may carry one |
+| config | jsonb NULL | Template setup. **Never written by a model** |
+| source | varchar(12) | `human` \| `ai_suggested` \| `ai_edited`. Mirrors `direction_narratives.source`; moves `ai_suggested → ai_edited` on the first edit and then stops |
+| why | text NULL | The one line a suggestion gave for why this habit serves the direction. Kept after an edit — it is why the habit is on the list at all |
+| active_from | date NULL | **NULL = PROPOSED, not yet tracked.** A generated habit is a real row that no user-facing read can see until "Start tracking" fills this in. Load-bearing: it is what lets a 5–20s call survive a refresh without anything reaching Today |
+| active_to | date NULL | NULL = still tracked. Removing a *tracked* habit sets this rather than deleting, because `daily_checks` reference the row. Removing a *proposal* deletes it |
+| position | int | Today's order. Assigned explicitly, never derived from `id` |
 | created_at | timestamptz | |
+
+Every user-facing read goes through `habitsFor()` in `src/db/scope.ts`, which
+carries `active_from IS NOT NULL` plus the date window, so a proposal and a
+removed habit are invisible by construction rather than by each caller
+remembering.
 
 ### `daily_checks`
 One row per habit per day **per account**. `UNIQUE(user_id, habit_id, checked_at)`.
@@ -229,9 +272,60 @@ persisted, and only because freezing it is the point.
 **Known gap:** the values layer is **not** in `GET /api/export` yet. Until it
 is, an export is a complete record of what you did and no record of why.
 
-## Tier 2 — `daily_checks.details` by habit slug
+## Tier 5 — the AI harness
 
-Validated on every write against `src/lib/details-schemas.ts`. `?` = optional.
+### `ai_runs`
+One row **per attempt**, not per call — which is what makes a provider rotation
+legible afterwards as two rows with the same `input_hash` and `attempt` 1, 2.
+
+This one table does three jobs, which is why there is no second one: it is the
+**record** (provider, latency, outcome), the **cache** (the newest `ok` row for
+a `(user_id, generator, input_hash)` inside a 24h TTL), and the **quota**
+counter (`count(*)` today where `cached = false`).
+
+| Column | Type | Meaning |
+|--------|------|---------|
+| id | serial PK | |
+| user_id | int FK→users | Whose generation |
+| generator | varchar(40) | `habit_suggester` today |
+| provider | varchar(20) | `google` \| `groq` \| `openai`; `none` when the outcome was decided before a provider was reached |
+| model | varchar(60) | The exact model id, so a change in behaviour can be attributed |
+| outcome | varchar(12) | `ok` \| `unavailable` (no key or quota spent — decided **before any I/O**) \| `invalid` (answered, wrong shape) \| `error` (network, timeout, 5xx, 429) |
+| latency_ms | int | 0 for a cache hit |
+| attempt | int | 1-based position in the provider rotation |
+| input_hash | varchar(64) | `sha256(generator : promptVersion : input)`. The cache key — bumping a generator's `promptVersion` invalidates every cached answer for it |
+| cached | boolean | True = served from a previous run, so it cost nothing and does **not** count against the quota |
+| output | jsonb NULL | What was **proposed**. Load-bearing: `habits` only records what was *kept*, so without this a suggestion removed on the review screen would vanish and the rejection rate would be unmeasurable |
+| error | text NULL | Short, scrubbed, truncated to 300 chars. **Never a key and never the prompt** |
+| created_at | timestamptz | |
+
+Rejection rate = what `output` proposed, against
+`habits.source = 'ai_suggested' AND active_from IS NOT NULL`.
+
+### `ai_pending_requests`
+Written only when **every** provider failed, which takes all three being down at
+once. Deliberately not a queue and not a cron: the retry happens on the next
+visit to `/habits/review`.
+| Column | Type | Meaning |
+|--------|------|---------|
+| id | serial PK | |
+| user_id | int FK→users | |
+| generator | varchar(40) | |
+| input | jsonb | The exact input to re-attempt |
+| resolved_at | timestamptz NULL | NULL = still outstanding. Set when a retry succeeds **or** when the user finished the job by hand — regenerating over a set someone already accepted would be a second surprise after they thought they were done |
+| created_at | timestamptz | |
+
+## Tier 2 — `daily_checks.details` by template kind
+
+Validated on every write against `src/lib/details-schemas.ts`. Keyed on
+`habits.template_kind`; since the seven legacy kinds equal their old slugs, the
+seven entries below are unchanged and one — `plain` — is new. `?` = optional.
+
+- **plain** (the generic renderer, and the only kind a new habit can have) —
+  `{ value: number }`
+  - `value` is the day's figure in the habit's own `unit`; `0`/`1` for a
+    `binary` habit. Everything else about how it renders comes from the habit
+    row itself, which is what makes this one schema serve any habit.
 
 - **treino** — `{ plan_day_id: int, completed: [{ name: string, done: bool }], effort?: 1..5 }`
   - `plan_day_id` → `workout_plan_days.id`; `completed` mirrors that day's exercises; `effort` = perceived 1(easy)–5(max).
