@@ -118,7 +118,7 @@ export function WeekGrid({
           </thead>
           <tbody>
             {rows.map((habit, row) => {
-              const Icon = habitIcon(habit.slug);
+              const Icon = habitIcon(habit.templateKind, habit.domainSlug);
               return (
                 <tr
                   key={habit.habitId}
