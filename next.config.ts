@@ -14,10 +14,17 @@ const nextConfig: NextConfig = {
 // Errors only — no tracing, no replay, no dashboards. The runtime half of that
 // scope is in src/lib/sentry-scrub.ts; this is the build half.
 export default withSentryConfig(nextConfig, {
-  // Source map upload needs SENTRY_AUTH_TOKEN, and its absence must not break
-  // a build. Without it the plugin skips upload and the build succeeds, which
-  // is what makes `bun run build` work on a machine with no credentials.
-  silent: true,
+  // Which project the source maps belong to. Without these the upload has
+  // nowhere to go, so every production stack trace stays minified.
+  org: "side-projects-9w",
+  project: "javascript-nextjs",
+  // A build-time secret, distinct from the DSN. Its absence must not break a
+  // build: the plugin skips the upload and `bun run build` still succeeds,
+  // which is what lets a machine with no credentials build the app.
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Quiet locally, loud in CI, where the upload either working or not is the
+  // only place anyone would see it.
+  silent: !process.env.CI,
   // Stack traces point at readable code, and the maps are deleted afterwards
   // so nothing readable is served from the app itself.
   widenClientFileUpload: true,
