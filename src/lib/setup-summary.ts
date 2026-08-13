@@ -1,3 +1,4 @@
+import type { UserId } from "@/db/scope";
 // Server-only: one summary of everything the user configured, shared by the
 // onboarding Review step, the /config index and the Overview "Activities"
 // section — so those three never drift.
@@ -45,7 +46,7 @@ export interface SetupRow {
 }
 
 export async function getSetupSummary(
-  userId: number,
+  userId: UserId,
   copy: Copy["onboarding"],
   todayCopy?: Copy["today"]
 ): Promise<SetupRow[]> {
