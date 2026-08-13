@@ -30,21 +30,108 @@ export const users = pgTable("users", {
   // person to log in with this name sets the password. Accounts are only ever
   // created by script, never by the UI or the API.
   passwordHash: text("password_hash"),
+  // Churn auditing, and the whole of it: the step of the first run this
+  // account last advanced past. Written on every advance and set back to NULL
+  // when the run completes, so any non-null value IS an abandonment and the
+  // happy path leaves nothing behind. Vocabulary in src/lib/first-run.ts.
+  //
+  //   SELECT first_run_step, count(*) FROM users
+  //    WHERE first_run_step IS NOT NULL GROUP BY 1;
+  firstRunStep: varchar("first_run_step", { length: 30 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 // ─── Tier 1: the spine ───────────────────────────────────────────────────────
 
-// Habits stay a shared catalogue: everyone tracks the same seven for now.
-// (When activities become user-defined, this grows a user_id like the rest.)
-export const habits = pgTable("habits", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 50 }).notNull(),
-  slug: varchar("slug", { length: 50 }).notNull().unique(),
-  icon: varchar("icon", { length: 10 }),
-  optional: boolean("optional").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+// How a habit is measured. The universal spine: every habit, for every person,
+// reduces to one of these three, and that reduction is what lets the grid,
+// the streak and the adherence maths be written once.
+export type MetricType = "binary" | "count" | "duration";
+
+// Where a habit's wording came from. Mirrors direction_narratives.source, and
+// is what makes the rejection rate of a generator a query rather than a guess.
+export type HabitSource = "human" | "ai_suggested" | "ai_edited";
+
+// Habits are per-user. They used to be a shared catalogue of seven rows with a
+// globally unique slug, which is the modelling error that stopped anyone else
+// from using the app: it normalised what is *personal* into schema.
+//
+// Two columns carry most of the meaning:
+//
+//   template_kind  null = a plain habit, rendered by the generic renderer.
+//                  The seven legacy kinds equal their old slug ('leitura',
+//                  'treino', …) and keep their original renderers, which read
+//                  the owner-shaped per-domain tables. Only the owner's
+//                  migrated rows may carry one — see src/lib/templates.ts.
+//
+//   active_from    NULL means PROPOSED, not yet tracked. A generated habit is
+//                  written immediately (so a 5–20s call survives a refresh)
+//                  but stays invisible to every user-facing read until "Start
+//                  tracking" sets this. habitsFor() in src/db/scope.ts is the
+//                  single place that filter lives.
+export const habits = pgTable(
+  "habits",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    name: varchar("name", { length: 50 }).notNull(),
+    // Unique per account, not globally: two people may both track "leitura".
+    slug: varchar("slug", { length: 50 }).notNull(),
+    icon: varchar("icon", { length: 10 }),
+    optional: boolean("optional").notNull().default(false),
+
+    // ── The seam into the planning layer ──
+    // The life area this habit descends from. Nullable: a habit added by hand
+    // before any assessment is "not yet anchored to a value", which is itself
+    // useful data rather than an error.
+    domainId: integer("domain_id").references(() => lifeDomains.id),
+    // No FK yet — there is no `goals` table. The column exists now so goals
+    // slot in later without touching a single habit row.
+    goalId: integer("goal_id"),
+
+    // ── The metric spine ──
+    metricType: varchar("metric_type", { length: 10 })
+      .$type<MetricType>()
+      .notNull()
+      .default("binary"),
+    unit: varchar("unit", { length: 20 }), // "pages", "minutes", "lessons"
+    target: integer("target"),
+    // The version of this habit that still counts on a bad day.
+    minimalAction: varchar("minimal_action", { length: 200 }),
+
+    // ── Template layer ──
+    templateKind: varchar("template_kind", { length: 30 }),
+    config: jsonb("config"), // never written by a model — see src/lib/ai/
+
+    // ── Provenance ──
+    source: varchar("source", { length: 12 })
+      .$type<HabitSource>()
+      .notNull()
+      .default("human"),
+    why: text("why"), // the one line a suggestion gave for proposing it
+
+    // ── Lifecycle ──
+    activeFrom: date("active_from"), // NULL = proposed (see above)
+    activeTo: date("active_to"), // set on remove; the row is never deleted
+    position: integer("position").notNull().default(0),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    unique().on(t.userId, t.slug),
+    index("idx_habits_user_position").on(t.userId, t.position),
+    check(
+      "habits_metric_type",
+      sql`${t.metricType} IN ('binary', 'count', 'duration')`
+    ),
+    check(
+      "habits_source",
+      sql`${t.source} IN ('human', 'ai_suggested', 'ai_edited')`
+    ),
+  ]
+);
 
 // How an exercise is measured. Not everything is sets×reps: a run is a
 // distance (and maybe a target time), a plank is sets × a hold in seconds.
@@ -349,4 +436,122 @@ export const directionNarratives = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (t) => [unique().on(t.cycleId, t.domainId)]
+);
+
+// ─── Tier 5: the AI harness ──────────────────────────────────────────────────
+
+// What a generator call ended as. The same four the harness returns, so a row
+// is readable without knowing the code:
+//   ok           a valid, schema-shaped answer came back
+//   unavailable  decided BEFORE any I/O — no key, or the day's quota is spent
+//   invalid      the provider answered, but the shape was wrong
+//   error        network, timeout, 5xx, rate limit
+export type AiOutcome = "ok" | "unavailable" | "invalid" | "error";
+
+// One row PER ATTEMPT, which is what makes a provider rotation legible: a
+// failover reads as two rows with attempt 1 and 2 and different providers.
+//
+// This one table does three jobs, which is why there is no second one:
+//   record  provider/latency/outcome — the point of the harness
+//   cache   the newest ok row for (user, generator, input_hash) inside a TTL
+//   quota   count(*) today where cached = false — durable, unlike the
+//           in-memory login limiter, so a cold start can't reset it
+export const aiRuns = pgTable(
+  "ai_runs",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    generator: varchar("generator", { length: 40 }).notNull(),
+    // 'none' when the outcome was decided before a provider was reached.
+    provider: varchar("provider", { length: 20 }).notNull(),
+    model: varchar("model", { length: 60 }).notNull(),
+    outcome: varchar("outcome", { length: 12 }).$type<AiOutcome>().notNull(),
+    latencyMs: integer("latency_ms").notNull(),
+    attempt: integer("attempt").notNull().default(1),
+    // Hash of generator + prompt version + input. The cache key.
+    inputHash: varchar("input_hash", { length: 64 }).notNull(),
+    cached: boolean("cached").notNull().default(false),
+    // What was PROPOSED. Kept because the habits table only records what was
+    // kept: without this, a suggestion removed on the review screen would
+    // vanish and the rejection rate would be unmeasurable.
+    output: jsonb("output"),
+    // A short, scrubbed message. NEVER a key and never the prompt.
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    index("idx_ai_runs_cache").on(t.userId, t.generator, t.inputHash),
+    index("idx_ai_runs_user_created").on(t.userId, t.createdAt.desc()),
+    check(
+      "ai_runs_outcome",
+      sql`${t.outcome} IN ('ok', 'unavailable', 'invalid', 'error')`
+    ),
+  ]
+);
+
+// "We'll regenerate this later." Written only when every provider failed —
+// which takes all three being down at once, so reaching this is rare.
+//
+// Deliberately not a queue and not a cron: the retry happens on the next visit
+// to the review screen. The point is that the app never freezes on somebody
+// else's outage, not that it has elaborate machinery for it.
+export const aiPendingRequests = pgTable(
+  "ai_pending_requests",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    generator: varchar("generator", { length: 40 }).notNull(),
+    input: jsonb("input").notNull(),
+    // Set when a retry succeeds, OR when the user finished the job by hand —
+    // re-generating over a set someone already accepted would be a second
+    // surprise after they thought they were done.
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    index("idx_ai_pending_open")
+      .on(t.userId, t.generator)
+      .where(sql`${t.resolvedAt} IS NULL`),
+  ]
+);
+
+// ─── Tier 0b: login attempts ─────────────────────────────────────────────────
+
+// Durable replacement for the in-memory limiter, which reset on every cold
+// start and was keyed on IP alone.
+//
+// Deliberately NOT keyed on user_id: login is pre-auth, and the handle typed
+// into the form is a *claim*, not an identity — the same reason src/db/users.ts
+// cannot take a branded UserId.
+//
+// Two kinds of key, doing two different jobs:
+//   'ip'      the one that actually blocks
+//   'handle'  detection only, for an attack spread across many IPs. It must
+//             never block on its own: a handle-keyed lock would hand anyone a
+//             denial-of-service against a named user by spamming their name,
+//             and in this app the name IS the login.
+export type AttemptKeyKind = "ip" | "handle";
+
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    id: serial("id").primaryKey(),
+    keyKind: varchar("key_kind", { length: 8 })
+      .$type<AttemptKeyKind>()
+      .notNull(),
+    keyValue: varchar("key_value", { length: 120 }).notNull(),
+    failures: integer("failures").notNull().default(0),
+    windowStart: timestamp("window_start", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    unique().on(t.keyKind, t.keyValue),
+    check("login_attempts_key_kind", sql`${t.keyKind} IN ('ip', 'handle')`),
+  ]
 );
