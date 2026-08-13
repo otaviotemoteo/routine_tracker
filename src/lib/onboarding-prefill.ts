@@ -1,3 +1,4 @@
+import type { UserId } from "@/db/scope";
 // Server-only prefill loaders for the onboarding/config step forms — shared so
 // the wizard and the settings page show the same current values.
 import {
@@ -11,7 +12,7 @@ import {
 } from "@/db/queries";
 import { daysLeftInYear, todayInSaoPaulo } from "@/lib/utils";
 
-export async function workoutInitial(userId: number) {
+export async function workoutInitial(userId: UserId) {
   const plan = await getActiveWorkoutPlan(userId);
   return {
     initialName: plan?.name ?? "",
@@ -24,7 +25,7 @@ export async function workoutInitial(userId: number) {
   };
 }
 
-export async function readingInitial(userId: number) {
+export async function readingInitial(userId: UserId) {
   const today = todayInSaoPaulo();
   const [goal, books] = await Promise.all([
     getReadingGoal(userId, Number(today.slice(0, 4))),
@@ -45,7 +46,7 @@ export async function readingInitial(userId: number) {
   };
 }
 
-export async function sleepInitial(userId: number) {
+export async function sleepInitial(userId: UserId) {
   const target = await getSleepTarget(userId);
   return {
     initialBedtime: target?.bedtime.slice(0, 5) ?? "23:00",
@@ -53,7 +54,7 @@ export async function sleepInitial(userId: number) {
   };
 }
 
-export async function routineInitial(userId: number) {
+export async function routineInitial(userId: UserId) {
   const blocks = await listRoutineBlocks(userId);
   return blocks.map((b) => ({
     startTime: b.startTime.slice(0, 5),
@@ -63,11 +64,11 @@ export async function routineInitial(userId: number) {
   }));
 }
 
-export async function duolingoInitial(userId: number) {
+export async function duolingoInitial(userId: UserId) {
   return (await listLanguages(userId)).map((l) => l.name);
 }
 
-export async function spiritualityInitial(userId: number) {
+export async function spiritualityInitial(userId: UserId) {
   return (await listSpiritualPractices(userId)).map((p) => ({
     name: p.name,
     slug: p.slug,
