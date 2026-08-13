@@ -1,6 +1,7 @@
 // The shortest honest label for one habit on one day — what fits in a grid
 // cell's tooltip ("9 pg", "6h10", "4/6"). Symbols read the same in both
 // languages, so this needs no copy.
+import { templateKindOf } from "@/lib/templates";
 
 function rec(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object"
@@ -22,15 +23,18 @@ export interface CellTotals {
 }
 
 export function cellValue(
-  slug: string,
+  kind: string | null,
   details: unknown,
   done: boolean,
-  totals: CellTotals = {}
+  totals: CellTotals = {},
+  // A generic habit's own target, which is per-habit rather than per-account
+  // and so can't live in CellTotals.
+  target: number | null = null
 ): CellValue | null {
   const d = rec(details);
   if (!d) return done ? { label: "✓", partial: false } : null;
 
-  switch (slug) {
+  switch (templateKindOf(kind)) {
     case "treino": {
       if (!Array.isArray(d.completed) || d.completed.length === 0) break;
       const total = d.completed.length;
@@ -87,6 +91,28 @@ export function cellValue(
         return { label: `${d.minutes}m`, partial: false };
       }
       break;
+
+    // A generic habit. No unit in the label: the seven above use hand-tuned
+    // abbreviations ("pg", "×", "m") that a user-supplied unit like "pages
+    // read" would not fit into, and a truncated unit is worse than none.
+    // The number, and the target when there is one, are the honest maximum.
+    case "plain": {
+      if (typeof d.value !== "number") break;
+      // Partial needs a plan to fall short of. With no target there is
+      // nothing to be short of, so a logged day is simply done.
+      if (target !== null && target > 0) {
+        return {
+          label: `${d.value}/${target}`,
+          partial: d.value < target,
+        };
+      }
+      // A binary habit logs 1, and "1" in a grid cell says less than a tick.
+      return d.value > 0
+        ? { label: String(d.value), partial: false }
+        : done
+          ? { label: "✓", partial: false }
+          : null;
+    }
   }
 
   return done ? { label: "✓", partial: false } : null;
