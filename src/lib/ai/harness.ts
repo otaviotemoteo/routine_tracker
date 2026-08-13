@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { generateObject } from "ai";
 import type { z } from "zod";
 import { providers } from "./providers";
@@ -177,6 +178,26 @@ export async function runGenerator<TInput, TOutput>(
         attempt,
         inputHash,
         error: scrubError(err),
+      });
+
+      // A BREADCRUMB, NOT AN EXCEPTION.
+      //
+      // A provider being down is an expected outcome of this design — it is
+      // the reason there are three of them — and it is already recorded in
+      // ai_runs, which is the better place to ask about it. Reporting it as an
+      // error would page somebody for somebody else's outage, and an alert
+      // that fires on a working failover trains you to ignore alerts.
+      //
+      // It is still worth attaching, so that IF a later error is reported in
+      // the same request, the trail shows which providers had already failed.
+      // The scrubbed message only — never the prompt.
+      Sentry.addBreadcrumb({
+        category: "ai",
+        level: "info",
+        message: `${generator.name}: ${provider.id} ${
+          schemaFailure ? "invalid" : "error"
+        }`,
+        data: { attempt, provider: provider.id, model: provider.model },
       });
 
       // THE RULE THAT MAKES THE ROTATION WORTH HAVING:
