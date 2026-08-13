@@ -9,11 +9,14 @@ import {
   getOrCreateCurrentCycle,
   getLatestSealed,
   getOrCreateDraft,
+  listDirectionNarratives,
   saveRating,
   sealAssessment,
   upsertDirectionNarrative,
 } from "@/db/assessment";
+import { markFirstRunStep } from "@/db/first-run";
 import { assessmentStepHref, firstUnanswered } from "@/lib/assessment";
+import { assessmentStep, directionStep } from "@/lib/first-run";
 import { RATING_SCALES, SCALE_MAX, SCALE_MIN, isDomainSlug } from "@/lib/domains";
 import { requireUserId } from "@/lib/session";
 import { todayInSaoPaulo } from "@/lib/utils";
@@ -75,12 +78,22 @@ export async function saveDomainRating(formData: FormData): Promise<void> {
   // Re-read rather than trusting what we just sent: sealing must be decided by
   // what is actually in the table.
   const after = await getOpenDraft(userId);
-  if (after && !firstUnanswered(after.ratings)) {
+  const pendingDomain = after ? firstUnanswered(after.ratings) : null;
+
+  if (after && !pendingDomain) {
     // "already-sealed" happens on a double-tapped Continue and lands in the
     // same place as success, which is the only sensible outcome for the person
     // holding the phone.
     await sealAssessment(userId, after.id);
+    await markFirstRunStep(userId, "results");
     redirect(assessmentStepHref("results"));
+  }
+
+  // The furthest point in the run that is still open, written on every
+  // advance. It is cleared at "Start tracking", so any value left in the
+  // column is by construction an abandonment — see src/lib/first-run.ts.
+  if (pendingDomain) {
+    await markFirstRunStep(userId, assessmentStep(pendingDomain));
   }
 
   redirect(safeNext(formData));
@@ -115,6 +128,16 @@ export async function saveDirection(formData: FormData): Promise<void> {
     rawReflection: String(formData.get("rawReflection") ?? "").trim().slice(0, 4000),
     narrative: String(formData.get("narrative") ?? "").trim().slice(0, 400),
   });
+
+  // Re-read rather than counting what was just written: a direction saved
+  // empty does not count as written, and the table is the only thing that
+  // knows. Once every priority area has one, the furthest open step is the
+  // areas review.
+  const written = await listDirectionNarratives(userId, sealed.cycleId);
+  const missing = sealed.priorityDomains
+    .filter(isDomainSlug)
+    .find((s) => !written[s]?.narrative?.trim());
+  await markFirstRunStep(userId, missing ? directionStep(missing) : "areas");
 
   redirect(safeNext(formData));
 }
