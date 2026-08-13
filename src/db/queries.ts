@@ -3,11 +3,13 @@
 // delegated to the pure helpers in src/lib/utils.ts.
 import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { db } from "./index";
+import { habitsFor, habitsForRange, type UserId } from "./scope";
 import {
   books,
   dailyChecks,
   habits,
   languages,
+  lifeDomains,
   readingGoals,
   routineBlocks,
   sleepTargets,
@@ -37,6 +39,18 @@ import type {
   WeekHabitRow,
 } from "@/types/habit";
 
+// The habit fields the week grid and month view need, plus the area slug for
+// the icon. A left join, so an unanchored habit still appears.
+const habitListColumns = {
+  id: habits.id,
+  name: habits.name,
+  slug: habits.slug,
+  optional: habits.optional,
+  templateKind: habits.templateKind,
+  target: habits.target,
+  domainSlug: lifeDomains.slug,
+};
+
 const checkWithHabitColumns = {
   id: dailyChecks.id,
   habitId: dailyChecks.habitId,
@@ -47,6 +61,17 @@ const checkWithHabitColumns = {
   name: habits.name,
   slug: habits.slug,
   optional: habits.optional,
+  // The renderers key on templateKind now rather than on slug. For the seven
+  // migrated habits the two are equal, so nothing about them changed; for
+  // everything else it is null and the generic renderer takes over.
+  templateKind: habits.templateKind,
+  metricType: habits.metricType,
+  unit: habits.unit,
+  target: habits.target,
+  minimalAction: habits.minimalAction,
+  // The life area, for the icon a plain habit falls back to. Left-joined, so
+  // a habit added before any assessment simply has none.
+  domainSlug: lifeDomains.slug,
 };
 
 // Fetch the day's checks, lazily creating the missing ones. The multi-row
@@ -54,28 +79,46 @@ const checkWithHabitColumns = {
 // UNIQUE(habit_id, checked_at) constraint, so concurrent first-loads of the
 // same day are safe (the neon-http driver has no interactive transactions).
 export async function getDayChecks(
-  userId: number,
+  userId: UserId,
   date: string
 ): Promise<CheckWithHabit[]> {
-  const allHabits = await db.select().from(habits).orderBy(asc(habits.id));
+  // Scoped to the owner AND to the day: habitsFor() excludes habits that were
+  // removed before this date, ones that started after it, and proposals that
+  // have never been accepted. Without the window this would keep materialising
+  // checks for a removed habit forever.
+  const allHabits = await db
+    .select()
+    .from(habits)
+    .where(habitsFor(userId, date))
+    .orderBy(asc(habits.position), asc(habits.id));
   if (allHabits.length > 0) {
     await db
       .insert(dailyChecks)
       .values(allHabits.map((h) => ({ userId, habitId: h.id, checkedAt: date })))
       .onConflictDoNothing();
   }
+  // The read is scoped again rather than trusting the insert above: a check
+  // written on a day the habit was still live must not resurface on Today
+  // after the habit is removed.
   return db
     .select(checkWithHabitColumns)
     .from(dailyChecks)
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
-    .where(and(eq(dailyChecks.userId, userId), eq(dailyChecks.checkedAt, date)))
-    .orderBy(asc(habits.id));
+    .leftJoin(lifeDomains, eq(habits.domainId, lifeDomains.id))
+    .where(
+      and(
+        eq(dailyChecks.userId, userId),
+        eq(dailyChecks.checkedAt, date),
+        habitsFor(userId, date)
+      )
+    )
+    .orderBy(asc(habits.position), asc(habits.id));
 }
 
 // Every id-addressed write carries the user in its WHERE clause: an id from
 // somebody else's account simply matches no row, rather than being mutated.
 export async function toggleCheck(
-  userId: number,
+  userId: UserId,
   id: number,
   done: boolean
 ): Promise<CheckWithHabit | null> {
@@ -89,6 +132,7 @@ export async function toggleCheck(
     .select(checkWithHabitColumns)
     .from(dailyChecks)
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .leftJoin(lifeDomains, eq(habits.domainId, lifeDomains.id))
     .where(eq(dailyChecks.id, updated.id));
   return row ?? null;
 }
@@ -97,7 +141,7 @@ export async function toggleCheck(
 // active plan's day for today's weekday, the current book, the sleep default,
 // today's routine blocks, active languages and practices.
 export async function getTodayContext(
-  userId: number,
+  userId: UserId,
   date: string
 ): Promise<TodayContext> {
   const weekday = isoWeekday(date);
@@ -163,7 +207,7 @@ export async function getTodayContext(
 // When a reading detail is saved, advance the book's current_page and flip it
 // to "done" if the last page was reached (spec: mark finished → next book).
 export async function applyReadingProgress(
-  userId: number,
+  userId: UserId,
   bookId: number,
   endedOnPage: number,
   date: string
@@ -183,24 +227,31 @@ export async function applyReadingProgress(
   await updateBook(userId, bookId, patch);
 }
 
-// The habit slug for a check id — the API needs it to pick the Zod schema
-// before validating incoming details. Null for a check that isn't yours.
-export async function getCheckHabitSlug(
-  userId: number,
+// What the API needs about a check's habit before it can validate incoming
+// details: the template kind picks the Zod schema, and the reading
+// side-effect keys on it too. Null for a check that isn't yours.
+//
+// This returns the TEMPLATE KIND rather than the slug, and the distinction is
+// load-bearing now: slugs are per-account, so somebody else's habit could be
+// slugged "leitura" without being a reading habit at all. Keying the schema
+// or the book-advancing side-effect on the slug would fire the wrong
+// behaviour on their data.
+export async function getCheckTemplateKind(
+  userId: UserId,
   id: number
-): Promise<string | null> {
+): Promise<{ templateKind: string | null } | null> {
   const [row] = await db
-    .select({ slug: habits.slug })
+    .select({ templateKind: habits.templateKind })
     .from(dailyChecks)
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
     .where(and(eq(dailyChecks.id, id), eq(dailyChecks.userId, userId)));
-  return row?.slug ?? null;
+  return row ?? null;
 }
 
 // Per-habit save from the Today sheet: details (already Zod-validated at the
 // API layer) + note + done, in one write.
 export async function saveCheckDetails(
-  userId: number,
+  userId: UserId,
   id: number,
   input: { done: boolean; details?: unknown; note?: string | null }
 ): Promise<CheckWithHabit | null> {
@@ -219,6 +270,7 @@ export async function saveCheckDetails(
     .select(checkWithHabitColumns)
     .from(dailyChecks)
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .leftJoin(lifeDomains, eq(habits.domainId, lifeDomains.id))
     .where(eq(dailyChecks.id, id));
   return row ?? null;
 }
@@ -231,7 +283,7 @@ export interface WorkoutPlanDayInput {
   exercises: PlannedExercise[];
 }
 
-export async function getActiveWorkoutPlan(userId: number) {
+export async function getActiveWorkoutPlan(userId: UserId) {
   const [plan] = await db
     .select()
     .from(workoutPlans)
@@ -247,7 +299,7 @@ export async function getActiveWorkoutPlan(userId: number) {
   return { ...plan, days };
 }
 
-export function listWorkoutPlanVersions(userId: number) {
+export function listWorkoutPlanVersions(userId: UserId) {
   return db
     .select()
     .from(workoutPlans)
@@ -258,7 +310,7 @@ export function listWorkoutPlanVersions(userId: number) {
 // Editing a plan = a NEW immutable version (spec): bump version, deactivate the
 // old active one, insert the new plan + its days. History is preserved.
 export async function saveWorkoutPlan(
-  userId: number,
+  userId: UserId,
   name: string,
   days: WorkoutPlanDayInput[]
 ) {
@@ -282,7 +334,7 @@ export async function saveWorkoutPlan(
   return plan;
 }
 
-export async function getReadingGoal(userId: number, year: number) {
+export async function getReadingGoal(userId: UserId, year: number) {
   const [goal] = await db
     .select()
     .from(readingGoals)
@@ -291,7 +343,7 @@ export async function getReadingGoal(userId: number, year: number) {
 }
 
 export async function upsertReadingGoal(
-  userId: number,
+  userId: UserId,
   year: number,
   targetBooks: number
 ) {
@@ -304,7 +356,7 @@ export async function upsertReadingGoal(
     });
 }
 
-export function listBooks(userId: number) {
+export function listBooks(userId: UserId) {
   return db
     .select()
     .from(books)
@@ -312,7 +364,7 @@ export function listBooks(userId: number) {
     .orderBy(asc(books.position));
 }
 
-export async function getBookById(userId: number, id: number) {
+export async function getBookById(userId: UserId, id: number) {
   const [book] = await db
     .select()
     .from(books)
@@ -320,7 +372,7 @@ export async function getBookById(userId: number, id: number) {
   return book ?? null;
 }
 
-export async function getCurrentBook(userId: number) {
+export async function getCurrentBook(userId: UserId) {
   const [book] = await db
     .select()
     .from(books)
@@ -331,7 +383,7 @@ export async function getCurrentBook(userId: number) {
 }
 
 export async function createBook(
-  userId: number,
+  userId: UserId,
   input: {
     title: string;
     author?: string | null;
@@ -360,7 +412,7 @@ export async function createBook(
 // done/abandoned status are never deleted — past `details.book_id` references
 // them. Used by the reading onboarding/config step.
 export async function saveReadingList(
-  userId: number,
+  userId: UserId,
   rows: {
     id?: number;
     title: string;
@@ -411,7 +463,7 @@ export async function saveReadingList(
 }
 
 export async function updateBook(
-  userId: number,
+  userId: UserId,
   id: number,
   patch: Partial<{
     status: string;
@@ -427,7 +479,7 @@ export async function updateBook(
     .where(and(eq(books.id, id), eq(books.userId, userId)));
 }
 
-export function listRoutineBlocks(userId: number, activeOnly = true) {
+export function listRoutineBlocks(userId: UserId, activeOnly = true) {
   const where = activeOnly
     ? and(eq(routineBlocks.userId, userId), eq(routineBlocks.active, true))
     : eq(routineBlocks.userId, userId);
@@ -441,7 +493,7 @@ export function listRoutineBlocks(userId: number, activeOnly = true) {
 // Replace the active routine: deactivate the current blocks (never delete —
 // past `details` reference their ids) and insert the new set.
 export async function replaceRoutineBlocks(
-  userId: number,
+  userId: UserId,
   blocks: {
     startTime: string;
     endTime: string;
@@ -459,7 +511,7 @@ export async function replaceRoutineBlocks(
   }
 }
 
-export function listSpiritualPractices(userId: number, activeOnly = true) {
+export function listSpiritualPractices(userId: UserId, activeOnly = true) {
   const where = activeOnly
     ? and(
         eq(spiritualPractices.userId, userId),
@@ -475,7 +527,7 @@ export function listSpiritualPractices(userId: number, activeOnly = true) {
 
 // Upsert practices by slug (stable identifier) and deactivate any not present.
 export async function replaceSpiritualPractices(
-  userId: number,
+  userId: UserId,
   practices: { name: string; slug: string; countable: boolean; position: number }[]
 ) {
   await db
@@ -503,7 +555,7 @@ export async function replaceSpiritualPractices(
   }
 }
 
-export function listLanguages(userId: number, activeOnly = true) {
+export function listLanguages(userId: UserId, activeOnly = true) {
   const where = activeOnly
     ? and(eq(languages.userId, userId), eq(languages.active, true))
     : eq(languages.userId, userId);
@@ -511,7 +563,7 @@ export function listLanguages(userId: number, activeOnly = true) {
 }
 
 export async function replaceLanguages(
-  userId: number,
+  userId: UserId,
   items: { name: string; slug: string }[]
 ) {
   await db
@@ -529,7 +581,7 @@ export async function replaceLanguages(
   }
 }
 
-export async function getSleepTarget(userId: number) {
+export async function getSleepTarget(userId: UserId) {
   const [target] = await db
     .select()
     .from(sleepTargets)
@@ -540,7 +592,7 @@ export async function getSleepTarget(userId: number) {
 
 // Single-row upsert: update the existing target or insert the first one.
 export async function upsertSleepTarget(
-  userId: number,
+  userId: UserId,
   bedtime: string,
   wakeTime: string
 ) {
@@ -558,7 +610,7 @@ export async function upsertSleepTarget(
 // Onboarding gate: has this account configured anything yet? Seeded
 // spiritual-practice defaults are excluded (they always exist), so the check
 // looks only at tables the user actively fills.
-export async function isConfigured(userId: number): Promise<boolean> {
+export async function isConfigured(userId: UserId): Promise<boolean> {
   const [wp, bk, rb, rg, lg, st] = await Promise.all([
     db.$count(workoutPlans, eq(workoutPlans.userId, userId)),
     db.$count(books, eq(books.userId, userId)),
@@ -573,7 +625,7 @@ export async function isConfigured(userId: number): Promise<boolean> {
 // Canonical dataset export for a date range — the exact payload a future AI
 // analysis consumes (see docs/DATA_DICTIONARY.md). Entities carry full history
 // (all workout-plan versions); days hold per-habit {done, details, note}.
-export async function getExport(userId: number, from: string, to: string) {
+export async function getExport(userId: UserId, from: string, to: string) {
   const [
     plans,
     planDays,
@@ -750,7 +802,7 @@ export interface AuditLookups {
 // Id/slug → display-name maps so the Day Audit can render details
 // human-readably (book title, plan focus, block activity, language/practice
 // names). Includes inactive rows so historical references still resolve.
-export async function getAuditLookups(userId: number): Promise<AuditLookups> {
+export async function getAuditLookups(userId: UserId): Promise<AuditLookups> {
   const [bks, planDays, blocks, langs, pracs] = await Promise.all([
     db
       .select({ id: books.id, title: books.title })
@@ -796,15 +848,25 @@ export async function getAuditLookups(userId: number): Promise<AuditLookups> {
 // Read-only day fetch for the Day Audit (never lazily creates rows, unlike
 // getDayChecks — a past day being viewed shouldn't materialize empty checks).
 export function getDayChecksReadonly(
-  userId: number,
+  userId: UserId,
   date: string
 ): Promise<CheckWithHabit[]> {
+  // Scoped to the day being audited, so a habit removed last month doesn't
+  // reappear in the record of a day it was still being tracked on — and, more
+  // importantly, so this can never read across accounts.
   return db
     .select(checkWithHabitColumns)
     .from(dailyChecks)
     .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
-    .where(and(eq(dailyChecks.userId, userId), eq(dailyChecks.checkedAt, date)))
-    .orderBy(asc(habits.id));
+    .leftJoin(lifeDomains, eq(habits.domainId, lifeDomains.id))
+    .where(
+      and(
+        eq(dailyChecks.userId, userId),
+        eq(dailyChecks.checkedAt, date),
+        habitsFor(userId, date)
+      )
+    )
+    .orderBy(asc(habits.position), asc(habits.id));
 }
 
 // Consecutive days where every required habit was done — the same rule as a
@@ -814,10 +876,17 @@ export function getDayChecksReadonly(
 const STREAK_WINDOW_DAYS = 180;
 
 export async function getDayStreak(
-  userId: number,
+  userId: UserId,
   today: string
 ): Promise<number> {
-  const requiredCount = await db.$count(habits, eq(habits.optional, false));
+  // Counts THIS user's currently-tracked required habits. Before habits were
+  // per-user this was a global count, which as soon as two accounts existed
+  // would have measured everyone's habits against one person's checks.
+  const [countRow] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(habits)
+    .where(and(habitsFor(userId, today), eq(habits.optional, false)));
+  const requiredCount = countRow?.n ?? 0;
   if (requiredCount === 0) return 0;
 
   const rows = await db
@@ -832,6 +901,7 @@ export async function getDayStreak(
         eq(dailyChecks.userId, userId),
         eq(dailyChecks.done, true),
         eq(habits.optional, false),
+        eq(habits.userId, userId),
         gte(dailyChecks.checkedAt, addDays(today, -STREAK_WINDOW_DAYS)),
         lte(dailyChecks.checkedAt, today)
       )
@@ -865,7 +935,7 @@ export interface TodayComparisons {
 const RECENT_WINDOW_DAYS = 7;
 
 export async function getTodayComparisons(
-  userId: number,
+  userId: UserId,
   today: string
 ): Promise<TodayComparisons> {
   const [doneRows, recentRows] = await Promise.all([
@@ -981,7 +1051,7 @@ export async function getTodayComparisons(
 
 // The first day anything was ever logged. Everything before it is outside the
 // record, not a run of missed days — so it never lands in a denominator.
-export async function getTrackingStart(userId: number): Promise<string | null> {
+export async function getTrackingStart(userId: UserId): Promise<string | null> {
   const [row] = await db
     .select({ first: sql<string | null>`min(${dailyChecks.checkedAt})` })
     .from(dailyChecks)
@@ -991,7 +1061,7 @@ export async function getTrackingStart(userId: number): Promise<string | null> {
 
 // How many routine blocks and spiritual practices are configured, so a grid
 // cell can say "4/6" rather than "4".
-async function getCellTotals(userId: number): Promise<CellTotals> {
+async function getCellTotals(userId: UserId): Promise<CellTotals> {
   const [routineBlockCount, practiceCount] = await Promise.all([
     db.$count(routineBlocks, eq(routineBlocks.userId, userId)),
     db.$count(spiritualPractices, eq(spiritualPractices.userId, userId)),
@@ -1022,7 +1092,7 @@ export interface MonthMatrix {
 // Every day of the month with its per-habit outcome — feeds both the calendar
 // heat and the tooltip, so they can never disagree.
 export async function getMonthMatrix(
-  userId: number,
+  userId: UserId,
   month: string
 ): Promise<MonthMatrix> {
   const total = daysInMonth(month);
@@ -1031,7 +1101,12 @@ export async function getMonthMatrix(
 
   const today = todayInSaoPaulo();
   const [allHabits, rows, totals, trackingStart] = await Promise.all([
-    db.select().from(habits).orderBy(asc(habits.id)),
+    db
+      .select(habitListColumns)
+      .from(habits)
+      .leftJoin(lifeDomains, eq(habits.domainId, lifeDomains.id))
+      .where(habitsForRange(userId, first, last))
+      .orderBy(asc(habits.position), asc(habits.id)),
     db
       .select({
         habitId: dailyChecks.habitId,
@@ -1068,7 +1143,9 @@ export async function getMonthMatrix(
         slug: h.slug,
         name: h.name,
         done,
-        value: cellValue(h.slug, entry?.details, done, totals)?.label ?? null,
+        value:
+          cellValue(h.templateKind, entry?.details, done, totals, h.target)
+            ?.label ?? null,
         optional: h.optional,
       };
     });
@@ -1098,7 +1175,7 @@ export async function getMonthMatrix(
 // Done-days per habit for a month — used for the consistency panel's
 // "vs. previous month" delta.
 export async function getMonthDoneCounts(
-  userId: number,
+  userId: UserId,
   month: string
 ): Promise<Record<string, number>> {
   const first = `${month}-01`;
@@ -1136,7 +1213,7 @@ function rec(value: unknown): Record<string, unknown> | null {
 // Per-area rich summaries for the month view, aggregated from the JSONB details
 // in JS (simpler than JSONB SQL at this scale — ≤ 7 rows/day).
 export async function getMonthDetailStats(
-  userId: number,
+  userId: UserId,
   month: string
 ): Promise<MonthDetailStats> {
   const first = `${month}-01`;
@@ -1222,7 +1299,7 @@ export async function getMonthDetailStats(
 // 7 days × 7 habits starting at a Monday. Days with no row simply count as
 // not done — the week view never creates rows.
 export async function getWeekData(
-  userId: number,
+  userId: UserId,
   start: string
 ): Promise<WeekData> {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
@@ -1230,7 +1307,12 @@ export async function getWeekData(
   // Details come along so each cell can carry its own figure ("9 pg", "4/6")
   // instead of a bare tick.
   const [allHabits, rows, totals, trackingStart] = await Promise.all([
-    db.select().from(habits).orderBy(asc(habits.id)),
+    db
+      .select(habitListColumns)
+      .from(habits)
+      .leftJoin(lifeDomains, eq(habits.domainId, lifeDomains.id))
+      .where(habitsForRange(userId, start, days[6]))
+      .orderBy(asc(habits.position), asc(habits.id)),
     db
       .select({
         habitId: dailyChecks.habitId,
@@ -1266,7 +1348,13 @@ export async function getWeekData(
     const cells: WeekCell[] = days.map((day) => {
       const entry = byHabitDay.get(`${h.id}:${day}`);
       const done = entry?.done ?? false;
-      const value = cellValue(h.slug, entry?.details, done, totals);
+      const value = cellValue(
+        h.templateKind,
+        entry?.details,
+        done,
+        totals,
+        h.target
+      );
       return {
         done,
         value: value?.label ?? null,
@@ -1279,6 +1367,8 @@ export async function getWeekData(
       name: h.name,
       slug: h.slug,
       optional: h.optional,
+      templateKind: h.templateKind,
+      domainSlug: h.domainSlug,
       done: cells.map((c) => c.done),
       cells,
       percent:
@@ -1316,14 +1406,19 @@ export async function getWeekData(
 // to today regardless of which month is being viewed — fine at this scale
 // (7 habits, one row per habit per day).
 export async function getMonthData(
-  userId: number,
+  userId: UserId,
   month: string,
   today: string
 ): Promise<MonthData> {
   const first = `${month}-01`;
   const last = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
   const [allHabits, monthRows, streakRows, trackingStart] = await Promise.all([
-    db.select().from(habits).orderBy(asc(habits.id)),
+    db
+      .select(habitListColumns)
+      .from(habits)
+      .leftJoin(lifeDomains, eq(habits.domainId, lifeDomains.id))
+      .where(habitsForRange(userId, first, last))
+      .orderBy(asc(habits.position), asc(habits.id)),
     db
       .select({ habitId: dailyChecks.habitId, checkedAt: dailyChecks.checkedAt })
       .from(dailyChecks)
@@ -1371,6 +1466,8 @@ export async function getMonthData(
       name: h.name,
       slug: h.slug,
       optional: h.optional,
+      templateKind: h.templateKind,
+      domainSlug: h.domainSlug,
       ...adherence,
       streak: calcStreak(doneDatesByHabit.get(h.id) ?? new Set(), today),
     };
