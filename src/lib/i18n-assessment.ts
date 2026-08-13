@@ -150,6 +150,26 @@ export interface AssessmentCopy {
     indexEmpty: string;
   };
 
+  // The areas review — the last screen before habits, and the consent step for
+  // the first time this app sends anything of yours to a model.
+  areas: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    noDirection: string;
+    edit: string;
+    addTitle: string;
+    addLead: string;
+    addGap: string; // {n}
+    addNoGap: string;
+    generate: string;
+    generateNote: string;
+    manual: string;
+    manualNote: string;
+    empty: string;
+    emptyAction: string;
+  };
+
   card: {
     eyebrow: string;
     emptyTitle: string;
@@ -443,12 +463,33 @@ const en: AssessmentCopy = {
     doneTitle: "Cycle set",
     doneLead:
       "Your answers are sealed and will not change. When you come back to this in six months, what you see will be what you actually said.",
-    doneAction: "See the results",
+    doneAction: "Build your habits",
     indexTitle: "Your directions",
     indexLead:
       "One sentence per area, for the days when the reason is hard to remember. Edit any of them whenever the wording stops being true.",
     indexEdit: "Edit",
     indexEmpty: "Not written yet",
+  },
+
+  areas: {
+    eyebrow: "Build your habits",
+    title: "Areas you're building on",
+    lead: "These are the areas your habits will come from, and what you wrote about each. Change anything that no longer reads true before you go on.",
+    noDirection: "Not written yet",
+    edit: "Edit",
+    addTitle: "Include another area",
+    addLead:
+      "The five above came out of the distances in your answers. If an area you care about is missing, write a direction for it and it joins the list.",
+    addGap: "{n} apart",
+    addNoGap: "no distance",
+    generate: "Generate habits",
+    generateNote:
+      "Your directions are sent to a language model, which proposes a few habits per area. You review every one before anything is tracked.",
+    manual: "Add habits manually",
+    manualNote:
+      "Suggestions are switched off right now, so the next screen starts empty and you write your own.",
+    empty: "No directions written yet",
+    emptyAction: "Write your directions",
   },
 
   card: {
@@ -746,12 +787,33 @@ const pt: AssessmentCopy = {
     doneTitle: "Ciclo montado",
     doneLead:
       "Suas respostas estão lacradas e não mudam mais. Quando você voltar aqui daqui a seis meses, o que estiver na tela é o que você realmente disse.",
-    doneAction: "Ver os resultados",
+    doneAction: "Montar seus hábitos",
     indexTitle: "Suas direções",
     indexLead:
       "Uma frase por área, para os dias em que o motivo é difícil de lembrar. Edite qualquer uma quando a escrita deixar de ser verdade.",
     indexEdit: "Editar",
     indexEmpty: "Ainda não escrita",
+  },
+
+  areas: {
+    eyebrow: "Montar seus hábitos",
+    title: "Áreas em que você vai trabalhar",
+    lead: "É daqui que seus hábitos vão sair, junto com o que você escreveu sobre cada área. Ajuste o que não estiver mais verdadeiro antes de seguir.",
+    noDirection: "Ainda não escrita",
+    edit: "Editar",
+    addTitle: "Incluir outra área",
+    addLead:
+      "As cinco acima saíram das distâncias nas suas respostas. Se faltou uma área que importa para você, escreva uma direção para ela e ela entra na lista.",
+    addGap: "{n} de distância",
+    addNoGap: "sem distância",
+    generate: "Gerar hábitos",
+    generateNote:
+      "Suas direções são enviadas para um modelo de linguagem, que propõe alguns hábitos por área. Você revisa cada um antes de qualquer coisa virar registro.",
+    manual: "Escrever os hábitos",
+    manualNote:
+      "As sugestões estão desligadas agora, então a próxima tela começa vazia e você escreve os seus.",
+    empty: "Nenhuma direção escrita ainda",
+    emptyAction: "Escrever suas direções",
   },
 
   card: {
