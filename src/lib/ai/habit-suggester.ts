@@ -121,7 +121,7 @@ function describeFindings(findings: Finding[]): string {
     return (
       "  No pattern crossed a threshold in this area. That is normal and is " +
       "not a problem to solve — work from what they wrote instead, and do " +
-      "not invent a difficulty they did not describe.";
+      "not invent a difficulty they did not describe."
     );
   }
   return findings
