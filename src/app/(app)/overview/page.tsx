@@ -1,3 +1,4 @@
+import type { UserId } from "@/db/scope";
 import Link from "next/link";
 import { ViewToggle } from "@/components/overview/ViewToggle";
 import { PeriodHeader } from "@/components/overview/PeriodHeader";
@@ -171,7 +172,7 @@ async function WeekView({
   paceGoal,
   trackingStart,
 }: {
-  userId: number;
+  userId: UserId;
   lang: Lang;
   copy: (typeof COPY)[Lang];
   today: string;
@@ -270,7 +271,7 @@ async function MonthView({
   period,
   trackingStart,
 }: {
-  userId: number;
+  userId: UserId;
   lang: Lang;
   copy: (typeof COPY)[Lang];
   today: string;
