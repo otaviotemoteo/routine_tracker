@@ -348,6 +348,34 @@ alerts.
 Without a DSN the SDK is inert, which is what keeps local development and a
 credential-free build machine working unchanged.
 
+**Every event is tagged with its environment and release.** `environment` comes
+from `VERCEL_ENV` (`production` | `preview` | `development`) so a crash your
+friends hit and a crash on a throwaway branch preview are never the same row —
+untagged, everything lands in Sentry's catch-all "All Envs" and the alert worth
+reading is the one you learn to scroll past. `release` is the commit SHA, which
+is also what `sentry-cli releases propose-version` emits, so events attach to
+the release a deploy created.
+
+The off-Vercel fallback is the literal `"development"`, **not `NODE_ENV`**, and
+that is a fix rather than a preference: bun sets `NODE_ENV=production` when it
+runs a script, so a `NODE_ENV` fallback filed local runs under `production` —
+exactly the mixing the option exists to prevent, failing in the most expensive
+direction. `src/lib/sentry-scrub.test.ts` guards it.
+
+## Product analytics (M2)
+
+`@vercel/analytics` and `@vercel/speed-insights`, mounted once in the root
+layout. Both are first-party through Vercel, set no cookie and fingerprint
+nobody, and record the **route** rather than the URL — which is the property
+that matters here, since `?domain=family` would say which part of somebody's
+life they were reading. Both are inert unless switched on in the Vercel project,
+so a local run and a fork cost nothing.
+
+This is a deliberate widening of the "errors only, no dashboards" scope written
+above: page views and Core Web Vitals answer "is anyone still using this in week
+three?", which is the question the whole app is judged on, and neither carries a
+person's content.
+
 **This setup diverges from Sentry's own recommended defaults, on purpose.** Their
 Next.js guide recommends errors *plus* tracing plus Session Replay, and says not
 to pare the base `init` back to errors-only. Three deliberate departures:
