@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingChrome";
 import { DailyStep } from "@/components/daily/DailyStep";
@@ -12,7 +12,6 @@ import {
   nextDailyHref,
   prevDailyHref,
   resolveDailyStep,
-  TOTAL_DAILY_STEPS,
 } from "@/lib/daily";
 import { todayInSaoPaulo } from "@/lib/utils";
 import { requireUserId } from "@/lib/session";
@@ -37,8 +36,13 @@ export default async function DayPage({ searchParams }: DayPageProps) {
     getTodayContext(userId, today),
   ]);
 
+  // The flow is whatever this person tracks, in their habit order — not a
+  // fixed seven. An account with no habits has no flow to walk.
+  const slugs = checks.map((c) => c.slug);
+  if (slugs.length === 0) redirect("/habits");
+
   // No step named: show the day's areas so the user can pick what's left
-  // (or revisit something already logged) instead of walking all seven.
+  // (or revisit something already logged) instead of walking every one.
   if (!rawStep) {
     const allDone = checks.every((c) => c.done);
     return (
@@ -68,20 +72,21 @@ export default async function DayPage({ searchParams }: DayPageProps) {
     );
   }
 
-  const step = resolveDailyStep(rawStep);
-  const check = checks.find((c) => c.slug === step);
-  if (!check) notFound();
+  const step = resolveDailyStep(rawStep, slugs);
+  const check = step ? checks.find((c) => c.slug === step) : undefined;
+  if (!step || !check) notFound();
 
-  const num = dailyStepNumber(step);
+  const num = dailyStepNumber(step, slugs);
+  const total = slugs.length;
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-8 pb-24">
       <OnboardingProgress
         stepNumber={num}
-        total={TOTAL_DAILY_STEPS}
+        total={total}
         label={`${copy.daily.eyebrow} · ${format(copy.daily.stepOf, {
           current: num,
-          total: TOTAL_DAILY_STEPS,
+          total,
         })}`}
       />
       <DailyStep
@@ -91,9 +96,9 @@ export default async function DayPage({ searchParams }: DayPageProps) {
         lang={lang}
         copy={copy.daily}
         sheetCopy={copy.sheets}
-        nextHref={nextDailyHref(step)}
-        backHref={prevDailyHref(step)}
-        isLast={num === TOTAL_DAILY_STEPS}
+        nextHref={nextDailyHref(step, slugs)}
+        backHref={prevDailyHref(step, slugs)}
+        isLast={num === total}
       />
     </main>
   );
