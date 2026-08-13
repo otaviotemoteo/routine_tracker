@@ -28,7 +28,7 @@ export function DailyIndex({
   return (
     <ul className="flex flex-col gap-3 list-none">
       {checks.map((check) => {
-        const Icon = habitIcon(check.slug);
+        const Icon = habitIcon(check.templateKind, check.domainSlug);
         const status = cardStatus(check, context, todayCopy);
         const name = habitName(lang, check.slug, check.name);
         return (
