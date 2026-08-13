@@ -42,7 +42,7 @@ export function ConsistencyPanel({
 
       <ul className="flex flex-col gap-2.5 list-none">
         {ranked.map((habit) => {
-          const Icon = habitIcon(habit.slug);
+          const Icon = habitIcon(habit.templateKind, habit.domainSlug);
           const ratio =
             habit.countedDays === 0 ? 0 : habit.doneCount / habit.countedDays;
           const delta = habit.doneCount - (previous[habit.slug] ?? 0);
