@@ -1,4 +1,5 @@
 import { format, plural, type Copy } from "@/lib/i18n";
+import { templateKindOf } from "@/lib/templates";
 import type { TodayContext } from "@/types/habit";
 
 // What a logged habit actually amounted to, as a sentence. Shorthand like
@@ -9,15 +10,18 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 export function summarizeDetails(
-  slug: string,
+  kind: string | null,
   details: unknown,
   context: TodayContext,
-  copy: Copy["today"]
+  copy: Copy["today"],
+  // A generic habit's own unit, so its sentence can say "23 pages" rather
+  // than a bare "23". Null for the seven, which name their own units.
+  unit: string | null = null
 ): string | null {
   const d = asRecord(details);
   if (!d) return null;
 
-  switch (slug) {
+  switch (templateKindOf(kind)) {
     case "treino": {
       if (!Array.isArray(d.completed) || d.completed.length === 0) return null;
       const total = d.completed.length;
@@ -84,6 +88,16 @@ export function summarizeDetails(
           : null;
       if (activity && minutes) return `${activity} · ${minutes}`;
       return activity ?? minutes;
+    }
+
+    // A generic habit. "23 pages" when it names a unit, "23" when it doesn't,
+    // and nothing at all for a binary habit — where the value is 1 and the
+    // caller already renders "Done", so "1" would add a figure that says less
+    // than the word it sits beside.
+    case "plain": {
+      if (typeof d.value !== "number") return null;
+      if (d.value === 0) return null;
+      return unit ? `${d.value} ${unit}` : String(d.value);
     }
 
     default:
