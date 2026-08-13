@@ -17,9 +17,10 @@ import { requireUserId } from "@/lib/session";
 export const dynamic = "force-dynamic";
 
 const INDEX_HREF = "/assessment/directions";
+const AREAS_HREF = "/assessment/areas";
 
 interface DirectionsPageProps {
-  searchParams: Promise<{ domain?: string; done?: string }>;
+  searchParams: Promise<{ domain?: string; done?: string; from?: string }>;
 }
 
 // The second half of the check-in: one written direction per priority domain.
@@ -52,6 +53,33 @@ export default async function DirectionsPage({ searchParams }: DirectionsPagePro
   // saving returns to the list rather than marching on through areas that are
   // already done.
   const reviewing = priority.every((slug) => written[slug]?.narrative?.trim());
+
+  // Opened from the areas review — either one of the five being corrected, or
+  // a sixth area being added through "Include another area".
+  //
+  // Any valid domain is accepted here, not just the frozen five, and that is
+  // the whole mechanism behind adding an area: priority_domains is never
+  // rewritten, so an added area is simply an area that has a direction written
+  // for it. The form and the write are identical; what changes is that this is
+  // a single edit rather than a position in a walk, so it carries no "n of 5"
+  // and returns where it came from.
+  if (params.from === "areas" && requested && isDomainSlug(requested)) {
+    return (
+      <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="focus">
+        <DirectionStep
+          action={saveDirection}
+          next={AREAS_HREF}
+          backHref={AREAS_HREF}
+          slug={requested}
+          submitLabel={copy.directions.saveOnly}
+          copy={copy}
+          unsaved={COPY[lang].onboarding.unsaved}
+          initialReflection={written[requested]?.rawReflection ?? ""}
+          initialNarrative={written[requested]?.narrative ?? ""}
+        />
+      </AssessmentShell>
+    );
+  }
 
   if (requested && isDomainSlug(requested) && priority.includes(requested)) {
     const index = priority.indexOf(requested);
@@ -114,7 +142,10 @@ export default async function DirectionsPage({ searchParams }: DirectionsPagePro
 
       <DirectionsIndex priority={priority} written={written} copy={copy} />
 
-      {params.done && <CycleDoneDialog href="/assessment/results" copy={copy} />}
+      {/* Forward, to the areas review. Sending someone back to the results
+          screen they just read was the app telling them they were finished
+          when the interesting half had not started. */}
+      {params.done && <CycleDoneDialog href={AREAS_HREF} copy={copy} />}
     </AssessmentShell>
   );
 }
