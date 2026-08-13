@@ -16,8 +16,18 @@ interface NavBarProps {
 // navigations instead of remounting per page.
 export function NavBar({ lang, copy }: NavBarProps) {
   const pathname = usePathname();
+  // The app's top-level map: what to do now, what I track, how I've done.
+  // Habits earns a place here rather than living inside /config — it is no
+  // longer a setup detail but the thing Today renders and the whole
+  // values→habits chain produces. The row wraps at 360px rather than
+  // shrinking any target below 44px.
   const navItems = [
     { href: "/", label: copy.today, active: pathname === "/" },
+    {
+      href: "/habits",
+      label: copy.habits,
+      active: pathname.startsWith("/habits"),
+    },
     {
       href: "/overview",
       label: copy.overview,
