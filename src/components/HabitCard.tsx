@@ -40,7 +40,7 @@ export function HabitCard({
   pace,
   paceValues,
 }: HabitCardProps) {
-  const Icon = habitIcon(check.slug);
+  const Icon = habitIcon(check.templateKind, check.domainSlug);
   const name = habitName(lang, check.slug, check.name);
   const card = buildTodayCard(
     check,
