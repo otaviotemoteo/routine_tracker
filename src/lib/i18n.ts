@@ -524,7 +524,16 @@ export interface Copy {
       paceLegendResult: string;
       empty: string;
     };
-    sleep: { title: string; lead: string; bedtime: string; wake: string };
+    sleep: {
+      title: string;
+      lead: string;
+      bedtime: string;
+      wake: string;
+      targetLabel: string;
+      targetLead: string;
+      window: string; // {n}
+      average: string; // {v}
+    };
     routine: {
       title: string;
       lead: string;
@@ -1067,6 +1076,10 @@ export const COPY: Record<Lang, Copy> = {
         empty: "No books yet.",
       },
       sleep: {
+        targetLabel: "TARGET WINDOW",
+        targetLead: "The daily sleep entry opens already filled in with this window.",
+        window: "{n}h window per night",
+        average: "ACTUAL AVERAGE {v}",
         title: "Sleep",
         lead: "Your target bedtime and wake time set the default for the daily sleep log.",
         bedtime: "Bedtime",
@@ -1616,6 +1629,10 @@ export const COPY: Record<Lang, Copy> = {
         empty: "Nenhum livro ainda.",
       },
       sleep: {
+        targetLabel: "HORÁRIO-ALVO",
+        targetLead: "O registro diário de sono já vem preenchido com esta janela.",
+        window: "Janela de {n}h por noite",
+        average: "MÉDIA ATUAL {v}",
         title: "Sono",
         lead: "O horário-alvo de dormir e acordar define o padrão do registro diário de sono.",
         bedtime: "Dormir",
