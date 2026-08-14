@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sql } from "drizzle-orm";
 import { DOMAIN_SLUGS } from "@/lib/domains";
 import { PLAIN_KIND } from "@/lib/templates";
-import type { HabitInput } from "./habits";
+import type { HabitEdit, HabitInput } from "./habits";
 import type { UserId } from "./scope";
 
 // Cross-user isolation, proven rather than remembered.
@@ -223,7 +223,10 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
   // ─── Id-addressed writes ───────────────────────────────────────────────────
 
   test("A cannot edit B's habit", async () => {
-    const ok = await Habits.updateHabit(A, bHabit, habit("stolen"));
+    // An edit carries only the fields the form shows — template_kind and why
+    // are not among them, by type. See HabitEdit in src/db/habits.ts.
+    const { templateKind: _t, why: _w, ...edit } = habit("stolen");
+    const ok = await Habits.updateHabit(A, bHabit, edit as HabitEdit);
     expect(ok).toBe(false);
 
     // And the row is genuinely untouched, not merely reported as unchanged.
