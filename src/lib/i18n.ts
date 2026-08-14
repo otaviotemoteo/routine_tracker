@@ -586,6 +586,12 @@ export interface Copy {
         books: string; // {n}
       };
     };
+    // Shared by every inline remove confirmation in the setup screens.
+    confirmRemove: string; // {name}
+    confirmWarning: string;
+    confirmCancel: string;
+    confirmGo: string;
+    setCount: string; // {n} — the second chip on a training day
     config: { eyebrow: string; title: string; lead: string; edit: string };
     unsaved: {
       title: string;
@@ -991,6 +997,11 @@ export const COPY: Record<Lang, Copy> = {
       retry: "Try again",
     },
     onboarding: {
+      confirmRemove: "Remove {name}?",
+      confirmWarning: "Past records keep it. Only the plan changes.",
+      confirmCancel: "Keep it",
+      confirmGo: "Remove",
+      setCount: "{n} SETS",
       stepOf: "Step {current} of {total}",
       skip: "Skip",
       back: "Back",
@@ -1544,6 +1555,11 @@ export const COPY: Record<Lang, Copy> = {
       retry: "Tentar de novo",
     },
     onboarding: {
+      confirmRemove: "Remover {name}?",
+      confirmWarning: "Os registros passados continuam. Só o plano muda.",
+      confirmCancel: "Manter",
+      confirmGo: "Remover",
+      setCount: "{n} SÉRIES",
       stepOf: "Passo {current} de {total}",
       skip: "Pular",
       back: "Voltar",
