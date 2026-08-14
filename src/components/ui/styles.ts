@@ -22,6 +22,20 @@ export const primaryButton =
 export const ghostButton =
   "min-h-[44px] inline-flex items-center justify-center px-5 rounded-full border-2 border-forest bg-white font-semibold text-sm shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm";
 
+// An icon-only action, as its own little white card.
+//
+// The rule the app follows: A LABELLED BUTTON IS A ROUNDED PILL, AN ICON-ONLY
+// BUTTON IS A SQUARE CARD. Both are white, bordered and hard-shadowed, so they
+// are visibly the same family — the shape is what says whether there are words
+// inside.
+//
+// It exists because the alternative kept going wrong: a bare icon floating in
+// a row reads as decoration rather than as something you can press, and
+// squeezing the pill down to 44px with `!px-0` produced a circle, which is a
+// third shape nobody asked for. One square, everywhere.
+export const iconButton =
+  "w-11 h-11 shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white shadow-hard-sm transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0.5 active:translate-y-0.5";
+
 // The panel every "explain this" and "here is a group of related facts" block
 // uses: white so it lifts off the cream page, hard-shadowed like everything
 // else in the system.
