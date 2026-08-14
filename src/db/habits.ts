@@ -55,6 +55,34 @@ export interface HabitInput {
   why: string | null;
 }
 
+// What an EDIT may carry — which is exactly the fields the form shows.
+//
+// Two columns are excluded, and both were being destroyed by the same
+// mistake: the form has no input for either, so it sent a default for both,
+// and the update wrote that default over real data.
+//
+//   template_kind  the form has no template picker, so it always sent `plain`.
+//                  Editing a habit merely to give it a life area reset its
+//                  renderer to the generic one. The owner's seven migrated
+//                  habits lost their rich Today cards this way, one at a time,
+//                  with nothing on screen connecting the edit to the loss.
+//
+//   why            the one-line reason a suggestion gave. The form has no
+//                  field for it, so it sent null, and editing a suggested
+//                  habit erased why it was ever proposed — the column the
+//                  review screen exists to surface.
+//
+// The `?: never` marks are load-bearing. A plain Omit would still accept a
+// full HabitInput, because structural typing allows the extra property; this
+// makes passing one a compile error instead.
+//
+// The rule: the form owns the fields the form shows. A column no screen can
+// edit must not be rewritten by a screen that never asked about it.
+export type HabitEdit = Omit<HabitInput, "templateKind" | "why"> & {
+  templateKind?: never;
+  why?: never;
+};
+
 const habitColumns = {
   id: habits.id,
   name: habits.name,
@@ -268,13 +296,24 @@ export async function createHabit(
 // Update a habit's wording. Never touches active_from, so editing a proposal
 // leaves it a proposal and editing a tracked habit leaves it tracked.
 //
+// AND NEVER TOUCHES template_kind, which is the harder-won half of that rule.
+//
+// It used to write `storedTemplateKind(input.templateKind)` here, and since the
+// form has no template picker it always sends `plain` — so editing a habit
+// merely to give it a life area silently reset its renderer to the generic
+// one. The owner's seven migrated habits lost their rich Today cards that way,
+// one at a time, with nothing on screen suggesting the edit had done it.
+//
+// The rule this encodes: the form owns the fields the form shows. A column no
+// screen can edit must not be rewritten by a screen that never asked about it.
+//
 // `source` moves ai_suggested → ai_edited on the first edit and then stops:
 // once a human has touched it, touching it again says nothing new, and
 // promoting a 'human' habit to 'ai_edited' would be a lie.
 export async function updateHabit(
   userId: UserId,
   id: number,
-  input: HabitInput
+  input: HabitEdit
 ): Promise<boolean> {
   const rows = await db
     .update(habits)
@@ -285,8 +324,6 @@ export async function updateHabit(
       unit: input.unit,
       target: input.target,
       minimalAction: input.minimalAction,
-      templateKind: storedTemplateKind(input.templateKind),
-      why: input.why,
       source: sql`CASE WHEN ${habits.source} = 'ai_suggested'
                        THEN 'ai_edited' ELSE ${habits.source} END`,
     })
