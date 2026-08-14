@@ -7,7 +7,7 @@ import {
   StepTitle,
 } from "./OnboardingChrome";
 import { fieldBase, ghostButton, inputClass } from "@/components/ui/styles";
-import { ListCard } from "./ListCard";
+import { ListCard, type ListChip } from "./ListCard";
 import type { ExerciseKind, PlannedExercise } from "@/db/schema";
 import { exerciseScheme } from "@/lib/exercise";
 import { format, plural, type Copy } from "@/lib/i18n";
@@ -138,6 +138,21 @@ export function WorkoutStep({
     });
   }
 
+  // The two figures a folded day reports: how many exercises, and the total
+  // sets across them. Sets only appear once some are actually set — an
+  // exercise list with no sets recorded has nothing to add up.
+  function chipsFor(day: WorkoutDayDraft) {
+    const named = day.exercises.filter((e) => e.name.trim());
+    const sets = named.reduce((sum, e) => sum + (e.sets ?? 0), 0);
+    const chips: ListChip[] = [
+      { text: summaryFor(day).toUpperCase(), tone: "count" },
+    ];
+    if (sets > 0) {
+      chips.push({ text: format(copy.setCount, { n: sets }), tone: "muted" });
+    }
+    return chips;
+  }
+
   function summaryFor(day: WorkoutDayDraft): string {
     const count = day.exercises.filter((e) => e.name.trim()).length;
     return format(
@@ -169,8 +184,9 @@ export function WorkoutStep({
         {days.map((day, i) => (
           <li key={i}>
             <ListCard
-              title={`${copy.weekdays[day.weekday - 1]} · ${day.focus || copy.workout.focus}`}
-              detail={summaryFor(day)}
+              title={day.focus || copy.workout.focus}
+              badge={copy.weekdays[day.weekday - 1].slice(0, 3)}
+              chips={chipsFor(day)}
               open={openIndex === i}
               onToggle={() => {
                 setOpenIndex(openIndex === i ? null : i);
@@ -180,6 +196,22 @@ export function WorkoutStep({
               editing={editIndex === i}
               onEdit={() => setEditIndex(i)}
               editLabel={copy.config.edit}
+              {...(days.length > 1
+                ? {
+                    onRemove: () => {
+                      setDays((prev) => prev.filter((_, j) => j !== i));
+                      setOpenIndex(null);
+                      setEditIndex(null);
+                    },
+                    removeLabel: copy.workout.removeDay,
+                    removeConfirm: format(copy.confirmRemove, {
+                      name: day.focus || copy.weekdays[day.weekday - 1],
+                    }),
+                    removeWarning: copy.confirmWarning,
+                    removeCancel: copy.confirmCancel,
+                    removeGo: copy.confirmGo,
+                  }
+                : {})}
               read={
                 <ul className="flex flex-col gap-1.5 list-none">
                   {day.exercises
@@ -213,20 +245,6 @@ export function WorkoutStep({
                     </option>
                   ))}
                 </select>
-                {days.length > 1 && (
-                  <button
-                    type="button"
-                    aria-label={copy.workout.removeDay}
-                    onClick={() => {
-                      setDays((prev) => prev.filter((_, j) => j !== i));
-                      setOpenIndex(null);
-                      setEditIndex(null);
-                    }}
-                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
-                  >
-                    <X className="w-4 h-4" aria-hidden />
-                  </button>
-                )}
               </div>
 
               <input
