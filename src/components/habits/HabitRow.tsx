@@ -17,11 +17,20 @@ interface HabitRowProps {
   // Suggestions are marked until touched — that marking is what makes
   // accept / edit / reject legible rather than implicit.
   showSource?: boolean;
+  // Current run of done days. Omitted where the screen has no business
+  // claiming one — see the comment on the figure below.
+  streak?: number;
 }
 
-// One habit, as a row. Reports what the habit is and offers exactly two ways
-// out of reporting: Edit and Remove. The row itself is not a link, because a
-// card wrapping two buttons would nest interactive elements.
+// One habit, as a compact row.
+//
+// It reports four things and offers two actions, in a single band rather than
+// the stacked card this used to be. The density is the point: a list of habits
+// is something you scan to find the one you want to change, and a screen where
+// five habits meant five scrolls made you hunt.
+//
+// The row itself is not a link — a card wrapping two buttons would nest
+// interactive elements — so Edit and Remove are explicit targets.
 export function HabitRow({
   habit,
   copy,
@@ -29,35 +38,42 @@ export function HabitRow({
   removeAction,
   next,
   showSource = false,
+  streak,
 }: HabitRowProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const Icon = habitIcon(habit.templateKind, habit.domainSlug);
 
-  // How this habit is measured, as a phrase rather than a jargon word. The
-  // unit is user content and is never translated.
-  const metric =
+  // The measure, as a chip. For a counted or timed habit the user's own unit
+  // says more than the metric's name does ("PAGES" beats "COUNT"), so the unit
+  // wins when there is one. It is user content and is never translated.
+  const badge =
     habit.metricType === "binary"
-      ? copy.rowBinary
-      : format(
-          habit.metricType === "count" ? copy.rowCount : copy.rowDuration,
-          { unit: habit.unit ?? "—" }
-        );
+      ? copy.badgeBinary
+      : (habit.unit?.trim() || copy.badgeBinary).toUpperCase();
+
+  const target =
+    habit.target !== null
+      ? format(copy.rowTarget, { n: habit.target, unit: habit.unit ?? "" }).trim()
+      : copy.rowNoTarget;
 
   return (
-    <li className="border-2 border-forest rounded-card bg-white shadow-hard p-4">
-      <div className="flex items-start gap-3">
+    <li className="border-2 border-forest rounded-card bg-white shadow-hard">
+      {/* Wraps at 360px instead of squeezing any target under 44px, which is
+          why the row has a min-height rather than a fixed one. */}
+      <div className="min-h-[72px] flex items-center gap-3 flex-wrap px-3 py-2.5">
         <span
           aria-hidden
-          className="shrink-0 w-10 h-10 rounded-full border-2 border-forest bg-mint flex items-center justify-center"
+          className="shrink-0 w-11 h-11 rounded-lg bg-mint flex items-center justify-center"
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-5 h-5 text-clover" />
         </span>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <h3 className="font-semibold text-lg min-w-0 break-words">
-              {habit.name}
-            </h3>
+        <div className="min-w-0 flex-1 flex flex-col gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold break-words">{habit.name}</span>
+            <span className="shrink-0 font-mono text-[10px] font-bold tracking-wider text-clover bg-mint px-2 py-0.5 rounded-full">
+              {badge}
+            </span>
             {/* A badge earns its place only when it says something: an
                 untouched suggestion is worth calling out, an edited one is
                 worth distinguishing, and a hand-written habit needs neither. */}
@@ -73,48 +89,68 @@ export function HabitRow({
             )}
           </div>
 
-          <p className="text-sm opacity-75 mt-0.5">
-            {metric}
-            {habit.target !== null && (
+          {/* Target and the bad-day version on one line. The minimal action is
+              the half that gets truncated, because the target is short and
+              bounded while this is free text. */}
+          <p className="flex items-center gap-1.5 min-w-0 text-sm opacity-75">
+            <span className="shrink-0">{target}</span>
+            {habit.minimalAction && (
               <>
-                {" · "}
-                {format(copy.rowTarget, {
-                  n: habit.target,
-                  unit: habit.unit ?? "",
-                }).trim()}
+                <span aria-hidden className="shrink-0 opacity-40">
+                  ·
+                </span>
+                <span className="min-w-0 truncate">
+                  {format(copy.rowMinimal, { action: habit.minimalAction })}
+                </span>
               </>
             )}
           </p>
+        </div>
 
-          {habit.minimalAction && (
-            <p className="text-sm mt-2 bg-mint border-2 border-forest rounded-lg px-3 py-1.5">
-              {habit.minimalAction}
+        <div className="shrink-0 flex items-center gap-2.5 ml-auto">
+          {/* Never rendered for a habit with no run going. UX_PRINCIPLES:
+              don't show a number the data can't support — a zero here would
+              read as a verdict on somebody's week rather than as an absence
+              of data. */}
+          {streak !== undefined && streak > 0 && (
+            <p className="text-right leading-none">
+              <span className="block font-mono font-bold text-straw">
+                {format(copy.streakValue, { n: streak })}
+              </span>
+              <span className="block text-[9px] font-bold tracking-wider opacity-50 mt-0.5">
+                {copy.streakLabel}
+              </span>
             </p>
           )}
 
-          {/* The one-line reason a suggestion gave. Kept visible after an edit
-              too — it is why the habit is on the list at all. */}
-          {habit.why && (
-            <p className="text-sm opacity-75 mt-2 italic">{habit.why}</p>
-          )}
+          <div className="flex gap-1.5">
+            <Link
+              href={editHref}
+              aria-label={`${copy.edit} ${habit.name}`}
+              className={`${ghostButton} !min-w-[44px] !px-0 w-11 justify-center`}
+            >
+              <Pencil className="w-4 h-4" aria-hidden />
+            </Link>
+            <button
+              type="button"
+              onClick={() => dialogRef.current?.showModal()}
+              aria-label={`${copy.remove} ${habit.name}`}
+              className={`${ghostButton} !min-w-[44px] !px-0 w-11 justify-center`}
+            >
+              <Trash2 className="w-4 h-4 text-[#a8452f]" aria-hidden />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Wrapping at 360px rather than shrinking below the touch target. */}
-      <div className="flex gap-2 flex-wrap mt-3 justify-end">
-        <Link href={editHref} className={ghostButton}>
-          <Pencil className="w-4 h-4 mr-1.5" aria-hidden />
-          {copy.edit}
-        </Link>
-        <button
-          type="button"
-          onClick={() => dialogRef.current?.showModal()}
-          className={ghostButton}
-        >
-          <Trash2 className="w-4 h-4 mr-1.5" aria-hidden />
-          {copy.remove}
-        </button>
-      </div>
+      {/* The one-line reason a suggestion gave. Below the band rather than in
+          it: it is the longest text on the row and would break the density
+          everywhere else. */}
+      {habit.why && (
+        <p className="text-sm opacity-75 italic border-t-2 border-dashed border-sand px-3 py-2">
+          {habit.why}
+        </p>
+      )}
 
       {/* Removing a tracked habit stops a record that may go back months, so
           it asks first. The safe choice is focused by default. */}
