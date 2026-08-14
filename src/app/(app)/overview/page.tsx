@@ -8,6 +8,9 @@ import { ConsistencyPanel } from "@/components/overview/ConsistencyPanel";
 import { StatCards, type StatCard } from "@/components/overview/StatCards";
 import { ActivitiesSection } from "@/components/ActivitiesSection";
 import { ValuesCard } from "@/components/assessment/ValuesCard";
+import { HabitSummaryRow } from "@/components/habits/HabitSummaryRow";
+import { ghostButton } from "@/components/ui/styles";
+import { getHabitStreaks, listHabits } from "@/db/habits";
 import { getSetupSummary } from "@/lib/setup-summary";
 import {
   getMonthData,
@@ -19,7 +22,7 @@ import {
 } from "@/db/queries";
 import { getLang } from "@/lib/get-lang";
 import { requireUserId } from "@/lib/session";
-import { COPY, format, habitName, type Lang } from "@/lib/i18n";
+import { COPY, format, habitName, type Copy, type Lang } from "@/lib/i18n";
 import {
   addDays,
   addMonths,
@@ -87,17 +90,76 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
         />
       )}
 
-      {/* The same question at a different timescale: the views above cover
-          this week and this month, this covers the half-year. */}
-      <ValuesCard userId={userId} lang={lang} copy={copy.assessment} />
-
-      {/* Editable setup, below the frequency views. */}
+      {/* Below the charts, the page zooms out one step at a time: what you do
+          on a given day, then the habits those days are made of, then the
+          values the habits came from. Activities first because it is the layer
+          you touch most — the plan, the book, the blocks are what a week is
+          actually made of, and they change far more often than a habit does.
+          Values last because it moves once a cycle. */}
       <ActivitiesSection
         rows={setup}
         copy={copy.today}
         readingCopy={copy.onboarding.reading}
       />
+
+      <HabitsSection userId={userId} lang={lang} today={today} copy={copy} />
+
+      {/* The same question at a different timescale: the views above cover
+          this week and this month, this covers the half-year. */}
+      <ValuesCard userId={userId} lang={lang} copy={copy.assessment} />
     </main>
+  );
+}
+
+// The habits, where they now live: inside Overview rather than behind a
+// top-level tab. It reports and links out — every change still happens on
+// /habits, so this section never grows an editing control of its own.
+async function HabitsSection({
+  userId,
+  lang,
+  today,
+  copy,
+}: {
+  userId: UserId;
+  lang: Lang;
+  today: string;
+  copy: Copy;
+}) {
+  const [habits, streaks] = await Promise.all([
+    listHabits(userId, today),
+    getHabitStreaks(userId, today),
+  ]);
+
+  return (
+    <section className="mt-10">
+      <div className="flex items-end justify-between gap-3 flex-wrap mb-3">
+        <div>
+          <p className="eyebrow">{copy.habits.eyebrow}</p>
+          <h2 className="display-title text-2xl mt-1">{copy.habits.title}</h2>
+        </div>
+        <Link href="/habits" className={`${ghostButton} shrink-0`}>
+          {habits.length === 0 ? copy.habits.add : copy.habits.manage}
+        </Link>
+      </div>
+
+      {habits.length === 0 ? (
+        <p className="border-2 border-forest rounded-card bg-white shadow-hard px-4 py-3.5 opacity-75">
+          {copy.habits.emptyLead}
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2.5 list-none">
+          {habits.map((habit) => (
+            <HabitSummaryRow
+              key={habit.id}
+              habit={habit}
+              lang={lang}
+              copy={copy.habits}
+              streak={streaks[habit.id]}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
