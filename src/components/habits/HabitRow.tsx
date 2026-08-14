@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
 import { habitIcon } from "@/lib/icons";
 import { format, type Copy } from "@/lib/i18n";
-import { ghostButton } from "@/components/ui/styles";
+import { ghostButton, iconButton } from "@/components/ui/styles";
 import type { HabitRow as HabitRowData } from "@/db/habits";
 
 interface HabitRowProps {
@@ -127,7 +127,7 @@ export function HabitRow({
             <Link
               href={editHref}
               aria-label={`${copy.edit} ${habit.name}`}
-              className={`${ghostButton} !min-w-[44px] !px-0 w-11 justify-center`}
+              className={iconButton}
             >
               <Pencil className="w-4 h-4" aria-hidden />
             </Link>
@@ -135,7 +135,7 @@ export function HabitRow({
               type="button"
               onClick={() => dialogRef.current?.showModal()}
               aria-label={`${copy.remove} ${habit.name}`}
-              className={`${ghostButton} !min-w-[44px] !px-0 w-11 justify-center`}
+              className={iconButton}
             >
               <Trash2 className="w-4 h-4 text-[#a8452f]" aria-hidden />
             </button>
