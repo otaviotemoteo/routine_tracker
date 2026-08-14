@@ -69,6 +69,20 @@ async function main(): Promise<void> {
         ON habits (user_id, slug)
     `);
 
+    // And the GLOBAL uniqueness has to be gone before it, for the same reason
+    // one line later would be too late: cloning seven habits across three
+    // accounts writes 'treino' three times, which is precisely what a global
+    // UNIQUE(slug) forbids. Dropping this alongside the other constraint work
+    // at the end of the script left step 2 inserting against a constraint that
+    // was still live, and the whole migration rolled back on the first clone.
+    //
+    // That old constraint is the modelling error this migration exists to undo
+    // — it is what stopped two people from both tracking "leitura" — so it
+    // belongs here, before the first row that depends on it being gone, rather
+    // than filed with the constraints added at the end.
+    await client.query(`ALTER TABLE habits DROP CONSTRAINT IF EXISTS habits_slug_unique`);
+    await client.query(`ALTER TABLE habits DROP CONSTRAINT IF EXISTS habits_slug_key`);
+
     // ── 2. Clone the catalogue, once per account ────────────────────────────
     // template_kind = the old slug, so each clone keeps rendering through the
     // renderer it always used. position comes from the catalogue order rather
@@ -154,11 +168,9 @@ async function main(): Promise<void> {
     // one a generator wrote but the user has not accepted — stays invisible.
 
     // ── 6. Constraints ──────────────────────────────────────────────────────
-    // The old global slug uniqueness is exactly what stopped two people from
-    // both tracking "leitura".
-    await client.query(`ALTER TABLE habits DROP CONSTRAINT IF EXISTS habits_slug_unique`);
-    await client.query(`ALTER TABLE habits DROP CONSTRAINT IF EXISTS habits_slug_key`);
-
+    // The old global slug uniqueness was already dropped in step 1 — it had to
+    // be, or the clone could not have run at all.
+    //
     // ADD CONSTRAINT has no IF NOT EXISTS; both statements are in the same
     // transaction, so the constraint is only absent for the instant between.
     for (const [name, expr] of [
