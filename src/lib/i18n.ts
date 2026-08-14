@@ -567,6 +567,15 @@ export interface Copy {
         duolingo: string;
         spirituality: string;
       };
+      // The third line of each Activities row — a count of what is set up.
+      meta: {
+        workoutDays: string; // {n}
+        sleepWindow: string; // {n}
+        routineBlocks: string; // {n}
+        languages: string; // {n}
+        practices: string; // {n}
+        books: string; // {n}
+      };
     };
     config: { eyebrow: string; title: string; lead: string; edit: string };
     unsaved: {
@@ -1104,6 +1113,14 @@ export const COPY: Record<Lang, Copy> = {
           routine: "Routine",
           duolingo: "Duolingo",
           spirituality: "Spirituality",
+        },
+        meta: {
+          workoutDays: "{n} training days in the plan",
+          sleepWindow: "{n}h window per night",
+          routineBlocks: "{n} blocks in the day",
+          languages: "{n} languages",
+          practices: "{n} practices a day",
+          books: "{n} books on the list",
         },
       },
       config: {
@@ -1645,6 +1662,14 @@ export const COPY: Record<Lang, Copy> = {
           routine: "Rotina",
           duolingo: "Duolingo",
           spirituality: "Espiritualidade",
+        },
+        meta: {
+          workoutDays: "{n} dias de treino no plano",
+          sleepWindow: "janela de {n}h por noite",
+          routineBlocks: "{n} blocos no dia",
+          languages: "{n} idiomas",
+          practices: "{n} práticas por dia",
+          books: "{n} livros na lista",
         },
       },
       config: {
