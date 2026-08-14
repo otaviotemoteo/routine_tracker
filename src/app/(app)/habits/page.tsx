@@ -4,10 +4,10 @@ import { StepTitle } from "@/components/onboarding/OnboardingChrome";
 import { HabitGroups } from "@/components/habits/HabitGroups";
 import { PendingNotice } from "@/components/habits/PendingNotice";
 import { removeHabitAction } from "./actions";
-import { listHabits, listProposedHabits } from "@/db/habits";
+import { getHabitStreaks, listHabits, listProposedHabits } from "@/db/habits";
 import { findPendingRequest } from "@/db/ai";
 import { getLang } from "@/lib/get-lang";
-import { COPY } from "@/lib/i18n";
+import { COPY, format } from "@/lib/i18n";
 import { primaryButton } from "@/components/ui/styles";
 import { requireUserId } from "@/lib/session";
 import { todayInSaoPaulo } from "@/lib/utils";
@@ -21,19 +21,50 @@ export default async function HabitsPage() {
   const lang = await getLang();
   const copy = COPY[lang].habits;
 
-  const [habits, proposed, pending] = await Promise.all([
-    listHabits(userId, todayInSaoPaulo()),
+  const today = todayInSaoPaulo();
+  const [habits, proposed, pending, streaks] = await Promise.all([
+    listHabits(userId, today),
     listProposedHabits(userId),
     findPendingRequest(userId, "habit_suggester"),
+    getHabitStreaks(userId, today),
   ]);
+
+  // Habits with no life area still count on Today, but they sit outside the
+  // per-area totals in the week and month views — which is a quiet way to be
+  // wrong about your own week, so the screen says it out loud.
+  const unanchored = habits.filter((h) => h.domainSlug === null).length;
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-8 pb-24">
       <p className="eyebrow">{copy.eyebrow}</p>
-      <StepTitle backHref="/" backLabel={copy.back}>
-        {copy.title}
-      </StepTitle>
+      {/* The count sits beside the title rather than under it: it is the one
+          number this screen has, and it answers "how much am I carrying?"
+          before you read a single row. */}
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <StepTitle backHref="/overview" backLabel={copy.back}>
+          {copy.title}
+        </StepTitle>
+        {habits.length > 0 && (
+          <p className="shrink-0 border-2 border-forest rounded-card bg-white px-3 py-1.5 text-right leading-none">
+            <span className="block font-mono font-bold text-lg">
+              {habits.length}
+            </span>
+            <span className="block text-[10px] font-bold tracking-wider opacity-50 mt-1">
+              {copy.activeLabel}
+            </span>
+          </p>
+        )}
+      </div>
       <p className="mt-2 mb-6 opacity-75">{copy.lead}</p>
+
+      {unanchored > 0 && (
+        <div className="mb-6 border-2 border-forest bg-straw/25 rounded-card px-4 py-3">
+          <p className="font-mono text-[10px] font-bold tracking-wider opacity-70">
+            {format(copy.noAreaEyebrow, { n: unanchored })}
+          </p>
+          <p className="mt-1.5 text-sm">{copy.noAreaLead}</p>
+        </div>
+      )}
 
       {/* A generation that failed left a request behind. Quiet and
           non-blocking: the app never freezes on somebody else's outage. */}
@@ -68,6 +99,7 @@ export default async function HabitsPage() {
             removeAction={removeHabitAction}
             editHrefFor={(id) => `/habits/${id}`}
             next="/habits"
+            streaks={streaks}
           />
           <div className="mt-8">
             <Link href="/habits/new" className={primaryButton}>
