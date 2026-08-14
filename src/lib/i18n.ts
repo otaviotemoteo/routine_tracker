@@ -331,6 +331,28 @@ export interface Copy {
     rowCount: string; // {unit}
     rowDuration: string; // {unit}
     rowTarget: string; // {n} {unit}
+    // The compact list row
+    activeLabel: string; // stat box under the count
+    streakLabel: string; // under the per-habit streak figure
+    streakValue: string; // {n} — the figure itself, e.g. "12d"
+    badgeBinary: string; // measure chip when there is no unit to show
+    rowMinimal: string; // {action}
+    rowNoTarget: string; // when no target is set
+    noAreaEyebrow: string; // {n}
+    noAreaLead: string;
+    // The form, in three numbered steps
+    step1: string;
+    step2: string;
+    step3: string;
+    step2Hint: string;
+    areaHint: string;
+    minimalLead: string;
+    previewLabel: string;
+    previewFilled: string; // {action}
+    previewEmpty: string;
+    unitDone: string;
+    unitCount: string;
+    unitTime: string;
     // The suggestion review screen
     reviewEyebrow: string;
     reviewTitle: string;
@@ -821,6 +843,29 @@ export const COPY: Record<Lang, Copy> = {
       rowCount: "counted in {unit}",
       rowDuration: "measured in {unit}",
       rowTarget: "target {n} {unit}",
+      activeLabel: "ACTIVE",
+      streakLabel: "IN A ROW",
+      streakValue: "{n}d",
+      badgeBinary: "DID IT OR NOT",
+      rowMinimal: "smallest version: {action}",
+      rowNoTarget: "no target",
+      noAreaEyebrow: "NO AREA YET · {n} HABITS",
+      noAreaLead:
+        "Areas come from the values check-in. Without one, a habit still counts on Today but stays out of the per-area totals in the week and month views. Edit a habit to give it an area.",
+      step1: "1 · WHAT IT IS",
+      step2: "2 · HOW YOU'LL MEASURE IT",
+      step3: "3 · THE SMALLEST VERSION",
+      step2Hint: "sets the number on the card",
+      areaHint: "The area groups the totals in the week and month views.",
+      minimalLead:
+        "What still counts on a bad day. This is what the card offers you when the day has gone wrong.",
+      previewLabel: "PREVIEW ON TODAY'S CARD",
+      previewFilled: "Bad day? The card suggests: {action}.",
+      previewEmpty:
+        "Fill in the smallest version and the card has something to offer on a bad day.",
+      unitDone: "DONE",
+      unitCount: "Nº",
+      unitTime: "MIN",
       reviewEyebrow: "Build your habits",
       reviewTitle: "Your daily habits",
       reviewLead: "Suggestions, one set per area. Change anything that isn't right, remove what doesn't fit, and add your own. Nothing is tracked until you start.",
@@ -1339,6 +1384,29 @@ export const COPY: Record<Lang, Copy> = {
       rowCount: "contado em {unit}",
       rowDuration: "medido em {unit}",
       rowTarget: "meta de {n} {unit}",
+      activeLabel: "ATIVOS",
+      streakLabel: "SEGUIDOS",
+      streakValue: "{n}d",
+      badgeBinary: "FEZ OU NÃO",
+      rowMinimal: "menor versão: {action}",
+      rowNoTarget: "sem meta",
+      noAreaEyebrow: "AINDA SEM ÁREA · {n} HÁBITOS",
+      noAreaLead:
+        "As áreas vêm do check-in de valores. Sem uma, o hábito continua contando no Hoje, mas fica de fora dos totais por área na semana e no mês. Edite um hábito para dar uma área a ele.",
+      step1: "1 · IDENTIFICAÇÃO",
+      step2: "2 · COMO VOCÊ VAI MEDIR",
+      step3: "3 · A MENOR VERSÃO",
+      step2Hint: "define o número do cartão",
+      areaHint: "A área agrupa os totais na visão semanal e mensal.",
+      minimalLead:
+        "O que ainda conta num dia ruim. É isso que o cartão te oferece quando o dia deu errado.",
+      previewLabel: "PRÉVIA NO CARTÃO DE HOJE",
+      previewFilled: "Dia ruim? O cartão sugere: {action}.",
+      previewEmpty:
+        "Preencha a menor versão para o cartão ter o que sugerir num dia ruim.",
+      unitDone: "FEITO",
+      unitCount: "Nº",
+      unitTime: "MIN",
       reviewEyebrow: "Monte seus hábitos",
       reviewTitle: "Seus hábitos diários",
       reviewLead: "Sugestões, um conjunto por área. Mude o que não estiver certo, remova o que não serve e adicione os seus. Nada é acompanhado até você começar.",
