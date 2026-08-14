@@ -9,6 +9,7 @@ import {
   getHabit,
   removeHabit,
   updateHabit,
+  type HabitEdit,
   type HabitInput,
 } from "@/db/habits";
 import { resolvePendingRequest } from "@/db/ai";
@@ -72,7 +73,12 @@ function parseForm(formData: FormData) {
   });
 }
 
-function toInput(data: z.infer<typeof habitSchema>): HabitInput {
+// The fields the form actually shows — and therefore the only fields an edit
+// is allowed to write. `template_kind` and `why` are deliberately absent: the
+// form has no input for either, and sending a default for a field nobody
+// filled in is how the owner's seven habits lost their Today cards. The type
+// makes including them a compile error; see HabitEdit in src/db/habits.ts.
+function toEdit(data: z.infer<typeof habitSchema>): HabitEdit {
   return {
     name: data.name,
     domainSlug: data.domainSlug,
@@ -83,9 +89,14 @@ function toInput(data: z.infer<typeof habitSchema>): HabitInput {
     unit: data.metricType === "binary" ? null : data.unit,
     target: data.metricType === "binary" ? null : data.target,
     minimalAction: data.minimalAction,
-    templateKind: PLAIN_KIND,
-    why: null,
   };
+}
+
+// Creating also fixes the renderer. Every habit this app creates is plain —
+// choosing a richer card is a separate, deliberate step, not a side effect of
+// filling in a name.
+function toInput(data: z.infer<typeof habitSchema>): HabitInput {
+  return { ...toEdit(data), templateKind: PLAIN_KIND, why: null };
 }
 
 export async function createHabitAction(formData: FormData): Promise<void> {
@@ -119,7 +130,7 @@ export async function updateHabitAction(formData: FormData): Promise<void> {
   // Ownership is in the UPDATE's WHERE clause, so a foreign id matches no row.
   // The redirect on failure says "not yours" and "doesn't exist" identically,
   // which is the same reason the login form has one error message.
-  const ok = await updateHabit(userId, id, toInput(parsed.data));
+  const ok = await updateHabit(userId, id, toEdit(parsed.data));
   if (!ok) redirect("/habits");
 
   revalidatePath("/habits");
