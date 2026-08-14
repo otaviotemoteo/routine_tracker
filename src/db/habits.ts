@@ -8,12 +8,19 @@
 // but not accepted: it exists so that a 5–20 second generation survives a
 // refresh, and it is invisible to every screen except the review one. The
 // filters live in src/db/scope.ts so no caller can forget them.
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { db } from "./index";
-import { habits, lifeDomains, type HabitSource, type MetricType } from "./schema";
+import {
+  dailyChecks,
+  habits,
+  lifeDomains,
+  type HabitSource,
+  type MetricType,
+} from "./schema";
 import { habitsFor, proposedHabitsFor, type UserId } from "./scope";
 import { storedTemplateKind, type SuggestableTemplateKind } from "@/lib/templates";
 import type { DomainSlug } from "@/lib/domains";
+import { addDays, calcStreak } from "@/lib/utils";
 
 export interface HabitRow {
   id: number;
@@ -114,6 +121,49 @@ export async function getHabit(
     and(eq(habits.id, id), eq(habits.userId, userId))
   );
   return row ? toRow(row) : null;
+}
+
+// Current run of done days per habit, keyed by id.
+//
+// Deliberately not reused from getTodayComparisons, which answers the same
+// question but also loads sleep, hobby, language and practice history for the
+// Today cards. The habits list shows one figure per row and has no business
+// paying for the rest of that payload.
+//
+// The window is bounded: a streak longer than this reads as the window, which
+// is the same compromise the Today cards make, and is what keeps this a single
+// indexed range scan rather than a walk back through every check ever written.
+const STREAK_WINDOW_DAYS = 400;
+
+export async function getHabitStreaks(
+  userId: UserId,
+  today: string
+): Promise<Record<number, number>> {
+  const rows = await db
+    .select({ habitId: dailyChecks.habitId, date: dailyChecks.checkedAt })
+    .from(dailyChecks)
+    .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+    .where(
+      and(
+        eq(dailyChecks.userId, userId),
+        eq(dailyChecks.done, true),
+        gte(dailyChecks.checkedAt, addDays(today, -STREAK_WINDOW_DAYS)),
+        lte(dailyChecks.checkedAt, today)
+      )
+    );
+
+  const datesByHabit = new Map<number, Set<string>>();
+  for (const row of rows) {
+    const set = datesByHabit.get(row.habitId) ?? new Set<string>();
+    set.add(row.date);
+    datesByHabit.set(row.habitId, set);
+  }
+
+  const out: Record<number, number> = {};
+  for (const [habitId, dates] of datesByHabit) {
+    out[habitId] = calcStreak(dates, today);
+  }
+  return out;
 }
 
 export async function countTrackedHabits(userId: UserId): Promise<number> {
