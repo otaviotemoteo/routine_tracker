@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, X } from "lucide-react";
+import { iconButton } from "@/components/ui/styles";
 
 export interface ListChip {
   text: string;
@@ -42,11 +43,15 @@ interface ListCardProps {
 // One entry in a list you're building (a training day, a book, a routine
 // block), in three states: folded, open for reading, and editing.
 //
-// Opening and editing are deliberately separate. Arriving at a step you filled
-// in weeks ago should let you *look* at it — dropping straight into a form
-// invites changes nobody asked to make, and makes it unclear whether what you
-// see is a record or a draft (UX_PRINCIPLES: "a screen either reports or
-// edits").
+// Two ways in, and the difference is the point. TAPPING THE ROW opens it to
+// read — what you want when you came to check what a day holds, not to change
+// it. TAPPING THE PENCIL opens it straight into the form, which is what you
+// want when you already know what you came to fix. Both are one tap; neither
+// makes you pass through the other.
+//
+// The row used to offer only the first, so editing meant open-then-find-a-
+// second-button, and that second button was a text pill wedged between a bare
+// icon and a chevron.
 //
 // Removal confirms INLINE, in a band that pushes the row open, rather than in
 // a modal dialog. A dialog for "remove one of eight training days" throws the
@@ -128,46 +133,44 @@ export function ListCard({
           </span>
         </button>
 
-        {/* Edit sits next to the chevron rather than under the content: the two
-            things you can do to an entry belong together, at its edge.
-            A 28px chip, with an ::after stretching the hit area back to 44px —
-            small to look at, still big enough to hit with a thumb. */}
-        {open && !editing && (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="relative shrink-0 h-7 inline-flex items-center gap-1.5 px-2.5 rounded-full border-2 border-forest bg-mint font-semibold text-xs after:absolute after:content-[''] after:inset-x-0 after:-inset-y-2"
-          >
-            <Pencil className="w-3 h-3" aria-hidden />
-            {editLabel}
-          </button>
-        )}
+        {/* Two square cards, always in the same order: remove, then open.
+            They replaced a text "Edit" pill sitting beside a bare trash icon
+            and a chevron — three different shapes for three actions on one
+            row, which read as three unrelated controls rather than as the
+            handles of one entry.
 
+            The pencil turns into an X once open, so the same target that
+            opened the row closes it. */}
         {onRemove && removeLabel && (
           <button
             type="button"
             onClick={() => setConfirming(true)}
             aria-label={`${removeLabel}: ${title}`}
-            className="shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-full"
+            className={iconButton}
           >
             <Trash2 className="w-4 h-4 text-[#a8452f]" aria-hidden />
           </button>
         )}
 
-        {/* A second handle on the same action: the title button is the one
-            keyboard and screen readers use, this is just the visible chevron. */}
         <button
           type="button"
-          aria-hidden
-          tabIndex={-1}
-          onClick={onToggle}
-          className="shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+          aria-expanded={open}
+          aria-label={`${open ? toggleLabel : editLabel}: ${title}`}
+          onClick={() => {
+            if (open) {
+              onToggle();
+            } else {
+              onToggle();
+              onEdit();
+            }
+          }}
+          className={`${iconButton} ${open ? "bg-mint" : ""}`}
         >
-          <ChevronRight
-            className={`w-5 h-5 transition-transform duration-150 motion-reduce:transition-none ${
-              open ? "rotate-90" : ""
-            }`}
-          />
+          {open ? (
+            <X className="w-4 h-4" aria-hidden />
+          ) : (
+            <Pencil className="w-4 h-4" aria-hidden />
+          )}
         </button>
       </div>
 
