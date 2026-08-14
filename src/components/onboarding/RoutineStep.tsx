@@ -124,10 +124,24 @@ export function RoutineStep({
         {blocks.map((block, i) => (
           <li key={i}>
             <ListCard
-              title={`${block.startTime} – ${block.endTime} · ${
-                block.activity || copy.routine.activity
-              }`}
-              detail={block.weekdays.map((d) => copy.weekdays[d - 1]).join(", ")}
+              title={block.activity || copy.routine.activity}
+              badge={block.startTime.slice(0, 5)}
+              chips={[
+                {
+                  text: `${block.startTime.slice(0, 5)}–${block.endTime.slice(0, 5)}`,
+                  tone: "count" as const,
+                },
+                ...(block.weekdays.length
+                  ? [
+                      {
+                        text: block.weekdays
+                          .map((d) => copy.weekdays[d - 1].slice(0, 3))
+                          .join(" "),
+                        tone: "muted" as const,
+                      },
+                    ]
+                  : []),
+              ]}
               open={openIndex === i}
               onToggle={() => {
                 setOpenIndex(openIndex === i ? null : i);
