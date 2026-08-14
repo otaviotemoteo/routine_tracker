@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
+import { Check } from "lucide-react";
 import { fieldBase, ghostButton, primaryButton } from "@/components/ui/styles";
 import { DOMAIN_SLUGS, type DomainSlug } from "@/lib/domains";
 import { ASSESSMENT_COPY } from "@/lib/i18n-assessment";
-import type { Copy, Lang } from "@/lib/i18n";
+import { format, type Copy, type Lang } from "@/lib/i18n";
 import type { MetricType } from "@/db/schema";
 
 export interface HabitFormValues {
@@ -34,6 +35,29 @@ interface HabitFormProps {
 
 const labelClass = "block mb-1.5 font-semibold text-sm";
 const hintClass = "mt-1 text-sm opacity-75";
+
+// One numbered step of the form, on its own surface.
+function Section({
+  step,
+  aside,
+  children,
+}: {
+  step: string;
+  aside?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-2 border-forest rounded-card bg-white shadow-hard p-4">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap mb-3">
+        <h2 className="font-mono text-[10px] font-bold tracking-wider opacity-60">
+          {step}
+        </h2>
+        {aside && <p className="text-xs font-semibold opacity-60">{aside}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 // The habit form — used for both create and edit, empty or prefilled.
 //
@@ -108,7 +132,12 @@ export function HabitForm({
         </p>
       )}
 
-      <div>
+      {/* Three numbered steps rather than one flat column of fields.
+          The habit form asks for three different KINDS of thing — what it is,
+          how it is counted, and what the bad-day version is — and numbering
+          them turns "a form" into "three small questions", which is the
+          difference between filling it in and abandoning it. */}
+      <Section step={copy.step1}>
         <label htmlFor="habit-name" className={labelClass}>
           {copy.name}
         </label>
@@ -123,12 +152,17 @@ export function HabitForm({
           onChange={(e) => setName(e.target.value)}
           className={`${fieldBase} w-full`}
         />
-      </div>
 
-      <div>
-        <label htmlFor="habit-area" className={labelClass}>
-          {copy.area}
-        </label>
+        <div className="flex items-baseline justify-between gap-3 mt-4 mb-1.5">
+          <label htmlFor="habit-area" className="font-semibold text-sm">
+            {copy.area}
+          </label>
+          {domainSlug === "" && (
+            <span className="text-xs font-semibold opacity-60">
+              {copy.areaNone}
+            </span>
+          )}
+        </div>
         <select
           id="habit-area"
           name="domainSlug"
@@ -143,91 +177,120 @@ export function HabitForm({
             </option>
           ))}
         </select>
-      </div>
+        <p className={hintClass}>{copy.areaHint}</p>
+      </Section>
 
-      <fieldset>
-        <legend className={labelClass}>{copy.metric}</legend>
-        <div className="flex flex-col gap-2">
-          {(
-            [
-              ["binary", copy.metricBinary, copy.metricBinaryHint],
-              ["count", copy.metricCount, copy.metricCountHint],
-              ["duration", copy.metricDuration, copy.metricDurationHint],
-            ] as const
-          ).map(([value, label, hint]) => (
-            <label
-              key={value}
-              className={`flex items-start gap-3 min-h-[44px] px-3 py-2 border-2 border-forest rounded-lg cursor-pointer ${
-                metricType === value ? "bg-mint" : "bg-cream"
-              }`}
-            >
+      <Section step={copy.step2} aside={copy.step2Hint}>
+        <fieldset>
+          <legend className="sr-only">{copy.metric}</legend>
+          <div className="flex flex-col gap-2">
+            {(
+              [
+                ["binary", copy.metricBinary, copy.metricBinaryHint, copy.unitDone],
+                ["count", copy.metricCount, copy.metricCountHint, copy.unitCount],
+                [
+                  "duration",
+                  copy.metricDuration,
+                  copy.metricDurationHint,
+                  copy.unitTime,
+                ],
+              ] as const
+            ).map(([value, label, hint, badge]) => {
+              const on = metricType === value;
+              return (
+                <label
+                  key={value}
+                  className={`flex items-center gap-3 min-h-[44px] px-3 py-2.5 border-2 rounded-lg cursor-pointer ${
+                    on ? "bg-mint border-clover" : "bg-cream border-sand"
+                  }`}
+                >
+                  {/* The native radio stays — it is what makes this a real
+                      radio group for the keyboard and for a screen reader —
+                      and the circle beside it is the visible one. */}
+                  <input
+                    type="radio"
+                    name="metricType"
+                    value={value}
+                    checked={on}
+                    onChange={() => setMetricType(value)}
+                    className="sr-only peer"
+                  />
+                  <span
+                    aria-hidden
+                    className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center peer-focus-visible:ring-2 peer-focus-visible:ring-clover peer-focus-visible:ring-offset-2 ${
+                      on ? "border-clover bg-clover" : "border-sand bg-white"
+                    }`}
+                  >
+                    {on && <Check className="w-3 h-3 text-white" strokeWidth={4} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-semibold block">{label}</span>
+                    <span className="text-sm opacity-75 block">{hint}</span>
+                  </span>
+                  <span
+                    className={`shrink-0 font-mono text-[10px] font-bold tracking-wider px-2 py-1 rounded-full ${
+                      on ? "bg-clover/20 text-forest" : "bg-sand/50 opacity-60"
+                    }`}
+                  >
+                    {badge}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        {/* Revealed on relevance: these two only mean anything once the habit
+            has a number to carry them. */}
+        {counts && (
+          <div className="flex gap-3 flex-wrap mt-4">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="habit-unit" className={labelClass}>
+                {copy.unit}
+              </label>
               <input
-                type="radio"
-                name="metricType"
-                value={value}
-                checked={metricType === value}
-                onChange={() => setMetricType(value)}
-                className="mt-1"
+                id="habit-unit"
+                name="unit"
+                maxLength={20}
+                placeholder={copy.unitPlaceholder}
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                className={`${fieldBase} w-full`}
               />
-              <span className="min-w-0">
-                <span className="font-semibold block">{label}</span>
-                <span className="text-sm opacity-75 block">{hint}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      {/* Revealed on relevance: these two only mean anything once the habit
-          has a number to carry them. */}
-      {counts && (
-        <>
-          <div>
-            <label htmlFor="habit-unit" className={labelClass}>
-              {copy.unit}
-            </label>
-            <input
-              id="habit-unit"
-              name="unit"
-              maxLength={20}
-              placeholder={copy.unitPlaceholder}
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              className={`${fieldBase} w-full max-w-[16rem]`}
-            />
-            <p className={hintClass}>{copy.unitHint}</p>
+              <p className={hintClass}>{copy.unitHint}</p>
+            </div>
+            <div className="shrink-0">
+              <label htmlFor="habit-target" className={labelClass}>
+                {copy.target}
+              </label>
+              <input
+                id="habit-target"
+                name="target"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                className={`${fieldBase} font-mono w-[7rem]`}
+              />
+              <p className={hintClass}>{copy.targetHint}</p>
+            </div>
           </div>
+        )}
 
-          <div>
-            <label htmlFor="habit-target" className={labelClass}>
-              {copy.target}
-            </label>
-            <input
-              id="habit-target"
-              name="target"
-              type="number"
-              min={1}
-              inputMode="numeric"
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              className={`${fieldBase} font-mono max-w-[7rem]`}
-            />
-            <p className={hintClass}>{copy.targetHint}</p>
-          </div>
-        </>
-      )}
+        {/* Hidden inputs keep the submitted shape stable when the metric is
+            binary, so the action always sees every field. */}
+        {!counts && (
+          <>
+            <input type="hidden" name="unit" value="" />
+            <input type="hidden" name="target" value="" />
+          </>
+        )}
+      </Section>
 
-      {/* Hidden inputs keep the submitted shape stable when the metric is
-          binary, so the action always sees every field. */}
-      {!counts && (
-        <>
-          <input type="hidden" name="unit" value="" />
-          <input type="hidden" name="target" value="" />
-        </>
-      )}
-
-      <div>
-        <label htmlFor="habit-minimal" className={labelClass}>
+      <Section step={copy.step3}>
+        <p className="text-sm opacity-75 mb-3">{copy.minimalLead}</p>
+        <label htmlFor="habit-minimal" className="sr-only">
           {copy.minimalAction}
         </label>
         <input
@@ -239,8 +302,22 @@ export function HabitForm({
           onChange={(e) => setMinimalAction(e.target.value)}
           className={`${fieldBase} w-full`}
         />
-        <p className={hintClass}>{copy.minimalActionHint}</p>
-      </div>
+
+        {/* The field's consequence, shown as you type. This is the one input
+            whose value reappears verbatim on another screen, months later, on
+            the worst day — so seeing the sentence it will become is worth more
+            than a hint explaining it. */}
+        <div className="mt-3 bg-straw/25 rounded-lg px-3 py-2.5">
+          <p className="font-mono text-[9px] font-bold tracking-wider opacity-60">
+            {copy.previewLabel}
+          </p>
+          <p aria-live="polite" className="mt-1 text-sm font-semibold">
+            {minimalAction.trim()
+              ? format(copy.previewFilled, { action: minimalAction.trim() })
+              : copy.previewEmpty}
+          </p>
+        </div>
+      </Section>
 
       <div className="flex gap-2 flex-wrap justify-end pt-1">
         <Link href={cancelHref} className={ghostButton}>
