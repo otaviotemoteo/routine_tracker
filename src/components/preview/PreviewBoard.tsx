@@ -328,6 +328,10 @@ function BookForm({ title }: { title: string }) {
         </Field>
       </div>
 
+      {/* A switch rather than a checkbox: this is a state the book is IN, not
+          an item being ticked off a list, and only one book is in it at a
+          time. The track carries the same 2px border as everything else so it
+          reads as part of the system rather than as a stock control. */}
       <label
         className={`flex items-center gap-3 flex-wrap min-h-[48px] px-3 py-2 rounded-lg border-2 cursor-pointer ${
           reading ? "bg-mint border-clover" : "bg-cream border-sand"
@@ -335,16 +339,23 @@ function BookForm({ title }: { title: string }) {
       >
         <input
           type="checkbox"
+          role="switch"
           checked={reading}
           onChange={(e) => setReading(e.target.checked)}
           className="sr-only peer"
         />
         <span
           aria-hidden
-          className={`shrink-0 w-5 h-5 rounded-full border-2 ${
-            reading ? "border-clover bg-clover" : "border-sand bg-white"
+          className={`shrink-0 w-12 h-7 rounded-full border-2 border-forest flex items-center px-0.5 transition-colors duration-150 motion-reduce:transition-none peer-focus-visible:ring-2 peer-focus-visible:ring-clover peer-focus-visible:ring-offset-2 ${
+            reading ? "bg-clover" : "bg-white"
           }`}
-        />
+        >
+          <span
+            className={`w-5 h-5 rounded-full border-2 border-forest bg-white transition-transform duration-150 motion-reduce:transition-none ${
+              reading ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </span>
         <span className="font-semibold text-sm flex-1">Lendo agora</span>
         {reading && (
           <span className="flex items-center gap-2 shrink-0">
@@ -406,7 +417,7 @@ function BlockForm({ name, copy }: { name: string; copy: Copy }) {
                     on ? prev.filter((x) => x !== i + 1) : [...prev, i + 1]
                   )
                 }
-                className={`w-11 h-11 shrink-0 rounded-full border-2 font-bold text-sm ${
+                className={`w-11 h-11 shrink-0 rounded-lg border-2 font-bold text-sm ${
                   on
                     ? "bg-clover text-white border-forest"
                     : "bg-white border-sand opacity-60"
