@@ -6,8 +6,9 @@ import {
   OnboardingFooter,
   StepTitle,
 } from "./OnboardingChrome";
+import { SetupPanel } from "./SetupPanel";
 import { ghostButton, inputClass } from "@/components/ui/styles";
-import type { Copy } from "@/lib/i18n";
+import { format, type Copy } from "@/lib/i18n";
 
 interface DuolingoStepProps {
   action: (formData: FormData) => Promise<void>;
@@ -53,9 +54,19 @@ export function DuolingoStep({
       <StepTitle backHref={titleBackHref} backLabel={copy.back}>
         {copy.duolingo.title}
       </StepTitle>
-      <p className="mt-2 opacity-75">{copy.duolingo.lead}</p>
+      <p className="mt-2 mb-5 opacity-75">{copy.duolingo.lead}</p>
 
-      <ul className="flex flex-col gap-3 mt-6 list-none">
+      <SetupPanel
+        label={copy.review.sections.duolingo.toUpperCase()}
+        aside={
+          <span className="font-mono text-[10px] font-bold opacity-60">
+            {format(copy.review.meta.languages, {
+              n: names.filter((n) => n.trim()).length,
+            })}
+          </span>
+        }
+      >
+      <ul className="flex flex-col gap-3 list-none">
         {names.map((name, i) => (
           <li key={i} className="flex items-center gap-3">
             <input
@@ -89,6 +100,7 @@ export function DuolingoStep({
         <Plus className="w-4 h-4 mr-1.5" aria-hidden />
         {copy.duolingo.addLanguage}
       </button>
+      </SetupPanel>
 
       <OnboardingFooter
         backHref={backHref}
