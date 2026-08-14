@@ -185,8 +185,14 @@ export function ReadingStep({
         {rows.map((b, i) => (
           <li key={b.id ?? `new-${i}`}>
             <ListCard
-              title={`${i + 1}. ${b.title || copy.reading.bookTitle}`}
-              detail={[b.author, b.pages && `${b.pages} p`].filter(Boolean).join(" · ")}
+              title={b.title || copy.reading.bookTitle}
+              badge={String(i + 1)}
+              detail={b.author || undefined}
+              chips={
+                b.pages
+                  ? [{ text: `${b.pages} P`, tone: "muted" as const }]
+                  : undefined
+              }
               open={openIndex === i}
               onToggle={() => {
                 setOpenIndex(openIndex === i ? null : i);
