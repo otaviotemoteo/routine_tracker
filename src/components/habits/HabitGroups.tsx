@@ -13,6 +13,9 @@ interface HabitGroupsProps {
   editHrefFor: (id: number) => string;
   next: string;
   showSource?: boolean;
+  // Per habit id. Absent on the review screen, where nothing has been tracked
+  // yet and every figure would be a zero.
+  streaks?: Record<number, number>;
 }
 
 // Habits grouped by life area, in the fixed domain order — the same order the
@@ -27,6 +30,7 @@ export function HabitGroups({
   editHrefFor,
   next,
   showSource = false,
+  streaks,
 }: HabitGroupsProps) {
   const byDomain = new Map<DomainSlug, HabitRowData[]>();
   const unanchored: HabitRowData[] = [];
@@ -80,6 +84,7 @@ export function HabitGroups({
                 removeAction={removeAction}
                 next={next}
                 showSource={showSource}
+                streak={streaks?.[habit.id]}
               />
             ))}
           </ul>
