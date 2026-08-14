@@ -105,7 +105,6 @@ export interface Copy {
   nav: {
     label: string;
     today: string;
-    habits: string;
     overview: string;
     logout: string;
   };
@@ -332,6 +331,7 @@ export interface Copy {
     rowDuration: string; // {unit}
     rowTarget: string; // {n} {unit}
     // The compact list row
+    manage: string; // link out from the Overview section
     activeLabel: string; // stat box under the count
     streakLabel: string; // under the per-habit streak figure
     streakValue: string; // {n} — the figure itself, e.g. "12d"
@@ -618,7 +618,6 @@ export const COPY: Record<Lang, Copy> = {
     nav: {
       label: "Main navigation",
       today: "Today",
-      habits: "Habits",
       overview: "Overview",
       logout: "Logout",
     },
@@ -843,6 +842,7 @@ export const COPY: Record<Lang, Copy> = {
       rowCount: "counted in {unit}",
       rowDuration: "measured in {unit}",
       rowTarget: "target {n} {unit}",
+      manage: "Manage",
       activeLabel: "ACTIVE",
       streakLabel: "IN A ROW",
       streakValue: "{n}d",
@@ -1159,7 +1159,6 @@ export const COPY: Record<Lang, Copy> = {
     nav: {
       label: "Navegação principal",
       today: "Hoje",
-      habits: "Hábitos",
       overview: "Visão geral",
       logout: "Sair",
     },
@@ -1384,6 +1383,7 @@ export const COPY: Record<Lang, Copy> = {
       rowCount: "contado em {unit}",
       rowDuration: "medido em {unit}",
       rowTarget: "meta de {n} {unit}",
+      manage: "Gerenciar",
       activeLabel: "ATIVOS",
       streakLabel: "SEGUIDOS",
       streakValue: "{n}d",
