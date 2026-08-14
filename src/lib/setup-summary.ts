@@ -37,12 +37,28 @@ export interface SetupRow {
   // Whether this area has been set up at all (drives the badge + tint).
   configured: boolean;
   value: string | null; // null → "not set"
+  // The third line of the row: what this area is set up to do, as a count.
+  // Every section has one, and that is the point — a three-line stack where
+  // five of six rows only fill two lines reads as unfinished rather than as
+  // sparse. Counts only, straight off the rows that exist, so there is never
+  // a figure here the data can't support.
+  meta?: string;
   hint?: string; // e.g. the reading pace, or what's still missing
   // "warn" = something still needs the user's attention (straw), "info" = a
   // healthy stat (clover).
   hintTone?: "info" | "warn";
   // Reading only, and only when the pace is real.
   paceValues?: PaceValues;
+}
+
+// Hours between bedtime and wake time, wrapping past midnight.
+function sleepWindowHours(bedtime: string, wakeTime: string): number {
+  const mins = (t: string) => {
+    const [h, m] = t.slice(0, 5).split(":").map(Number);
+    return h * 60 + m;
+  };
+  const span = (mins(wakeTime) - mins(bedtime) + 1440) % 1440;
+  return Math.round(span / 60);
 }
 
 export async function getSetupSummary(
@@ -101,12 +117,18 @@ export async function getSetupSummary(
       label: copy.review.sections.workout,
       configured: plan !== null,
       value: plan ? plan.name : null,
+      meta: plan
+        ? format(copy.review.meta.workoutDays, { n: plan.days.length })
+        : undefined,
     },
     {
       section: "reading",
       label: copy.review.sections.reading,
       configured: goal !== null || books.length > 0,
       value: goal ? `${goal.targetBooks} ${copy.reading.goalUnit}` : null,
+      meta: books.length
+        ? format(copy.review.meta.books, { n: books.length })
+        : undefined,
       hint: readingHint,
       hintTone: readingTone,
       paceValues,
@@ -118,6 +140,13 @@ export async function getSetupSummary(
       value: sleep
         ? `${sleep.bedtime.slice(0, 5)} – ${sleep.wakeTime.slice(0, 5)}`
         : null,
+      // Wall-clock hours between the two times, wrapping past midnight — a
+      // 23:00–06:00 window is 7 hours, not −17.
+      meta: sleep
+        ? format(copy.review.meta.sleepWindow, {
+            n: sleepWindowHours(sleep.bedtime, sleep.wakeTime),
+          })
+        : undefined,
     },
     {
       section: "routine",
@@ -126,18 +155,27 @@ export async function getSetupSummary(
       value: routine.length
         ? routine.map((b) => b.activity).slice(0, 3).join(", ")
         : null,
+      meta: routine.length
+        ? format(copy.review.meta.routineBlocks, { n: routine.length })
+        : undefined,
     },
     {
       section: "duolingo",
       label: copy.review.sections.duolingo,
       configured: langs.length > 0,
       value: langs.length ? langs.map((l) => l.name).join(", ") : null,
+      meta: langs.length
+        ? format(copy.review.meta.languages, { n: langs.length })
+        : undefined,
     },
     {
       section: "spirituality",
       label: copy.review.sections.spirituality,
       configured: practices.length > 0,
       value: practices.length ? practices.map((p) => p.name).join(", ") : null,
+      meta: practices.length
+        ? format(copy.review.meta.practices, { n: practices.length })
+        : undefined,
     },
   ];
 }
