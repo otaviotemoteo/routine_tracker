@@ -16,22 +16,26 @@ interface NavBarProps {
 // navigations instead of remounting per page.
 export function NavBar({ lang, copy }: NavBarProps) {
   const pathname = usePathname();
-  // The app's top-level map: what to do now, what I track, how I've done.
-  // Habits earns a place here rather than living inside /config — it is no
-  // longer a setup detail but the thing Today renders and the whole
-  // values→habits chain produces. The row wraps at 360px rather than
-  // shrinking any target below 44px.
+  // Two destinations, and that is the whole map: what to do now, and how it
+  // has been going.
+  //
+  // Habits used to sit here as a third. It came out because a top-level tab
+  // makes a claim about frequency — these are the places you go — and nobody
+  // opens their habit list daily. Editing a habit is something you do a few
+  // times a cycle, so it belongs one level down, next to the activities and
+  // the values it is derived from, where the whole picture of "what I am
+  // tracking and why" reads as one page instead of three tabs.
+  //
+  // The row still wraps at 360px rather than shrinking any target below 44px.
   const navItems = [
     { href: "/", label: copy.today, active: pathname === "/" },
     {
-      href: "/habits",
-      label: copy.habits,
-      active: pathname.startsWith("/habits"),
-    },
-    {
       href: "/overview",
       label: copy.overview,
-      active: pathname.startsWith("/overview"),
+      // Habits now lives inside Overview, so the tab stays lit while you are
+      // in there — otherwise editing a habit would look like leaving the app.
+      active:
+        pathname.startsWith("/overview") || pathname.startsWith("/habits"),
     },
   ];
 
