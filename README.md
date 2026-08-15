@@ -27,12 +27,37 @@ given every day beats a perfect one abandoned in week three.
 
 ## What you actually do with it
 
+**Once, at the start.** A new account opens on the **values check-in**, not an
+empty Today — this is the first thing anyone sees. It walks through twelve
+areas of life, from family and work to health, rest and art, and asks six short
+things about each one: not what you did, but what you meant to. How much does
+this matter in the life you want? How much did you actually do about it last
+week? Then it puts the two side by side and names the distance.
+
+That distance is the whole point. Every question says in one line why it is
+being asked, because the questions come from a therapy worksheet and nobody
+should have to guess what they are for. There are no right answers and no score
+at the end. A low answer in an area that is not yours right now is a true
+answer, and the app treats it as one.
+
+The five areas where the gap is widest become your priorities. You write one
+short direction for each — where you want to move — and habits get suggested
+from that: keep them, edit them, or write your own instead. Today is then built
+from those habits. This part is deliberately slow; everything after it isn't.
+
 **Every day.** You open **Today** and see a card per habit, showing what you've
 logged so far or what today expects of you: the session your plan has for a
 Tuesday, the page your book is on, the sleep window you set. One button starts
 the check-in, which walks you through one habit at a time with the answers
 already filled in from your own setup. You correct what's wrong and move on.
 Anything you'd rather not answer, you skip.
+
+**Whenever you want more detail.** A habit works fine with nothing more than a
+name and a target, but you can also give it real structure: a training plan
+with actual days and exercises, a reading list with real books and page counts,
+the blocks your day is built from, which languages, which practices. Everything
+the daily check-in prefills comes from here, and it's entirely optional — set
+up as much or as little of it as you want, whenever you want.
 
 **Every so often.** **Overview** shows two things. The week is a grid with
 habits down the side and days across the top. The month is a calendar that gets
@@ -41,24 +66,11 @@ for the full record of it. Underneath are the numbers worth knowing: which day
 went best, which habit is slipping, whether your reading pace still reaches your
 goal.
 
-**Twice a year.** The **values check-in** asks a different question: not what
-you did, but what you meant to. It walks through twelve areas of life, from
-family and work to health, rest and art, and asks six short things about each
-one. How much does this matter in the life you want? How much did you actually
-do about it last week? Then it puts the two side by side and names the distance.
-
-That distance is the whole point. It is easy to spend a year being consistent
-about the things you already do and never notice which part of your life went
-quiet. Every question says in one line why it is being asked, because the
-questions come from a therapy worksheet and nobody should have to guess what
-they are for. There are no right answers and no score at the end. A low answer
-in an area that is not yours right now is a true answer, and the app treats it
-as one.
-
-**Once, at the start.** A short setup asks what you're actually tracking: your
-training plan, the books you mean to read, the hours you're aiming for, the
-blocks your day is built from, which languages, which practices. Everything the
-daily check-in prefills comes from here, and you can change any of it later.
+**Twice a year.** Redo the **values check-in** and see how the distance moved —
+whether the areas you set a direction for actually got closer, and whether a
+different area has since gone quiet. It is easy to spend a year being
+consistent about the things you already do and never notice which part of your
+life that was.
 
 ## The ideas behind it
 
