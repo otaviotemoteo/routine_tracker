@@ -17,7 +17,7 @@ export default withSentryConfig(nextConfig, {
   // Which project the source maps belong to. Without these the upload has
   // nowhere to go, so every production stack trace stays minified.
   org: "side-projects-otavio",
-  project: "javascript-nextjs",
+  project: "personal_tracker",
   // A build-time secret, distinct from the DSN. Its absence must not break a
   // build: the plugin skips the upload and `bun run build` still succeeds,
   // which is what lets a machine with no credentials build the app.
