@@ -8,11 +8,15 @@ import { DuolingoBody } from "./DuolingoBody";
 import { SpiritualityBody } from "./SpiritualityBody";
 import { HobbyBody } from "./HobbyBody";
 import { PlainBody } from "./PlainBody";
+import { ChecklistBody } from "./ChecklistBody";
 import { templateKindOf } from "@/lib/templates";
 
 // Template kind → its detail-sheet body. Keyed on the kind rather than the
 // slug, because slugs are per-account now and two people may both have one
-// called "leitura" without both meaning a reading habit.
+// called "leitura" without both meaning a reading habit. `number`, `check`
+// and `duration` — the three card-style-chooser kinds that don't change the
+// day's question, only Today's card — share PlainBody with a bare `plain`
+// habit; only `checklist` needs its own form.
 const BODIES: Record<string, ComponentType<SheetBodyProps>> = {
   treino: WorkoutBody,
   leitura: ReadingBody,
@@ -22,6 +26,11 @@ const BODIES: Record<string, ComponentType<SheetBodyProps>> = {
   espiritualidade: SpiritualityBody,
   hobby: HobbyBody,
   plain: PlainBody,
+  number: PlainBody,
+  check: PlainBody,
+  duration: PlainBody,
+  checklist: ChecklistBody,
+  streak: PlainBody,
 };
 
 // Always resolves to something: an unknown or absent kind is a plain habit,

@@ -68,6 +68,11 @@ export interface CheckWithHabit {
   unit: string | null;
   target: number | null;
   minimalAction: string | null;
+  // Template-kind-specific setup, filled in by the kind's own step in the
+  // chooser rather than the habit form — see src/lib/templates.ts. Only the
+  // `checklist` kind reads it today (`{ items: string[] }`); every other kind
+  // ignores it, so it stays `unknown` rather than a kind-specific type here.
+  config: unknown;
   // The life area this habit descends from — the icon a plain habit falls
   // back to. Null for a habit written before any values check-in, which is
   // rendered as not yet anchored to a value rather than as an error.

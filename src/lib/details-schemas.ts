@@ -139,6 +139,10 @@ export const hobbyDetails = z
 // The alternative is a null `details` for binary habits, which would make
 // every reader branch on the metric before it could read the value. One shape
 // for all three metrics is worth one duplicated bit.
+//
+// Shared by three of the five card-style-chooser kinds (`number`, `check`,
+// `duration`): none of them changes what a day's answer looks like, only how
+// Today draws it, so they read and write the same `value` shape as `plain`.
 export const plainDetails = z
   .object({
     value: z
@@ -150,6 +154,23 @@ export const plainDetails = z
       ),
   })
   .strict();
+
+// The Checklist template's daily answer: which of the habit's own named
+// sub-items (habits.config.items, set once from the chooser) got ticked
+// today. Item text rather than an index, so reordering or renaming an item
+// later can't silently re-point an old day's ticks at the wrong item.
+export const checklistDetails = z
+  .object({
+    done_items: z
+      .array(z.string().max(80))
+      .describe("Labels of this habit's config.items ticked off today"),
+  })
+  .strict();
+
+// Streak-forward reads the same spine as `plain` — its hero is the streak,
+// which is derived from `daily_checks.done` across days, not from anything
+// in a single day's `details`.
+export const streakDetails = plainDetails;
 
 // Keyed by TEMPLATE KIND, not by slug.
 //
@@ -166,6 +187,11 @@ export const DETAILS_SCHEMAS = {
   espiritualidade: spiritualityDetails,
   hobby: hobbyDetails,
   plain: plainDetails,
+  number: plainDetails,
+  check: plainDetails,
+  duration: plainDetails,
+  checklist: checklistDetails,
+  streak: streakDetails,
 } as const;
 
 export type DetailsSlug = keyof typeof DETAILS_SCHEMAS;
@@ -178,6 +204,7 @@ export type DuolingoDetails = z.infer<typeof duolingoDetails>;
 export type SpiritualityDetails = z.infer<typeof spiritualityDetails>;
 export type HobbyDetails = z.infer<typeof hobbyDetails>;
 export type PlainDetails = z.infer<typeof plainDetails>;
+export type ChecklistDetails = z.infer<typeof checklistDetails>;
 
 export function isDetailsSlug(slug: string): slug is DetailsSlug {
   return slug in DETAILS_SCHEMAS;

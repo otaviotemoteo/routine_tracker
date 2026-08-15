@@ -92,11 +92,32 @@ export function cellValue(
       }
       break;
 
-    // A generic habit. No unit in the label: the seven above use hand-tuned
-    // abbreviations ("pg", "×", "m") that a user-supplied unit like "pages
-    // read" would not fit into, and a truncated unit is worse than none.
-    // The number, and the target when there is one, are the honest maximum.
-    case "plain": {
+    case "checklist": {
+      if (!Array.isArray(d.done_items)) break;
+      // No total to compare against here — that lives in the habit's own
+      // config, which this function isn't handed — so, like duolingo/hobby
+      // above, the day's count stands on its own rather than pretending to a
+      // "3/3" this file can't verify.
+      const kept = d.done_items.length;
+      return kept > 0
+        ? { label: `${kept}✓`, partial: false }
+        : done
+          ? { label: "✓", partial: false }
+          : null;
+    }
+
+    // A generic habit — every one of `plain`, and the four card-style-chooser
+    // kinds that read the same day shape (`number`, `check`, `duration`,
+    // `streak`; see details-schemas.ts). No unit in the label: the seven
+    // legacy kinds above use hand-tuned abbreviations ("pg", "×", "m") that a
+    // user-supplied unit like "pages read" would not fit into, and a
+    // truncated unit is worse than none. The number, and the target when
+    // there is one, are the honest maximum.
+    case "plain":
+    case "number":
+    case "check":
+    case "duration":
+    case "streak": {
       if (typeof d.value !== "number") break;
       // Partial needs a plan to fall short of. With no target there is
       // nothing to be short of, so a logged day is simply done.

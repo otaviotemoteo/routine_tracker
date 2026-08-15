@@ -201,6 +201,8 @@ export interface Copy {
     sumPractice: string; // {n} — singular
     sumPractices: string; // {n} — plural
     sumMinutes: string; // {n}
+    sumChecklistItem: string; // {n} — singular
+    sumChecklistItems: string; // {n} — plural
     // Header stats
     statDone: string;
     statStreak: string;
@@ -217,11 +219,17 @@ export interface Copy {
     unitOfPractices: string; // {total}
     unitMinutesOf: string; // {activity}
     unitMinutes: string;
+    // The two new card-style-chooser heroes: Checklist's "done/total" and
+    // Streak-forward's running count.
+    unitChecklistItems: string;
+    unitStreakDay: string; // {n} — singular
+    unitStreakDays: string; // {n} — plural
     // Eyebrow on the card's context panel, picked by state
     panelLogged: string;
     panelPlanned: string;
     panelTarget: string;
     panelOptional: string;
+    panelStreak: string;
     // The generic card — every habit that isn't one of the original seven.
     // It has no per-area knowledge to draw on, so it leans on the habit's own
     // metric, target and minimal action.
@@ -255,6 +263,9 @@ export interface Copy {
     ctxNoPlan: string;
     ctxNoBook: string;
     ctxNothingSet: string;
+    // Checklist with nothing named yet — the habit picked this style but
+    // hasn't added items, a setup gap rather than an empty day.
+    checklistNoItems: string;
     // Card notes
     noteEffort: string; // {value}
     noteQuality: string; // {value}
@@ -285,6 +296,16 @@ export interface Copy {
     agoYesterday: string;
     agoDays: string; // {n}
     agoNever: string;
+    // The first-run card-templates nudge (shown once — see the cookie in
+    // src/app/(app)/layout.tsx) and the Overview entry point into the same
+    // chooser. Both consumed by components that already receive Copy["today"].
+    templatesNudgeTitle: string; // {n}
+    templatesNudgeLead: string;
+    templatesNudgeCta: string;
+    templatesNudgeDismiss: string;
+    templatesNudgeSectionLabel: string;
+    templatesEntryLabel: string;
+    templatesEntryValue: string; // {done} {total}
   };
   // The habits screens: the list, the form, and the suggestion review.
   habits: {
@@ -370,6 +391,50 @@ export interface Copy {
     reviewEmptyTitle: string;
     reviewEmptyLead: string;
   };
+  // The card-style chooser (/habits/templates): pick how each habit's Today
+  // card looks, from the five generic kinds in src/lib/templates.ts.
+  templates: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    chosenLabel: string;
+    chosenCount: string; // {done} {total}
+    statusChosen: string; // {name}
+    statusSuggested: string; // {name}
+    statusNone: string;
+    suggestedBadge: string;
+    chosenBadge: string;
+    previewNote: string;
+    footerNote: string;
+    done: string;
+    actionChosen: string;
+    actionSuggested: string;
+    actionPick: string;
+    // One name + one description per kind, keyed the same as
+    // GENERIC_TEMPLATE_KINDS in src/lib/templates.ts.
+    names: {
+      number: string;
+      check: string;
+      duration: string;
+      checklist: string;
+      streak: string;
+    };
+    descriptions: {
+      number: string;
+      check: string;
+      duration: string;
+      checklist: string;
+      streak: string;
+    };
+    // The Checklist option's inline item-naming form.
+    checklistItemsLabel: string;
+    checklistPlaceholder: string;
+    checklistSave: string;
+    checklistEditItems: string;
+    checklistCancel: string;
+    checklistNeedsOne: string;
+    noEligible: string;
+  };
   sheets: {
     save: string;
     saving: string;
@@ -417,6 +482,12 @@ export interface Copy {
       minimal: string; // {action}
       binary: string;
       binaryWithMinimal: string; // {action}
+    };
+    // The Checklist card style's check-in step: the habit's own named items,
+    // ticked off for today.
+    checklist: {
+      noItems: string;
+      noItemsHint: string;
     };
   };
   week: {
@@ -750,6 +821,8 @@ export const COPY: Record<Lang, Copy> = {
       sumPractice: "{n} practice",
       sumPractices: "{n} practices",
       sumMinutes: "{n} min",
+      sumChecklistItem: "{n} item checked off",
+      sumChecklistItems: "{n} items checked off",
       statDone: "completed",
       statStreak: "day streak",
       pillDone: "done",
@@ -763,10 +836,14 @@ export const COPY: Record<Lang, Copy> = {
       unitOfPractices: "of {total} practices",
       unitMinutesOf: "min of {activity}",
       unitMinutes: "minutes",
+      unitChecklistItems: "items done",
+      unitStreakDay: "day streak",
+      unitStreakDays: "day streak",
       panelLogged: "logged",
       panelPlanned: "planned",
       panelTarget: "target",
       panelOptional: "optional",
+      panelStreak: "streak",
       plainDone: "done today",
       plainPending: "not logged yet",
       plainUnitCount: "today",
@@ -795,6 +872,7 @@ export const COPY: Record<Lang, Copy> = {
       ctxNoPlan: "No training planned for today",
       ctxNoBook: "No book being read",
       ctxNothingSet: "Not set up yet",
+      checklistNoItems: "No items added yet — add some from the templates page.",
       noteEffort: "Effort: {value} of 5",
       noteQuality: "Quality: {value} of 5",
       noteWokeUp: "Woke up during the night",
@@ -822,6 +900,14 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "yesterday",
       agoDays: "{n} days ago",
       agoNever: "never",
+      templatesNudgeTitle: "You have {n} habits. Choose how you want to see them.",
+      templatesNudgeLead:
+        "No card has a template yet. It takes a minute and you can change it later.",
+      templatesNudgeCta: "Choose templates",
+      templatesNudgeDismiss: "Not now",
+      templatesNudgeSectionLabel: "Your cards, still without a template",
+      templatesEntryLabel: "Card templates",
+      templatesEntryValue: "{done} of {total} · change anytime",
     },
     habits: {
       eyebrow: "Your habits",
@@ -906,6 +992,46 @@ export const COPY: Record<Lang, Copy> = {
       reviewEmptyTitle: "Nothing suggested yet",
       reviewEmptyLead: "Add the habits you want to keep. You can always change them later.",
     },
+    templates: {
+      eyebrow: "Configure · activities",
+      title: "Choose templates",
+      lead: "Each habit can show up differently on your day. Tap a habit to see the options.",
+      chosenLabel: "Chosen",
+      chosenCount: "{done} of {total}",
+      statusChosen: "Chosen · {name}",
+      statusSuggested: "Suggestion: {name}. Tap to confirm or change.",
+      statusNone: "Not chosen yet",
+      suggestedBadge: "Suggested",
+      chosenBadge: "Chosen",
+      previewNote: "Previews use example data. Your card starts empty.",
+      footerNote: "Each choice is saved instantly. You can change it later, here.",
+      done: "Done",
+      actionChosen: "This is how this habit appears on your day",
+      actionSuggested: "Suggestion — tap to confirm",
+      actionPick: "Tap to use this template",
+      names: {
+        number: "Plain/number",
+        check: "Done-or-not",
+        duration: "Duration",
+        checklist: "Checklist",
+        streak: "Streak-forward",
+      },
+      descriptions: {
+        number: "A number, its unit, and how close it is to your target.",
+        check: "A clear yes/no for today, and how long the streak is.",
+        duration: "Minutes or hours, with how much you've logged this week.",
+        checklist: "A short list of steps, ticked off one by one.",
+        streak: "Your current streak takes the spotlight.",
+      },
+      checklistItemsLabel: "One step per line (up to 8)",
+      checklistPlaceholder: "Stretch\nCold shower\nJournal",
+      checklistSave: "Save checklist",
+      checklistEditItems: "Edit items",
+      checklistCancel: "Cancel",
+      checklistNeedsOne: "Add at least one item to save this template.",
+      noEligible:
+        "Every habit here already uses one of the seven original card styles, which aren't changed from this screen.",
+    },
     sheets: {
       save: "Save",
       saving: "Saving…",
@@ -957,6 +1083,10 @@ export const COPY: Record<Lang, Copy> = {
         minimal: "On a hard day this counts: {action}",
         binary: "Saving marks this done for today.",
         binaryWithMinimal: "Saving marks this done for today. On a hard day this counts: {action}",
+      },
+      checklist: {
+        noItems: "This habit has no items yet.",
+        noItemsHint: "Add some from the templates page, then they'll show up here.",
       },
     },
     week: {
@@ -1308,6 +1438,8 @@ export const COPY: Record<Lang, Copy> = {
       sumPractice: "{n} prática",
       sumPractices: "{n} práticas",
       sumMinutes: "{n} min",
+      sumChecklistItem: "{n} item marcado",
+      sumChecklistItems: "{n} itens marcados",
       statDone: "concluídos",
       statStreak: "dias seguidos",
       pillDone: "feito",
@@ -1321,10 +1453,14 @@ export const COPY: Record<Lang, Copy> = {
       unitOfPractices: "de {total} práticas",
       unitMinutesOf: "min de {activity}",
       unitMinutes: "minutos",
+      unitChecklistItems: "itens feitos",
+      unitStreakDay: "dia de sequência",
+      unitStreakDays: "dias de sequência",
       panelLogged: "registrado",
       panelPlanned: "planejado",
       panelTarget: "meta",
       panelOptional: "opcional",
+      panelStreak: "sequência",
       plainDone: "feito hoje",
       plainPending: "ainda não registrado",
       plainUnitCount: "hoje",
@@ -1353,6 +1489,7 @@ export const COPY: Record<Lang, Copy> = {
       ctxNoPlan: "Nenhum treino planejado para hoje",
       ctxNoBook: "Nenhum livro em leitura",
       ctxNothingSet: "Ainda não configurado",
+      checklistNoItems: "Nenhum item adicionado ainda — adicione na página de templates.",
       noteEffort: "Esforço: {value} de 5",
       noteQuality: "Qualidade: {value} de 5",
       noteWokeUp: "Acordou durante a noite",
@@ -1380,6 +1517,14 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "ontem",
       agoDays: "há {n} dias",
       agoNever: "nunca",
+      templatesNudgeTitle: "Você tem {n} hábitos. Escolha como quer ver eles.",
+      templatesNudgeLead:
+        "Nenhum card tem template ainda. Leva um minuto e dá pra mudar depois.",
+      templatesNudgeCta: "Escolher templates",
+      templatesNudgeDismiss: "Agora não",
+      templatesNudgeSectionLabel: "Seus cards, ainda sem template",
+      templatesEntryLabel: "Templates dos cards",
+      templatesEntryValue: "{done} de {total} · mude quando quiser",
     },
     habits: {
       eyebrow: "Seus hábitos",
@@ -1464,6 +1609,46 @@ export const COPY: Record<Lang, Copy> = {
       reviewEmptyTitle: "Nada sugerido ainda",
       reviewEmptyLead: "Adicione os hábitos que você quer manter. Sempre dá para mudar depois.",
     },
+    templates: {
+      eyebrow: "Configurar · atividades",
+      title: "Escolher templates",
+      lead: "Cada hábito pode aparecer de um jeito diferente no seu dia. Toque em um hábito para ver as opções.",
+      chosenLabel: "Escolhidos",
+      chosenCount: "{done} de {total}",
+      statusChosen: "Escolhido · {name}",
+      statusSuggested: "Sugestão: {name}. Toque para confirmar ou trocar.",
+      statusNone: "Ainda sem escolha",
+      suggestedBadge: "Sugerido pela IA",
+      chosenBadge: "Escolhido",
+      previewNote: "As prévias usam dados de exemplo. Seu card começa vazio.",
+      footerNote: "Cada escolha é salva na hora. Você pode mudar depois, aqui mesmo.",
+      done: "Concluir",
+      actionChosen: "É assim que este hábito aparece no seu dia",
+      actionSuggested: "Sugestão — toque para confirmar",
+      actionPick: "Toque para usar este template",
+      names: {
+        number: "Simples",
+        check: "Feito ou não",
+        duration: "Duração",
+        checklist: "Checklist",
+        streak: "Sequência em destaque",
+      },
+      descriptions: {
+        number: "Um número, a unidade e o quanto falta para a meta.",
+        check: "Um sim/não claro para hoje, e o tamanho da sequência.",
+        duration: "Minutos ou horas, com o total já registrado na semana.",
+        checklist: "Uma lista curta de passos, marcados um a um.",
+        streak: "Sua sequência atual ganha o protagonismo.",
+      },
+      checklistItemsLabel: "Um passo por linha (até 8)",
+      checklistPlaceholder: "Alongar\nBanho frio\nDiário",
+      checklistSave: "Salvar checklist",
+      checklistEditItems: "Editar itens",
+      checklistCancel: "Cancelar",
+      checklistNeedsOne: "Adicione ao menos um item para salvar este template.",
+      noEligible:
+        "Todo hábito aqui já usa um dos sete templates originais, que não mudam nesta tela.",
+    },
     sheets: {
       save: "Salvar",
       saving: "Salvando…",
@@ -1515,6 +1700,10 @@ export const COPY: Record<Lang, Copy> = {
         minimal: "Num dia difícil, isto conta: {action}",
         binary: "Salvar marca como feito hoje.",
         binaryWithMinimal: "Salvar marca como feito hoje. Num dia difícil, isto conta: {action}",
+      },
+      checklist: {
+        noItems: "Este hábito ainda não tem itens.",
+        noItemsHint: "Adicione na página de templates e eles aparecem aqui.",
       },
     },
     week: {

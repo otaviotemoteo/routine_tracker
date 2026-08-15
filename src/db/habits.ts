@@ -8,7 +8,18 @@
 // but not accepted: it exists so that a 5–20 second generation survives a
 // refresh, and it is invisible to every screen except the review one. The
 // filters live in src/db/scope.ts so no caller can forget them.
-import { and, asc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "./index";
 import {
   dailyChecks,
@@ -18,7 +29,12 @@ import {
   type MetricType,
 } from "./schema";
 import { habitsFor, proposedHabitsFor, type UserId } from "./scope";
-import { storedTemplateKind, type SuggestableTemplateKind } from "@/lib/templates";
+import {
+  LEGACY_TEMPLATE_KINDS,
+  storedTemplateKind,
+  type GenericTemplateKind,
+  type SuggestableTemplateKind,
+} from "@/lib/templates";
 import type { DomainSlug } from "@/lib/domains";
 import { addDays, calcStreak } from "@/lib/utils";
 
@@ -35,6 +51,9 @@ export interface HabitRow {
   target: number | null;
   minimalAction: string | null;
   templateKind: string | null;
+  // Template-kind-specific setup — today, only the `checklist` kind's item
+  // labels. Read by the chooser and the checklist check-in step.
+  config: unknown;
   source: HabitSource;
   why: string | null;
   activeFrom: string | null;
@@ -96,6 +115,7 @@ const habitColumns = {
   target: habits.target,
   minimalAction: habits.minimalAction,
   templateKind: habits.templateKind,
+  config: habits.config,
   source: habits.source,
   why: habits.why,
   activeFrom: habits.activeFrom,
@@ -328,6 +348,48 @@ export async function updateHabit(
                        THEN 'ai_edited' ELSE ${habits.source} END`,
     })
     .where(and(eq(habits.id, id), eq(habits.userId, userId)))
+    .returning({ id: habits.id });
+  return rows.length > 0;
+}
+
+// Sets a habit's card style — the /habits/templates chooser's one write.
+//
+// Deliberately never routed through updateHabit(), which never touches
+// template_kind for the exact reason documented on that function: the form
+// owns the fields the form shows, and this is the one screen that shows this
+// one field, so it gets the one function allowed to write it.
+//
+// `config` is optional and normally omitted: only the `checklist` kind has
+// anything to store there, and a habit that picks it, tries something else,
+// then picks it again should find its items still named — so switching to
+// any OTHER kind leaves a previous checklist's config alone rather than
+// clearing it.
+//
+// The WHERE clause is a second guard behind the UI, which never offers this
+// action for one of the seven legacy kinds: a row already carrying one is
+// left untouched even if this were somehow called on it.
+export async function setHabitTemplate(
+  userId: UserId,
+  id: number,
+  kind: GenericTemplateKind,
+  config?: unknown
+): Promise<boolean> {
+  const rows = await db
+    .update(habits)
+    .set({
+      templateKind: kind,
+      ...(config !== undefined ? { config } : {}),
+    })
+    .where(
+      and(
+        eq(habits.id, id),
+        eq(habits.userId, userId),
+        or(
+          isNull(habits.templateKind),
+          notInArray(habits.templateKind, [...LEGACY_TEMPLATE_KINDS])
+        )
+      )
+    )
     .returning({ id: habits.id });
   return rows.length > 0;
 }

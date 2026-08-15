@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import { TodayBoard } from "@/components/TodayBoard";
+import { TemplatesNudge } from "@/components/today/TemplatesNudge";
 import {
   getDayChecks,
   getDayStreak,
@@ -9,6 +11,7 @@ import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { getSetupSummary } from "@/lib/setup-summary";
 import { forecastFinishDate } from "@/lib/today-card";
+import { TEMPLATES_NUDGE_SEEN_COOKIE } from "@/lib/templates";
 import { formatDayLong, todayInSaoPaulo } from "@/lib/utils";
 import { requireUserId } from "@/lib/session";
 
@@ -44,8 +47,23 @@ export default async function TodayPage() {
       }
     : undefined;
 
+  // First-run nudge into the card-style chooser: only when there's a real
+  // board to show (an empty Today has its own, different empty state) and
+  // only until the cookie says it's been seen once — see
+  // src/components/today/TemplatesNudge.tsx and templates-nudge-actions.ts.
+  const nudgeSeen =
+    (await cookies()).get(TEMPLATES_NUDGE_SEEN_COOKIE)?.value === "1";
+  const uncustomized = checks.filter((c) => c.templateKind === null);
+  const showTemplatesNudge =
+    !nudgeSeen && checks.length > 0 && uncustomized.length > 0;
+
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-24">
+      {showTemplatesNudge && (
+        <div className="mb-5">
+          <TemplatesNudge habitNames={uncustomized} lang={lang} copy={copy.today} />
+        </div>
+      )}
       <TodayBoard
         checks={checks}
         context={context}

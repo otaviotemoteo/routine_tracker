@@ -1,5 +1,5 @@
 import { exerciseScheme } from "@/lib/exercise";
-import { format, locale, type Copy, type Lang } from "@/lib/i18n";
+import { format, locale, plural, type Copy, type Lang } from "@/lib/i18n";
 import { templateKindOf } from "@/lib/templates";
 import { relativeDay } from "@/lib/utils";
 import type { TodayComparisons } from "@/db/queries";
@@ -528,8 +528,30 @@ export function buildTodayCard(
       };
     }
 
-    // Every habit that isn't one of the original seven — which, after the
-    // remodel, is every habit anyone creates.
+    // The three "simple" card-style-chooser kinds. Choosing one of these is
+    // an explicit, confirmed choice (see src/lib/templates.ts), but none of
+    // them changes what the card can say beyond what `plain` already draws
+    // from the habit's own metric — they exist as their own stored value so
+    // the chooser can mark them solid rather than dashed, not because they
+    // render differently.
+    case "number":
+    case "check":
+    case "duration":
+      return plainCard(check, copy, state, panelLabel, streakLine, ago);
+
+    case "checklist":
+      return checklistCard(check, copy, state, panelLabel, streakLine, ago);
+
+    case "streak":
+      // The raw streak, not `streakLine` — a 0 or 1 is still the point of
+      // this card's hero, whereas the note-line threshold elsewhere ("a
+      // streak line appears only from two days up") is about not cluttering
+      // a card whose hero is something else.
+      return streakCard(check, copy, state, streak, ago);
+
+    // Every habit that isn't one of the original seven, and hasn't picked a
+    // card style yet — which, after the remodel, is the normal case for a
+    // habit anyone creates.
     //
     // The seven cards above each know something about their area: which
     // session today's plan holds, which page the book is on, what the sleep
@@ -540,6 +562,102 @@ export function buildTodayCard(
     default:
       return plainCard(check, copy, state, panelLabel, streakLine, ago);
   }
+}
+
+// The one context sentence a habit with no area-specific plan can offer: its
+// own minimal action if it has one, else its own target, else nothing to
+// aim at. Shared by `plainCard` and `streakCard` — both draw the same "here's
+// what this habit is actually asking for" line, just under a different hero.
+function genericContextLine(
+  check: CheckWithHabit,
+  copy: Copy["today"],
+  target: number | null
+): string {
+  return check.minimalAction !== null
+    ? format(copy.ctxMinimal, { action: check.minimalAction })
+    : target !== null
+      ? format(copy.ctxTarget, { n: target, unit: check.unit ?? "" }).trim()
+      : copy.ctxNoTarget;
+}
+
+// The Checklist card style: the habit's own named sub-items (set once from
+// the chooser, `habits.config.items`), ticked off for the day in
+// `details.done_items`. Kept to items-as-a-list rather than a proportion —
+// "which ones" is the question a checklist habit is being asked, same as the
+// legacy `rotina` card's blocks.
+function checklistCard(
+  check: CheckWithHabit,
+  copy: Copy["today"],
+  state: CardState,
+  panelLabel: string,
+  streakLine: number | null,
+  ago: string
+): TodayCard {
+  const configRecord = rec(check.config);
+  const items = Array.isArray(configRecord?.items)
+    ? configRecord!.items.filter((i): i is string => typeof i === "string")
+    : [];
+  const d = rec(check.details);
+  const doneItems = new Set(
+    Array.isArray(d?.done_items)
+      ? d!.done_items.filter((i): i is string => typeof i === "string")
+      : []
+  );
+  const done = items.filter((item) => doneItems.has(item)).length;
+
+  return {
+    state,
+    hero: {
+      value: items.length ? `${done}/${items.length}` : String(done),
+      unit: copy.unitChecklistItems,
+    },
+    // No items configured yet is its own state — the habit picked this style
+    // but hasn't named anything to tick off. That's a setup gap, not a data
+    // point, so it says so rather than showing an empty "0/0".
+    panel: items.length
+      ? {
+          label: panelLabel,
+          items: items.map((item) => ({
+            label: item,
+            done: doneItems.has(item),
+          })),
+        }
+      : { label: panelLabel, text: copy.checklistNoItems },
+    note: check.done
+      ? streakLine
+        ? { primary: format(copy.noteStreakDays, { n: streakLine }) }
+        : null
+      : { primary: format(copy.noteLastTime, { ago }) },
+  };
+}
+
+// The Streak-forward card style: the running streak takes the hero slot that
+// every other card gives to today's own figure. The point isn't today's
+// number, it's the run — so unlike everywhere else in this file, the hero
+// here is a comparison (`comparisons.streak`) rather than today's `details`.
+function streakCard(
+  check: CheckWithHabit,
+  copy: Copy["today"],
+  state: CardState,
+  streak: number,
+  ago: string
+): TodayCard {
+  return {
+    state,
+    hero: {
+      value: String(streak),
+      unit: plural(streak, copy.unitStreakDay, copy.unitStreakDays),
+    },
+    panel: {
+      label: copy.panelStreak,
+      text: genericContextLine(check, copy, check.target),
+    },
+    // The streak already carries the "how am I doing" fact, so the note picks
+    // a different one: pending says when it was last done (the thing at risk
+    // if today slips); done says nothing further, since the hero already
+    // answered the only other question this card asks.
+    note: check.done ? null : { primary: format(copy.noteLastTime, { ago }) },
+  };
 }
 
 // The generic renderer.
@@ -606,12 +724,7 @@ function plainCard(
   // A pending card still has content: the minimal action is the most useful
   // thing this habit can say on a day it hasn't been done, because it is
   // the version that still counts when the day has gone badly.
-  const text =
-    check.minimalAction !== null
-      ? format(copy.ctxMinimal, { action: check.minimalAction })
-      : target !== null
-        ? format(copy.ctxTarget, { n: target, unit: check.unit ?? "" }).trim()
-        : copy.ctxNoTarget;
+  const text = genericContextLine(check, copy, target);
 
   return {
     state,
