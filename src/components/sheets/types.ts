@@ -12,11 +12,12 @@ export interface SheetBodyProps {
   onChange: (details: unknown) => void;
   // The habit itself. The seven original bodies ignore this — everything they
   // need is in `context`, which is built from the per-area tables. The generic
-  // body has no such tables to read, so its whole form (a number, a unit, a
-  // target to compare against) comes from here.
+  // bodies have no such tables to read, so their whole form (a number, a unit,
+  // a target to compare against, or — for Checklist — the habit's own named
+  // items) comes from here.
   habit: Pick<
     CheckWithHabit,
-    "name" | "metricType" | "unit" | "target" | "minimalAction"
+    "name" | "metricType" | "unit" | "target" | "minimalAction" | "config"
   >;
 }
 
