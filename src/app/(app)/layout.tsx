@@ -1,19 +1,19 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NavBar } from "@/components/NavBar";
-import { isConfigured } from "@/db/queries";
+import { countTrackedHabits } from "@/db/habits";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
-import { ONBOARDED_COOKIE } from "@/lib/onboarding";
 import { requireUserId } from "@/lib/session";
 
 // Persistent shell for the authenticated app: the NavBar renders once here and
-// survives navigations (no remount / no perceived reload). Login and onboarding
-// live outside this group and get no NavBar.
+// survives navigations (no remount / no perceived reload). Login and the
+// values check-in live outside this group and get no NavBar.
 //
-// Onboarding gate: on first visit with nothing configured, send the user to the
-// wizard. The `onboarded` cookie short-circuits the DB check afterwards, so a
-// user who intentionally skipped everything isn't nagged again.
+// Onboarding gate: an account with no active habit yet hasn't finished the
+// first run, so it's sent into the values check-in — the guided path that
+// actually produces habits (values -> priority areas -> directions -> AI
+// suggestions -> review -> Start tracking). Derived from the database, not a
+// cookie, so it survives a cleared browser or a second device.
 export default async function AppLayout({
   children,
 }: {
@@ -21,9 +21,8 @@ export default async function AppLayout({
 }) {
   const userId = await requireUserId();
   const lang = await getLang();
-  const onboarded = (await cookies()).get(ONBOARDED_COOKIE)?.value === "1";
-  if (!onboarded && !(await isConfigured(userId))) {
-    redirect("/onboarding");
+  if ((await countTrackedHabits(userId)) === 0) {
+    redirect("/assessment");
   }
 
   return (
