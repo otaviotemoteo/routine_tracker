@@ -7,6 +7,7 @@ import { MonthCalendar } from "@/components/overview/MonthCalendar";
 import { ConsistencyPanel } from "@/components/overview/ConsistencyPanel";
 import { StatCards, type StatCard } from "@/components/overview/StatCards";
 import { ActivitiesSection } from "@/components/ActivitiesSection";
+import { TemplatesEntryCard } from "@/components/overview/TemplatesEntryCard";
 import { ValuesCard } from "@/components/assessment/ValuesCard";
 import { HabitSummaryRow } from "@/components/habits/HabitSummaryRow";
 import { ghostButton } from "@/components/ui/styles";
@@ -101,6 +102,7 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
         copy={copy.today}
         readingCopy={copy.onboarding.reading}
       />
+      <TemplatesEntryCard userId={userId} today={today} copy={copy.today} />
 
       <HabitsSection userId={userId} lang={lang} today={today} copy={copy} />
 
