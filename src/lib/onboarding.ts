@@ -16,11 +16,6 @@ export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 export const TOTAL_STEPS = ONBOARDING_STEPS.length;
 
-// Set when the user finishes (or intentionally skips through) onboarding, so the
-// (app) gate stops redirecting even if they configured nothing. It's a
-// navigation hint, not a data flag — features still derive from real data.
-export const ONBOARDED_COOKIE = "onboarded";
-
 export function resolveStep(value: string | undefined): OnboardingStep {
   return ONBOARDING_STEPS.includes(value as OnboardingStep)
     ? (value as OnboardingStep)
