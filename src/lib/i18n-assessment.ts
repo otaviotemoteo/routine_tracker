@@ -59,6 +59,14 @@ export interface AssessmentCopy {
     title: string;
     lead: string;
     time: string;
+    // The whole journey this leads to, not just the grid itself — this is
+    // the first screen of the app for a brand-new account now, so it has to
+    // set the frame: why this part is slow and deliberate, and that what
+    // follows (priorities, directions, AI-suggested habits, then daily
+    // tracking) is built to be fast.
+    journeyTitle: string;
+    journeyItems: string[];
+    journeyNote: string;
     items: string[];
     itemsTitle: string;
     notApplicable: string;
@@ -199,6 +207,15 @@ const en: AssessmentCopy = {
     title: "What matters, and what you actually do",
     lead: "Twelve areas of life, six quick questions about each. The result is a map of where the two have drifted apart.",
     time: "About 20 minutes. One area per screen.",
+    journeyTitle: "Where this leads",
+    journeyItems: [
+      "Your twelve ratings surface five priority areas — where what matters most and what you actually do have drifted furthest apart.",
+      "You write one short direction for each: where you want to move.",
+      "From those directions, habits are suggested for you — keep them, edit them, or write your own instead.",
+      "After that, tracking them takes about two minutes a day, with a default ready for the days that go badly.",
+    ],
+    journeyNote:
+      "This is the one deliberately slow step. Everything that follows it is built to be fast.",
     items: [
       "There are no right answers and no total at the end. A low answer can be a perfectly healthy one.",
       "Every question says why it is being asked. Read that line if the question feels odd.",
@@ -523,6 +540,15 @@ const pt: AssessmentCopy = {
     title: "O que importa, e o que você faz de verdade",
     lead: "Doze áreas da vida, seis perguntas rápidas sobre cada uma. No fim, um mapa de onde as duas coisas se afastaram.",
     time: "Cerca de 20 minutos. Uma área por tela.",
+    journeyTitle: "Para onde isso leva",
+    journeyItems: [
+      "Suas doze notas revelam cinco áreas prioritárias — onde o que mais importa e o que você realmente faz se distanciaram mais.",
+      "Você escreve uma direção curta para cada uma: para onde quer se mover.",
+      "A partir dessas direções, hábitos são sugeridos para você — mantenha, edite ou escreva os seus.",
+      "Depois disso, acompanhar leva cerca de dois minutos por dia, com um padrão pronto pros dias que derem errado.",
+    ],
+    journeyNote:
+      "Essa é a única etapa deliberadamente lenta. Tudo que vem depois foi feito pra ser rápido.",
     items: [
       "Não existe resposta certa nem nota no final. Uma resposta baixa pode ser perfeitamente saudável.",
       "Toda pergunta diz por que está sendo feita. Leia essa linha se a pergunta parecer estranha.",
