@@ -611,21 +611,6 @@ export async function upsertSleepTarget(
   }
 }
 
-// Onboarding gate: has this account configured anything yet? Seeded
-// spiritual-practice defaults are excluded (they always exist), so the check
-// looks only at tables the user actively fills.
-export async function isConfigured(userId: UserId): Promise<boolean> {
-  const [wp, bk, rb, rg, lg, st] = await Promise.all([
-    db.$count(workoutPlans, eq(workoutPlans.userId, userId)),
-    db.$count(books, eq(books.userId, userId)),
-    db.$count(routineBlocks, eq(routineBlocks.userId, userId)),
-    db.$count(readingGoals, eq(readingGoals.userId, userId)),
-    db.$count(languages, eq(languages.userId, userId)),
-    db.$count(sleepTargets, eq(sleepTargets.userId, userId)),
-  ]);
-  return wp + bk + rb + rg + lg + st > 0;
-}
-
 // Canonical dataset export for a date range — the exact payload a future AI
 // analysis consumes (see docs/DATA_DICTIONARY.md). Entities carry full history
 // (all workout-plan versions); days hold per-habit {done, details, note}.
