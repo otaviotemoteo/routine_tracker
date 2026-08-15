@@ -69,6 +69,10 @@ const checkWithHabitColumns = {
   unit: habits.unit,
   target: habits.target,
   minimalAction: habits.minimalAction,
+  // Template-kind-specific setup (today: the checklist kind's item labels).
+  // Read on Today's card and the checklist check-in step; every other kind
+  // ignores it.
+  config: habits.config,
   // The life area, for the icon a plain habit falls back to. Left-joined, so
   // a habit added before any assessment simply has none.
   domainSlug: lifeDomains.slug,
