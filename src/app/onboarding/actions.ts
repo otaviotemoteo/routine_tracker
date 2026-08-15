@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   createBook,
@@ -13,7 +12,7 @@ import {
   upsertSleepTarget,
 } from "@/db/queries";
 import type { PlannedExercise } from "@/db/schema";
-import { ONBOARDED_COOKIE, slugify } from "@/lib/onboarding";
+import { slugify } from "@/lib/onboarding";
 import { todayInSaoPaulo } from "@/lib/utils";
 import { requireUserId } from "@/lib/session";
 
@@ -156,14 +155,10 @@ export async function saveSpiritualityStep(formData: FormData): Promise<void> {
   redirect(safeNext(formData));
 }
 
-// Marks onboarding done (cookie) so the gate stops nagging, then goes home.
+// Finishes the wizard and goes home. The (app) gate no longer reads a cookie
+// here — it derives completion from whether the account has an active habit
+// (see src/app/(app)/layout.tsx), which this route doesn't create on its own.
 export async function finishOnboarding(): Promise<void> {
-  const userId = await requireUserId();
-  (await cookies()).set(ONBOARDED_COOKIE, "1", {
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 365,
-    path: "/",
-  });
+  await requireUserId();
   redirect("/");
 }
