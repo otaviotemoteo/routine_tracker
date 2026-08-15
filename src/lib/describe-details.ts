@@ -222,8 +222,14 @@ export function describeDetails(
 
     // A generic habit has one figure. It becomes a tile beside its target
     // when there is one — two tiles being the smallest thing that reads as a
-    // comparison rather than a lone number.
-    case "plain": {
+    // comparison rather than a lone number. Shared by `plain` and the three
+    // card-style-chooser kinds that read the same day shape (`number`,
+    // `check`, `duration`, `streak`; see details-schemas.ts).
+    case "plain":
+    case "number":
+    case "check":
+    case "duration":
+    case "streak": {
       if (typeof d.value !== "number") break;
       const tiles: AuditValue[] = [
         {
@@ -240,6 +246,22 @@ export function describeDetails(
         });
       }
       blocks.push({ kind: "tiles", items: tiles });
+      break;
+    }
+
+    // Checklist: which of the day's items got ticked. This function only
+    // sees the day's own details, not the habit's config (the full item
+    // list), so — like routine's followed blocks — it shows what was done
+    // as chips rather than a done/not-done checklist against items it can't
+    // see.
+    case "checklist": {
+      if (Array.isArray(d.done_items) && d.done_items.length > 0) {
+        blocks.push({
+          kind: "chips",
+          label: todayCopy.unitChecklistItems,
+          items: d.done_items.filter((i): i is string => typeof i === "string"),
+        });
+      }
       break;
     }
   }
