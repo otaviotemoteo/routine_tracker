@@ -134,7 +134,11 @@ export async function login(
 }
 
 // First sign-in on an account created by script: set the password and go
-// straight into onboarding, which is where a brand-new account should start.
+// home. Where a brand-new account actually lands from there is the (app)
+// gate's call, not this action's — it has no active habit yet, so the gate
+// sends it into the values check-in. Redirecting straight to a hardcoded
+// route here would be a second place that has to agree with the gate about
+// where onboarding starts, which is the exact bug this replaced.
 export async function claim(
   _prev: LoginState,
   formData: FormData
@@ -159,7 +163,7 @@ export async function claim(
   }
 
   await startSession(user.id);
-  redirect("/onboarding");
+  redirect("/");
 }
 
 export async function logout() {
