@@ -1,4 +1,4 @@
-import { Check, ExternalLink } from "lucide-react";
+import { ArrowRight, Check, ExternalLink } from "lucide-react";
 import { cardSurface, primaryButton } from "@/components/ui/styles";
 import type { Copy } from "@/lib/i18n";
 
@@ -15,6 +15,15 @@ interface IntroStepProps {
 // while you answer: that is an internal rule protecting the validity of the
 // data, and telling a reader what the app is withholding only makes them
 // wonder what else it is withholding.
+//
+// This is also, now, the first screen a brand-new account ever sees — the
+// (app) gate sends anyone with no active habit here instead of the old
+// manual wizard. So besides explaining the grid, it has to set the frame for
+// the whole first run: priorities, directions, AI-suggested habits, and only
+// then a daily check-in that's actually short. Naming that trade honestly
+// (this part is slow on purpose; the rest isn't) is the point of the
+// "journey" card below — undersell the effort and the grid reads as a
+// bait-and-switch by domain four.
 export function IntroStep({ action, copy }: IntroStepProps) {
   return (
     <div>
@@ -25,9 +34,30 @@ export function IntroStep({ action, copy }: IntroStepProps) {
         {copy.intro.time}
       </p>
 
+      <section className={`${cardSurface} mt-6 px-4 py-4`}>
+        <h2 className="font-semibold">{copy.intro.journeyTitle}</h2>
+        <ol className="flex flex-col gap-2.5 mt-3 list-none">
+          {copy.intro.journeyItems.map((item, i) => (
+            <li key={item} className="flex gap-2.5">
+              <ArrowRight
+                className="w-4 h-4 mt-1 shrink-0 text-clover"
+                aria-hidden
+              />
+              <span className="text-sm">
+                <span className="sr-only">Step {i + 1}: </span>
+                {item}
+              </span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-3 text-sm font-semibold text-straw">
+          {copy.intro.journeyNote}
+        </p>
+      </section>
+
       {/* The three points are one explanation of the questions, so they are one
           card with a title, not three loose ticks on the page. */}
-      <section className={`${cardSurface} mt-6 px-4 py-4`}>
+      <section className={`${cardSurface} mt-4 px-4 py-4`}>
         <h2 className="font-semibold">{copy.intro.itemsTitle}</h2>
         <ul className="flex flex-col gap-2.5 mt-3 list-none">
           {copy.intro.items.map((item) => (
