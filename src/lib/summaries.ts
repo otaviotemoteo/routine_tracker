@@ -90,11 +90,25 @@ export function summarizeDetails(
       return activity ?? minutes;
     }
 
-    // A generic habit. "23 pages" when it names a unit, "23" when it doesn't,
-    // and nothing at all for a binary habit — where the value is 1 and the
-    // caller already renders "Done", so "1" would add a figure that says less
-    // than the word it sits beside.
-    case "plain": {
+    case "checklist": {
+      if (!Array.isArray(d.done_items) || d.done_items.length === 0) return null;
+      const n = d.done_items.length;
+      return format(plural(n, copy.sumChecklistItem, copy.sumChecklistItems), {
+        n,
+      });
+    }
+
+    // A generic habit — `plain` and the three card-style-chooser kinds that
+    // share its day shape (`number`, `check`, `duration`, `streak`; see
+    // details-schemas.ts). "23 pages" when it names a unit, "23" when it
+    // doesn't, and nothing at all for a binary habit — where the value is 1
+    // and the caller already renders "Done", so "1" would add a figure that
+    // says less than the word it sits beside.
+    case "plain":
+    case "number":
+    case "check":
+    case "duration":
+    case "streak": {
       if (typeof d.value !== "number") return null;
       if (d.value === 0) return null;
       return unit ? `${d.value} ${unit}` : String(d.value);
