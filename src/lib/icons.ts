@@ -3,12 +3,17 @@
 import {
   AlarmClock,
   BookOpen,
+  CheckCircle2,
   Church,
   Dumbbell,
+  Flame,
   Globe,
   Guitar,
+  Hash,
+  ListChecks,
   Moon,
   Sprout,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import { domainIcon } from "./domain-icons";
@@ -16,7 +21,11 @@ import { isDomainSlug, type DomainSlug } from "./domains";
 import { templateKindOf } from "./templates";
 
 // The seven original habits, keyed by the template kind they carry (which for
-// them is their old slug, so nothing about them changed).
+// them is their old slug, so nothing about them changed) — plus the five
+// card-style-chooser kinds, which get an icon naming the STYLE rather than a
+// life area, since a habit that picked one keeps its own area on every other
+// screen (the habit list, the week grid) and only Today's card needs to say
+// "this is the checklist one" at a glance.
 const ICON_BY_KIND: Record<string, LucideIcon> = {
   treino: Dumbbell,
   leitura: BookOpen,
@@ -25,6 +34,11 @@ const ICON_BY_KIND: Record<string, LucideIcon> = {
   duolingo: Globe,
   espiritualidade: Church,
   hobby: Guitar,
+  number: Hash,
+  check: CheckCircle2,
+  duration: Timer,
+  checklist: ListChecks,
+  streak: Flame,
 };
 
 // A habit with no template takes the icon of the life area it descends from,
