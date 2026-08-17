@@ -20,10 +20,18 @@ interface DirectionStepProps {
   initialNarrative: string;
 }
 
-function SubmitButton({ label, savingLabel }: { label: string; savingLabel: string }) {
+function SubmitButton({
+  label,
+  savingLabel,
+  disabled,
+}: {
+  label: string;
+  savingLabel: string;
+  disabled: boolean;
+}) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={primaryButton}>
+    <button type="submit" disabled={disabled || pending} className={primaryButton}>
       {pending && (
         <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden />
       )}
@@ -117,7 +125,11 @@ export function DirectionStep({
             </button>
           )}
         </div>
-        <SubmitButton label={submitLabel} savingLabel={copy.saving} />
+        <SubmitButton
+          label={submitLabel}
+          savingLabel={copy.saving}
+          disabled={narrative.trim().length === 0}
+        />
       </div>
 
       <dialog
