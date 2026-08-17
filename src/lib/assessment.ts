@@ -25,7 +25,7 @@ export type AssessmentStep = (typeof ASSESSMENT_STEPS)[number];
 // the bar runs 1..12 over the domains (see domainPosition in domains.ts).
 
 export function assessmentStepHref(step: AssessmentStep): string {
-  return `/assessment?step=${step}`;
+  return `/onboarding?step=${step}`;
 }
 
 export function isAssessmentStep(value: string): value is AssessmentStep {
