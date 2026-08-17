@@ -21,10 +21,10 @@ import { RATING_SCALES, SCALE_MAX, SCALE_MIN, isDomainSlug } from "@/lib/domains
 import { requireUserId } from "@/lib/session";
 import { todayInSaoPaulo } from "@/lib/utils";
 
-// Same-origin only, matching src/app/onboarding/actions.ts.
+// Same-origin only, matching src/app/config/actions.ts.
 function safeNext(formData: FormData): string {
   const next = formData.get("next");
-  return typeof next === "string" && next.startsWith("/") ? next : "/assessment";
+  return typeof next === "string" && next.startsWith("/") ? next : "/onboarding";
 }
 
 const scale = z.coerce.number().int().min(SCALE_MIN).max(SCALE_MAX);
@@ -48,7 +48,7 @@ export async function startAssessment(): Promise<void> {
 export async function saveDomainRating(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const slug = String(formData.get("domain") ?? "");
-  if (!isDomainSlug(slug)) redirect("/assessment");
+  if (!isDomainSlug(slug)) redirect("/onboarding");
 
   const parsed = ratingSchema.safeParse(
     Object.fromEntries(RATING_SCALES.map((key) => [key, formData.get(key)]))
@@ -118,10 +118,10 @@ export async function restartAssessment(): Promise<void> {
 export async function saveDirection(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const slug = String(formData.get("domain") ?? "");
-  if (!isDomainSlug(slug)) redirect("/assessment/directions");
+  if (!isDomainSlug(slug)) redirect("/onboarding/directions");
 
   const sealed = await getLatestSealed(userId);
-  if (!sealed) redirect("/assessment");
+  if (!sealed) redirect("/onboarding");
 
   const domainIds = await getDomainIds();
   await upsertDirectionNarrative(userId, sealed.cycleId, domainIds[slug], {

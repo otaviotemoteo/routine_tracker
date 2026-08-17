@@ -4,8 +4,8 @@ import { AssessmentShell } from "@/components/assessment/AssessmentShell";
 import { DomainStep } from "@/components/assessment/DomainStep";
 import { IntroStep } from "@/components/assessment/IntroStep";
 import { ResumeStep } from "@/components/assessment/ResumeStep";
-import { restartAssessment, saveDomainRating, startAssessment } from "./actions";
-import { getLatestSealed, getOpenDraft } from "@/db/assessment";
+import { restartAssessment, saveDomainRating, startAssessment } from "./values-actions";
+import { getOpenDraft } from "@/db/assessment";
 import {
   answeredCount,
   assessmentStepHref,
@@ -14,6 +14,7 @@ import {
   prevAssessmentHref,
   resolveAssessmentStep,
 } from "@/lib/assessment";
+import { onboardingStepHref, resolveOnboardingStep } from "@/lib/onboarding-flow";
 import { TOTAL_DOMAINS, domainPosition, isDomainSlug } from "@/lib/domains";
 import { getLang } from "@/lib/get-lang";
 import { COPY, format } from "@/lib/i18n";
@@ -22,18 +23,21 @@ import { formatShortDayMonth, todayInSaoPaulo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-interface AssessmentPageProps {
+interface OnboardingPageProps {
   searchParams: Promise<{ step?: string }>;
 }
 
-// The values check-in, in focus mode.
-//
-// Outside the (app) route group on purpose, so there is no nav bar to wander
-// off through mid-grid — which is also why the language toggle is rendered
-// here, exactly as /onboarding and /config do it.
-export default async function AssessmentPage({
+// The values check-in, in focus mode — and the first-run chain's entry
+// point. This is the one page in the chain with a STRICT, resolver-driven
+// redirect: with no open draft, IntroStep is reachable only when
+// resolveOnboardingStep() itself says "intro" (a true blank slate — no
+// sealed assessment ever). Anything else — a sealed assessment further along
+// the chain, proposed habits waiting, a stray ?step=results on an old
+// bookmark — sends the visitor straight to their real current step instead
+// of the same generic "Start" screen every time. See src/lib/onboarding-flow.ts.
+export default async function OnboardingPage({
   searchParams,
-}: AssessmentPageProps) {
+}: OnboardingPageProps) {
   const userId = await requireUserId();
   const lang = await getLang();
   const copy = COPY[lang].assessment;
@@ -41,11 +45,10 @@ export default async function AssessmentPage({
 
   const draft = await getOpenDraft(userId);
 
-  // Nothing started yet: the intro, or the results of the last finished one.
   if (!draft) {
-    const sealed = await getLatestSealed(userId);
-    if (requested === "results" && sealed) {
-      redirect("/assessment/results");
+    const resolved = await resolveOnboardingStep(userId);
+    if (resolved.screen !== "intro") {
+      redirect(onboardingStepHref(resolved));
     }
     return (
       <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="focus">
@@ -75,7 +78,7 @@ export default async function AssessmentPage({
   // The ceiling: backwards is free, forwards is not, and the results screen is
   // unreachable until the last domain is in.
   const step = resolveAssessmentStep(requested, draft.ratings);
-  if (step === "results") redirect("/assessment/results");
+  if (step === "results") redirect("/onboarding/results");
 
   if (step === "intro") {
     return (
@@ -85,7 +88,7 @@ export default async function AssessmentPage({
     );
   }
 
-  if (!isDomainSlug(step)) redirect("/assessment");
+  if (!isDomainSlug(step)) redirect("/onboarding");
 
   // The bar counts areas, not steps: the intro carries no bar, so starting the
   // count at the first domain is what makes "12 of 12" land on the last one.
@@ -113,4 +116,3 @@ export default async function AssessmentPage({
     </AssessmentShell>
   );
 }
-
