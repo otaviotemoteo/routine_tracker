@@ -36,6 +36,7 @@ import {
   type SuggestableTemplateKind,
 } from "@/lib/templates";
 import type { DomainSlug } from "@/lib/domains";
+import { slugify } from "@/lib/slugify";
 import { addDays, calcStreak } from "@/lib/utils";
 
 export interface HabitRow {
@@ -233,7 +234,10 @@ async function uniqueSlug(
   exceptId?: number
 ): Promise<string> {
   const base =
-    slugify(name) ||
+    // habits.slug is varchar(40) — the shared slugify() doesn't truncate
+    // (its other callers' columns are wider), so this is the one caller
+    // that needs the cap.
+    slugify(name).slice(0, 40) ||
     // A name of only punctuation or emoji leaves nothing to slugify.
     `habit-${Date.now().toString(36)}`;
   const taken = await db
@@ -255,19 +259,6 @@ async function uniqueSlug(
     const candidate = `${base}-${n}`;
     if (!used.has(candidate)) return candidate;
   }
-}
-
-// Local copy rather than importing from onboarding.ts: that module is about
-// the wizard, and a habit slug should not start depending on it.
-function slugify(input: string): string {
-  return input
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40);
 }
 
 async function domainIdFor(slug: DomainSlug | null): Promise<number | null> {
