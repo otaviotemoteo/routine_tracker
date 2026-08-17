@@ -37,6 +37,17 @@ export function firstUnanswered(ratings: DomainRatings): DomainSlug | null {
   return DOMAIN_SLUGS.find((slug) => !ratings[slug]) ?? null;
 }
 
+// The directions-writing equivalent: the first priority domain with nothing
+// written yet, or null once every one has a direction. Mirrors
+// firstUnanswered() exactly, and drives the same kind of ceiling — walking
+// the five priority domains in order, no skipping ahead via the URL.
+export function firstUndirected(
+  priority: DomainSlug[],
+  written: Record<string, { narrative?: string }>
+): DomainSlug | null {
+  return priority.find((slug) => !written[slug]?.narrative?.trim()) ?? null;
+}
+
 export function answeredCount(ratings: DomainRatings): number {
   return DOMAIN_SLUGS.filter((slug) => ratings[slug]).length;
 }
