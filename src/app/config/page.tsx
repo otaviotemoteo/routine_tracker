@@ -15,7 +15,7 @@ import {
   saveSleepStep,
   saveSpiritualityStep,
   saveWorkoutStep,
-} from "@/app/onboarding/actions";
+} from "@/app/config/actions";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import {
