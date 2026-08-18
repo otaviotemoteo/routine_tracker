@@ -1,20 +1,26 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AlertTriangle, Plus } from "lucide-react";
+import { AssessmentShell } from "@/components/assessment/AssessmentShell";
 import { StepTitle } from "@/components/onboarding/OnboardingChrome";
 import { HabitGroups } from "@/components/habits/HabitGroups";
 import { StartTrackingButton } from "@/components/habits/StartTrackingButton";
-import { removeHabitAction, startTrackingAction } from "../actions";
+import { removeHabitAction, startTrackingAction } from "@/app/(app)/habits/actions";
 import { findPendingRequest } from "@/db/ai";
+import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import { listProposedHabits } from "@/db/habits";
 import { suggestHabits } from "@/lib/ai/suggest-habits";
+import { buildingAreas } from "@/lib/assessment";
+import { isDomainSlug } from "@/lib/domains";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
+import { isFirstRun } from "@/lib/onboarding-flow";
 import { ghostButton, primaryButton } from "@/components/ui/styles";
 import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-const HERE = "/habits/review";
+const HERE = "/onboarding/habits";
 
 interface ReviewPageProps {
   searchParams: Promise<{ generate?: string }>;
@@ -41,6 +47,7 @@ export default async function HabitsReviewPage({
   const lang = await getLang();
   const copy = COPY[lang].habits;
   const params = await searchParams;
+  const firstRun = await isFirstRun(userId);
 
   let proposed = await listProposedHabits(userId);
   let failed = false;
@@ -62,13 +69,35 @@ export default async function HabitsReviewPage({
       // what someone with no provider configured should see.
       failed = outcome.status === "error" || outcome.status === "invalid";
       if (outcome.status === "ok") proposed = await listProposedHabits(userId);
+    } else {
+      // Nothing proposed, nothing in flight, and no explicit request to
+      // generate — this visit arrived before there's anything to review yet
+      // (a stale link, a direct URL typed before finishing directions/areas).
+      // Send it back to areas rather than showing a manual-add screen that
+      // looks exactly like "the AI found nothing" when really nothing was
+      // ever asked for.
+      const sealed = await getLatestSealed(userId);
+      if (sealed) {
+        const priority = sealed.priorityDomains.filter(isDomainSlug);
+        if (priority.length > 0) {
+          const written = await listDirectionNarratives(userId, sealed.cycleId);
+          if (buildingAreas(priority, written).length === 0) {
+            redirect("/onboarding/areas");
+          }
+        }
+        // priority.length === 0: nothing downstream has anything to do with
+        // an empty priority list either — fall through to the manual-add
+        // state below, which already handles this correctly.
+      } else {
+        redirect("/onboarding/areas");
+      }
     }
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-8 pb-24">
+    <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="nav" firstRun={firstRun}>
       <p className="eyebrow">{copy.reviewEyebrow}</p>
-      <StepTitle backHref="/assessment/areas" backLabel={copy.reviewEyebrow}>
+      <StepTitle backHref="/onboarding/areas" backLabel={copy.reviewEyebrow}>
         {copy.reviewTitle}
       </StepTitle>
       <p className="mt-2 mb-6 opacity-75">{copy.reviewLead}</p>
@@ -130,6 +159,6 @@ export default async function HabitsReviewPage({
           </form>
         </>
       )}
-    </main>
+    </AssessmentShell>
   );
 }
