@@ -47,6 +47,9 @@ interface PatternCopy {
 }
 
 export interface AssessmentCopy {
+  // The persistent "what section is this" label — rendered by AssessmentShell
+  // next to the language toggle in focus mode, since "Área 6 de 12" alone
+  // doesn't say six of twelve OF WHAT.
   navLabel: string;
   back: string;
   backToResults: string;
@@ -202,7 +205,7 @@ export interface AssessmentCopy {
 }
 
 const en: AssessmentCopy = {
-  navLabel: "Values",
+  navLabel: "Values assessment",
   back: "Back",
   backToResults: "Back to the results",
   backToOverview: "Back to Overview",
@@ -539,7 +542,7 @@ const en: AssessmentCopy = {
 };
 
 const pt: AssessmentCopy = {
-  navLabel: "Valores",
+  navLabel: "Avaliação de valores",
   back: "Voltar",
   backToResults: "Voltar para os resultados",
   backToOverview: "Voltar para a visão geral",
