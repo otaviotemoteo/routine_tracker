@@ -59,11 +59,6 @@ export default async function TodayPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-24">
-      {showTemplatesNudge && (
-        <div className="mb-5">
-          <TemplatesNudge habitNames={uncustomized} lang={lang} copy={copy.today} />
-        </div>
-      )}
       <TodayBoard
         checks={checks}
         context={context}
@@ -78,6 +73,11 @@ export default async function TodayPage() {
         readingCopy={copy.onboarding.reading}
         pace={pace}
         paceValues={paceValues}
+        templatesNudge={
+          showTemplatesNudge && (
+            <TemplatesNudge habitNames={uncustomized} lang={lang} copy={copy.today} />
+          )
+        }
       />
     </main>
   );
