@@ -33,11 +33,12 @@ import {
   RICH_TEMPLATE_KINDS,
   storedTemplateKind,
   type GenericTemplateKind,
+  type RichTemplateKind,
   type SuggestableTemplateKind,
 } from "@/lib/templates";
 import type { DomainSlug } from "@/lib/domains";
 import { slugify } from "@/lib/slugify";
-import { addDays, calcStreak } from "@/lib/utils";
+import { addDays, calcStreak, todayInSaoPaulo } from "@/lib/utils";
 
 export interface HabitRow {
   id: number;
@@ -304,6 +305,54 @@ export async function createHabit(
   return row.id;
 }
 
+// Finds the account's one habit of a rich kind (treino/leitura/sono/rotina/
+// duolingo/espiritualidade), creating it if none exists yet. Every rich kind
+// is a de-facto singleton per account — see templates.ts, and setHabitTemplate
+// above, which refuses to hand one out to a second habit. That invariant is
+// what lets /config keep behaving exactly as it always did: today, the first
+// save to any of the six domains implicitly creates that account's first row
+// in a shared table, with no habit awareness needed at all, because the table
+// itself was the "does this exist yet" check. This is that same "first save
+// creates it" behavior, now that the thing being created is a full habit row
+// instead of a bare table row — so /config's forms don't need to change to
+// keep working for every account, not just one that already has the habit.
+//
+// Written straight to `activeFrom: today` — this is a direct write from a
+// settings screen, not an AI proposal awaiting review, so there's no
+// "proposed" state to pass through.
+export async function getOrCreateSingletonHabit(
+  userId: UserId,
+  kind: RichTemplateKind,
+  defaultName: string
+): Promise<HabitRow> {
+  const [existing] = await selectHabits().where(
+    and(eq(habits.userId, userId), eq(habits.templateKind, kind))
+  );
+  if (existing) return toRow(existing);
+
+  const [{ max }] = await db
+    .select({ max: sql<number>`coalesce(max(${habits.position}), 0)` })
+    .from(habits)
+    .where(eq(habits.userId, userId));
+
+  const [created] = await db
+    .insert(habits)
+    .values({
+      userId,
+      name: defaultName,
+      slug: await uniqueSlug(userId, defaultName),
+      metricType: "binary",
+      templateKind: kind,
+      source: "human",
+      activeFrom: todayInSaoPaulo(),
+      position: Number(max) + 1,
+    })
+    .returning({ id: habits.id });
+
+  const [row] = await selectHabits().where(eq(habits.id, created.id));
+  return toRow(row);
+}
+
 // Update a habit's wording. Never touches active_from, so editing a proposal
 // leaves it a proposal and editing a tracked habit leaves it tracked.
 //
@@ -385,6 +434,21 @@ export async function setHabitTemplate(
     )
     .returning({ id: habits.id });
   return rows.length > 0;
+}
+
+// Overwrites a habit's `config` wholesale. The caller (rich-habits.ts) has
+// already validated the new shape against config-schemas.ts and merged it
+// with whatever the old config needs kept (inactive list entries, mostly) —
+// this function just writes what it's handed, scoped to the account.
+export async function setHabitConfig(
+  userId: UserId,
+  id: number,
+  config: unknown
+): Promise<void> {
+  await db
+    .update(habits)
+    .set({ config })
+    .where(and(eq(habits.id, id), eq(habits.userId, userId)));
 }
 
 // Remove, which means two different things depending on the set:
