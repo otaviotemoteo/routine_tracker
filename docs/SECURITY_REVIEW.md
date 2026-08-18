@@ -85,9 +85,13 @@ re-filtering would be theatre.
 
 **`/api/export`** (`src/app/api/export/route.ts:12`) derives `userId` from
 `getUserId()` and never from a parameter. The only inputs are `from` and `to`,
-both `z.string().date()`. `getExport` scopes every one of its nine queries on
-`userId`, and reaches `workout_plan_days` through a join on `workout_plans` —
-the one table without its own `user_id`.
+both `z.string().date()`. `getExport` scopes its `daily_checks` query on
+`userId` directly; the six rich-domain entities (workout plan, reading list,
+routine blocks, languages, spiritual practices, sleep target) come from each
+habit's own `config`, reached through the same `getHabitByTemplateKind`
+lookup every other read in `src/db/rich-habits.ts` uses — scoped by
+`habits.user_id`, one level up from where `workout_plan_days`' join used to
+reach it.
 
 **All four `/api/checks/*` routes** derive the user the same way and answer 401
 when there is no session.
