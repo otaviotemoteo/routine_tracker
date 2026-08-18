@@ -56,8 +56,12 @@ export function TemplateChooserList({
         // One background class, not two layered — same-specificity Tailwind
         // utilities resolve by generated-CSS order, not by position in this
         // string, so conditionally appending a second bg-* class on top of
-        // the first is not reliable.
-        const rowBg = open ? "bg-white" : chosenKind ? "bg-mint" : "bg-cream";
+        // the first is not reliable. White at rest (open or closed — the
+        // same white either way), light green once finished. Used to be
+        // bg-cream at rest, which blends into the page's own background
+        // (body is bg-cream too) and read as unfinished forever rather than
+        // as "not yet touched, still there".
+        const rowBg = chosenKind ? "bg-mint" : "bg-white";
 
         return (
           <li
