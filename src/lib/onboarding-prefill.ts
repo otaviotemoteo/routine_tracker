@@ -2,40 +2,46 @@ import type { UserId } from "@/db/scope";
 // Server-only prefill loaders for the onboarding/config step forms — shared so
 // the wizard and the settings page show the same current values.
 import {
-  getActiveWorkoutPlan,
-  getReadingGoal,
-  getSleepTarget,
-  listBooks,
+  getReadingConfig,
+  getSleepConfig,
+  getWorkoutConfig,
   listLanguages,
   listRoutineBlocks,
   listSpiritualPractices,
-} from "@/db/queries";
+} from "@/db/rich-habits";
 import { daysLeftInYear, todayInSaoPaulo } from "@/lib/utils";
 
 export async function workoutInitial(userId: UserId) {
-  const plan = await getActiveWorkoutPlan(userId);
+  const workout = await getWorkoutConfig(userId);
   return {
-    initialName: plan?.name ?? "",
+    initialName: workout?.planName ?? "",
     initialDays:
-      plan?.days.map((d) => ({
-        weekday: d.weekday,
-        focus: d.focus,
-        exercises: d.exercises,
-      })) ?? [],
+      workout?.days
+        .filter((d) => d.active)
+        .map((d) => ({
+          weekday: d.weekday,
+          focus: d.focus,
+          exercises: d.exercises,
+        })) ?? [],
   };
 }
 
 export async function readingInitial(userId: UserId) {
   const today = todayInSaoPaulo();
-  const [goal, books] = await Promise.all([
-    getReadingGoal(userId, Number(today.slice(0, 4))),
-    listBooks(userId),
-  ]);
+  const year = Number(today.slice(0, 4));
+  const reading = await getReadingConfig(userId);
   return {
     daysLeft: daysLeftInYear(today),
-    year: Number(today.slice(0, 4)),
-    initialGoal: goal ? String(goal.targetBooks) : "",
-    initialBooks: books.map((b) => ({
+    year,
+    // The goal is per-year — a target saved in an earlier year prefills
+    // empty, same as the old getReadingGoal(userId, year) exact-year lookup,
+    // so a new year prompts a fresh number rather than quietly reusing last
+    // year's.
+    initialGoal:
+      reading?.year === year && reading.targetBooksPerYear
+        ? String(reading.targetBooksPerYear)
+        : "",
+    initialBooks: (reading?.books ?? []).map((b) => ({
       id: b.id,
       title: b.title,
       author: b.author ?? "",
@@ -47,18 +53,18 @@ export async function readingInitial(userId: UserId) {
 }
 
 export async function sleepInitial(userId: UserId) {
-  const target = await getSleepTarget(userId);
+  const target = await getSleepConfig(userId);
   return {
-    initialBedtime: target?.bedtime.slice(0, 5) ?? "23:00",
-    initialWake: target?.wakeTime.slice(0, 5) ?? "06:30",
+    initialBedtime: target?.bedtime ?? "23:00",
+    initialWake: target?.wakeTime ?? "06:30",
   };
 }
 
 export async function routineInitial(userId: UserId) {
   const blocks = await listRoutineBlocks(userId);
   return blocks.map((b) => ({
-    startTime: b.startTime.slice(0, 5),
-    endTime: b.endTime.slice(0, 5),
+    startTime: b.startTime,
+    endTime: b.endTime,
     activity: b.activity,
     weekdays: b.weekdays,
   }));
