@@ -10,6 +10,7 @@ import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import { diagnose, gapSpread, NARROW_SPREAD, rankByGap } from "@/lib/diagnose";
 import { getLang } from "@/lib/get-lang";
 import { COPY, format } from "@/lib/i18n";
+import { isFirstRun } from "@/lib/onboarding-flow";
 import { requireUserId } from "@/lib/session";
 import { formatShortDayMonth } from "@/lib/utils";
 
@@ -31,16 +32,17 @@ export default async function ResultsPage() {
   const copy = COPY[lang].assessment;
 
   const sealed = await getLatestSealed(userId);
-  if (!sealed) redirect("/assessment");
+  if (!sealed) redirect("/onboarding");
 
   const rows = rankByGap(sealed.ratings);
   const findings = diagnose(sealed.ratings).sort((a, b) => b.severity - a.severity);
   const spread = gapSpread(sealed.ratings);
   const written = await listDirectionNarratives(userId, sealed.cycleId);
   const hasDirections = Object.keys(written).length > 0;
+  const firstRun = await isFirstRun(userId);
 
   return (
-    <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="nav">
+    <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="nav" firstRun={firstRun}>
       <p className="eyebrow mb-2">{copy.results.eyebrow}</p>
       {/* The way back rides on the title, so there is one of it and nothing to
           scroll past to find it. */}
@@ -99,22 +101,39 @@ export default async function ResultsPage() {
         )}
       </section>
 
-      <PriorityList
-        priority={sealed.priorityDomains}
-        rows={rows}
-        findings={findings}
-        narrowSpread={spread !== null && spread < NARROW_SPREAD}
-        copy={copy}
-      />
+      {sealed.priorityDomains.length > 0 ? (
+        <>
+          <PriorityList
+            priority={sealed.priorityDomains}
+            rows={rows}
+            findings={findings}
+            narrowSpread={spread !== null && spread < NARROW_SPREAD}
+            copy={copy}
+          />
 
-      {/* Only the way forward down here: the title carries the way back, and
-          stacking two of those is what the nav bar is already for. */}
-      {sealed.priorityDomains.length > 0 && (
-        <div className="mt-10">
-          <Link href="/assessment/directions" className={primaryButton}>
-            {hasDirections
-              ? copy.results.reviewDirections
-              : copy.results.writeDirections}
+          {/* Only the way forward down here: the title carries the way back, and
+              stacking two of those is what the nav bar is already for. */}
+          <div className="mt-10">
+            <Link href="/onboarding/directions" className={primaryButton}>
+              {hasDirections
+                ? copy.results.reviewDirections
+                : copy.results.writeDirections}
+            </Link>
+          </div>
+        </>
+      ) : (
+        // Zero priority domains is a real, if rare, outcome — everyone's
+        // general importance came in ≤4 — and nothing downstream (directions,
+        // areas) has anything to do with an empty list. Skip straight to
+        // adding habits by hand rather than leaving this as a dead end with
+        // no forward button at all.
+        <div className={`${cardSurface} mt-10 px-6 py-8 text-center`}>
+          <h2 className="display-title text-2xl">{copy.results.noPriorityTitle}</h2>
+          <p className="mt-2 opacity-75 max-w-prose mx-auto">
+            {copy.results.noPriorityLead}
+          </p>
+          <Link href="/onboarding/habits" className={`${primaryButton} mt-6`}>
+            {copy.results.noPriorityAction}
           </Link>
         </div>
       )}
