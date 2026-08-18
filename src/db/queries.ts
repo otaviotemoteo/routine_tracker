@@ -1,23 +1,25 @@
 // Single data-access layer: the ONLY file (besides seed.ts) that touches
 // Drizzle. Routes validate input and call these functions; business math is
 // delegated to the pure helpers in src/lib/utils.ts.
-import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { db } from "./index";
 import { habitsFor, habitsForRange, type UserId } from "./scope";
+import { dailyChecks, habits, lifeDomains } from "./schema";
 import {
-  books,
-  dailyChecks,
-  habits,
-  languages,
-  lifeDomains,
-  readingGoals,
-  routineBlocks,
-  sleepTargets,
-  spiritualPractices,
-  workoutPlanDays,
-  workoutPlans,
-  type PlannedExercise,
-} from "./schema";
+  getBookById,
+  getCurrentBook,
+  getDuolingoConfig,
+  getReadingConfig,
+  getRoutineConfig,
+  getSleepConfig,
+  getSpiritualityConfig,
+  getWorkoutConfig,
+  listBooks,
+  listLanguages,
+  listRoutineBlocks,
+  listSpiritualPractices,
+  updateBook,
+} from "./rich-habits";
 import {
   addDays,
   calcMonthAdherence,
@@ -149,18 +151,21 @@ export async function getTodayContext(
   date: string
 ): Promise<TodayContext> {
   const weekday = isoWeekday(date);
-  const [plan, book, sleep, blocks, langs, practices, allBooks] =
+  const [workout, book, sleep, blocks, langs, practices, allBooks] =
     await Promise.all([
-      getActiveWorkoutPlan(userId),
+      getWorkoutConfig(userId),
       getCurrentBook(userId),
-      getSleepTarget(userId),
+      getSleepConfig(userId),
       listRoutineBlocks(userId, true),
       listLanguages(userId, true),
       listSpiritualPractices(userId, true),
       listBooks(userId),
     ]);
+  // Only the active days are "the current plan" — a retired day (superseded
+  // by a later save) stays in config for old check-ins to resolve, but Today
+  // has no business scheduling against it.
   const planDays =
-    plan?.days.map((d) => ({
+    workout?.days.filter((d) => d.active).map((d) => ({
       id: d.id,
       weekday: d.weekday,
       focus: d.focus,
@@ -168,9 +173,9 @@ export async function getTodayContext(
     })) ?? [];
   return {
     weekday,
-    plan: plan
+    plan: workout
       ? {
-          name: plan.name,
+          name: workout.planName,
           day: planDays.find((d) => d.weekday === weekday) ?? null,
           days: planDays,
         }
@@ -188,15 +193,13 @@ export async function getTodayContext(
             .map((b) => ({ title: b.title, totalPages: b.totalPages })),
         }
       : null,
-    sleepTarget: sleep
-      ? { bedtime: sleep.bedtime.slice(0, 5), wakeTime: sleep.wakeTime.slice(0, 5) }
-      : null,
+    sleepTarget: sleep ? { bedtime: sleep.bedtime, wakeTime: sleep.wakeTime } : null,
     routineBlocks: blocks
       .filter((b) => b.weekdays.includes(weekday))
       .map((b) => ({
         id: b.id,
-        startTime: b.startTime.slice(0, 5),
-        endTime: b.endTime.slice(0, 5),
+        startTime: b.startTime,
+        endTime: b.endTime,
         activity: b.activity,
       })),
     languages: langs.map((l) => ({ slug: l.slug, name: l.name })),
@@ -279,422 +282,37 @@ export async function saveCheckDetails(
   return row ?? null;
 }
 
-// ─── Entities (Tier 3) ───────────────────────────────────────────────────────
-
-export interface WorkoutPlanDayInput {
-  weekday: number;
-  focus: string;
-  exercises: PlannedExercise[];
-}
-
-export async function getActiveWorkoutPlan(userId: UserId) {
-  const [plan] = await db
-    .select()
-    .from(workoutPlans)
-    .where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.active, true)))
-    .orderBy(desc(workoutPlans.version))
-    .limit(1);
-  if (!plan) return null;
-  const days = await db
-    .select()
-    .from(workoutPlanDays)
-    .where(eq(workoutPlanDays.planId, plan.id))
-    .orderBy(asc(workoutPlanDays.weekday));
-  return { ...plan, days };
-}
-
-export function listWorkoutPlanVersions(userId: UserId) {
-  return db
-    .select()
-    .from(workoutPlans)
-    .where(eq(workoutPlans.userId, userId))
-    .orderBy(asc(workoutPlans.version));
-}
-
-// Editing a plan = a NEW immutable version (spec): bump version, deactivate the
-// old active one, insert the new plan + its days. History is preserved.
-export async function saveWorkoutPlan(
-  userId: UserId,
-  name: string,
-  days: WorkoutPlanDayInput[]
-) {
-  const [{ max }] = await db
-    .select({ max: sql<number>`coalesce(max(${workoutPlans.version}), 0)` })
-    .from(workoutPlans)
-    .where(eq(workoutPlans.userId, userId));
-  await db
-    .update(workoutPlans)
-    .set({ active: false })
-    .where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.active, true)));
-  const [plan] = await db
-    .insert(workoutPlans)
-    .values({ userId, version: Number(max) + 1, name, active: true })
-    .returning();
-  if (days.length > 0) {
-    await db
-      .insert(workoutPlanDays)
-      .values(days.map((d) => ({ planId: plan.id, ...d })));
-  }
-  return plan;
-}
-
-export async function getReadingGoal(userId: UserId, year: number) {
-  const [goal] = await db
-    .select()
-    .from(readingGoals)
-    .where(and(eq(readingGoals.userId, userId), eq(readingGoals.year, year)));
-  return goal ?? null;
-}
-
-export async function upsertReadingGoal(
-  userId: UserId,
-  year: number,
-  targetBooks: number
-) {
-  await db
-    .insert(readingGoals)
-    .values({ userId, year, targetBooks })
-    .onConflictDoUpdate({
-      target: [readingGoals.userId, readingGoals.year],
-      set: { targetBooks },
-    });
-}
-
-export function listBooks(userId: UserId) {
-  return db
-    .select()
-    .from(books)
-    .where(eq(books.userId, userId))
-    .orderBy(asc(books.position));
-}
-
-export async function getBookById(userId: UserId, id: number) {
-  const [book] = await db
-    .select()
-    .from(books)
-    .where(and(eq(books.id, id), eq(books.userId, userId)));
-  return book ?? null;
-}
-
-export async function getCurrentBook(userId: UserId) {
-  const [book] = await db
-    .select()
-    .from(books)
-    .where(and(eq(books.userId, userId), eq(books.status, "reading")))
-    .orderBy(asc(books.position))
-    .limit(1);
-  return book ?? null;
-}
-
-export async function createBook(
-  userId: UserId,
-  input: {
-    title: string;
-    author?: string | null;
-    totalPages: number;
-    position: number;
-    status?: string;
-  }
-) {
-  const [book] = await db
-    .insert(books)
-    .values({
-      userId,
-      title: input.title,
-      author: input.author ?? null,
-      totalPages: input.totalPages,
-      position: input.position,
-      status: input.status ?? "queued",
-    })
-    .returning();
-  return book;
-}
-
-// Reconcile the reading list by id: update the rows that already exist, insert
-// the new ones, and delete only books the user removed **and** never touched
-// (current_page = 0, still queued/reading). Books with real progress or a
-// done/abandoned status are never deleted — past `details.book_id` references
-// them. Used by the reading onboarding/config step.
-export async function saveReadingList(
-  userId: UserId,
-  rows: {
-    id?: number;
-    title: string;
-    author: string | null;
-    totalPages: number;
-    currentPage: number;
-    status: string;
-    position: number;
-  }[]
-) {
-  const keptIds = rows.map((r) => r.id).filter((id): id is number => !!id);
-
-  const stale = await db
-    .select({ id: books.id })
-    .from(books)
-    .where(
-      and(
-        eq(books.userId, userId),
-        eq(books.currentPage, 0),
-        inArray(books.status, ["queued", "reading"])
-      )
-    );
-  const toDelete = stale
-    .map((s) => s.id)
-    .filter((id) => !keptIds.includes(id));
-  if (toDelete.length > 0) {
-    await db.delete(books).where(inArray(books.id, toDelete));
-  }
-
-  for (const row of rows) {
-    const values = {
-      title: row.title,
-      author: row.author,
-      totalPages: row.totalPages,
-      currentPage: row.currentPage,
-      status: row.status,
-      position: row.position,
-    };
-    if (row.id) {
-      await db
-        .update(books)
-        .set(values)
-        .where(and(eq(books.id, row.id), eq(books.userId, userId)));
-    } else {
-      await db.insert(books).values({ userId, ...values });
-    }
-  }
-}
-
-export async function updateBook(
-  userId: UserId,
-  id: number,
-  patch: Partial<{
-    status: string;
-    currentPage: number;
-    startedAt: string | null;
-    finishedAt: string | null;
-    position: number;
-  }>
-) {
-  await db
-    .update(books)
-    .set(patch)
-    .where(and(eq(books.id, id), eq(books.userId, userId)));
-}
-
-export function listRoutineBlocks(userId: UserId, activeOnly = true) {
-  const where = activeOnly
-    ? and(eq(routineBlocks.userId, userId), eq(routineBlocks.active, true))
-    : eq(routineBlocks.userId, userId);
-  return db
-    .select()
-    .from(routineBlocks)
-    .where(where)
-    .orderBy(asc(routineBlocks.position));
-}
-
-// Replace the active routine: deactivate the current blocks (never delete —
-// past `details` reference their ids) and insert the new set.
-export async function replaceRoutineBlocks(
-  userId: UserId,
-  blocks: {
-    startTime: string;
-    endTime: string;
-    activity: string;
-    weekdays: number[];
-    position: number;
-  }[]
-) {
-  await db
-    .update(routineBlocks)
-    .set({ active: false })
-    .where(and(eq(routineBlocks.userId, userId), eq(routineBlocks.active, true)));
-  if (blocks.length > 0) {
-    await db.insert(routineBlocks).values(blocks.map((b) => ({ userId, ...b })));
-  }
-}
-
-export function listSpiritualPractices(userId: UserId, activeOnly = true) {
-  const where = activeOnly
-    ? and(
-        eq(spiritualPractices.userId, userId),
-        eq(spiritualPractices.active, true)
-      )
-    : eq(spiritualPractices.userId, userId);
-  return db
-    .select()
-    .from(spiritualPractices)
-    .where(where)
-    .orderBy(asc(spiritualPractices.position));
-}
-
-// Upsert practices by slug (stable identifier) and deactivate any not present.
-export async function replaceSpiritualPractices(
-  userId: UserId,
-  practices: { name: string; slug: string; countable: boolean; position: number }[]
-) {
-  await db
-    .update(spiritualPractices)
-    .set({ active: false })
-    .where(
-      and(
-        eq(spiritualPractices.userId, userId),
-        eq(spiritualPractices.active, true)
-      )
-    );
-  for (const p of practices) {
-    await db
-      .insert(spiritualPractices)
-      .values({ userId, ...p, active: true })
-      .onConflictDoUpdate({
-        target: [spiritualPractices.userId, spiritualPractices.slug],
-        set: {
-          name: p.name,
-          countable: p.countable,
-          position: p.position,
-          active: true,
-        },
-      });
-  }
-}
-
-export function listLanguages(userId: UserId, activeOnly = true) {
-  const where = activeOnly
-    ? and(eq(languages.userId, userId), eq(languages.active, true))
-    : eq(languages.userId, userId);
-  return db.select().from(languages).where(where);
-}
-
-export async function replaceLanguages(
-  userId: UserId,
-  items: { name: string; slug: string }[]
-) {
-  await db
-    .update(languages)
-    .set({ active: false })
-    .where(and(eq(languages.userId, userId), eq(languages.active, true)));
-  for (const l of items) {
-    await db
-      .insert(languages)
-      .values({ userId, ...l, active: true })
-      .onConflictDoUpdate({
-        target: [languages.userId, languages.slug],
-        set: { name: l.name, active: true },
-      });
-  }
-}
-
-export async function getSleepTarget(userId: UserId) {
-  const [target] = await db
-    .select()
-    .from(sleepTargets)
-    .where(eq(sleepTargets.userId, userId))
-    .limit(1);
-  return target ?? null;
-}
-
-// Single-row upsert: update the existing target or insert the first one.
-export async function upsertSleepTarget(
-  userId: UserId,
-  bedtime: string,
-  wakeTime: string
-) {
-  const existing = await getSleepTarget(userId);
-  if (existing) {
-    await db
-      .update(sleepTargets)
-      .set({ bedtime, wakeTime })
-      .where(eq(sleepTargets.id, existing.id));
-  } else {
-    await db.insert(sleepTargets).values({ userId, bedtime, wakeTime });
-  }
-}
-
 // Canonical dataset export for a date range — the exact payload a future AI
 // analysis consumes (see docs/DATA_DICTIONARY.md). Entities carry full history
 // (all workout-plan versions); days hold per-habit {done, details, note}.
 export async function getExport(userId: UserId, from: string, to: string) {
-  const [
-    plans,
-    planDays,
-    bookRows,
-    goals,
-    blocks,
-    practices,
-    langs,
-    sleep,
-    checkRows,
-  ] = await Promise.all([
-    db
-      .select()
-      .from(workoutPlans)
-      .where(eq(workoutPlans.userId, userId))
-      .orderBy(asc(workoutPlans.version)),
-    db
-      .select({
-        id: workoutPlanDays.id,
-        planId: workoutPlanDays.planId,
-        weekday: workoutPlanDays.weekday,
-        focus: workoutPlanDays.focus,
-        exercises: workoutPlanDays.exercises,
-      })
-      .from(workoutPlanDays)
-      .innerJoin(workoutPlans, eq(workoutPlanDays.planId, workoutPlans.id))
-      .where(eq(workoutPlans.userId, userId))
-      .orderBy(asc(workoutPlanDays.weekday)),
-    db
-      .select()
-      .from(books)
-      .where(eq(books.userId, userId))
-      .orderBy(asc(books.position)),
-    db
-      .select()
-      .from(readingGoals)
-      .where(eq(readingGoals.userId, userId))
-      .orderBy(asc(readingGoals.year)),
-    db
-      .select()
-      .from(routineBlocks)
-      .where(eq(routineBlocks.userId, userId))
-      .orderBy(asc(routineBlocks.position)),
-    db
-      .select()
-      .from(spiritualPractices)
-      .where(eq(spiritualPractices.userId, userId))
-      .orderBy(asc(spiritualPractices.position)),
-    db
-      .select()
-      .from(languages)
-      .where(eq(languages.userId, userId))
-      .orderBy(asc(languages.id)),
-    db.select().from(sleepTargets).where(eq(sleepTargets.userId, userId)),
-    db
-      .select({
-        date: dailyChecks.checkedAt,
-        slug: habits.slug,
-        done: dailyChecks.done,
-        details: dailyChecks.details,
-        note: dailyChecks.note,
-      })
-      .from(dailyChecks)
-      .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
-      .where(
-        and(
-          eq(dailyChecks.userId, userId),
-          gte(dailyChecks.checkedAt, from),
-          lte(dailyChecks.checkedAt, to)
+  const [workout, reading, routine, spirituality, duolingo, sleep, checkRows] =
+    await Promise.all([
+      getWorkoutConfig(userId),
+      getReadingConfig(userId),
+      getRoutineConfig(userId),
+      getSpiritualityConfig(userId),
+      getDuolingoConfig(userId),
+      getSleepConfig(userId),
+      db
+        .select({
+          date: dailyChecks.checkedAt,
+          slug: habits.slug,
+          done: dailyChecks.done,
+          details: dailyChecks.details,
+          note: dailyChecks.note,
+        })
+        .from(dailyChecks)
+        .innerJoin(habits, eq(dailyChecks.habitId, habits.id))
+        .where(
+          and(
+            eq(dailyChecks.userId, userId),
+            gte(dailyChecks.checkedAt, from),
+            lte(dailyChecks.checkedAt, to)
+          )
         )
-      )
-      .orderBy(asc(dailyChecks.checkedAt), asc(habits.id)),
-  ]);
-
-  const daysByPlan = new Map<number, typeof planDays>();
-  for (const d of planDays) {
-    const list = daysByPlan.get(d.planId) ?? [];
-    list.push(d);
-    daysByPlan.set(d.planId, list);
-  }
+        .orderBy(asc(dailyChecks.checkedAt), asc(habits.id)),
+    ]);
 
   const daysMap = new Map<
     string,
@@ -708,24 +326,31 @@ export async function getExport(userId: UserId, from: string, to: string) {
 
   // Emit snake_case throughout so the whole export is self-consistent with the
   // `details` fields and docs/DATA_DICTIONARY.md (Drizzle rows are camelCase).
+  //
+  // These six entities now live in each habit's own `config` rather than a
+  // dedicated table — see docs/DATA_DICTIONARY.md for the updated shape.
+  // `workout_plans`/`reading_goals` no longer carry separate ids or
+  // created-at timestamps (config has no history beyond `days[].active`),
+  // and `spiritual_practices`/`languages` are identified by `slug` alone,
+  // not a numeric id — neither was ever referenced by one.
   return {
     meta: { from, to, timezone: "America/Sao_Paulo", schema_version: 2 },
     entities: {
-      workout_plans: plans.map((p) => ({
-        id: p.id,
-        version: p.version,
-        name: p.name,
-        active: p.active,
-        created_at: p.createdAt,
-        days: (daysByPlan.get(p.id) ?? []).map((d) => ({
-          id: d.id,
-          plan_id: d.planId,
-          weekday: d.weekday,
-          focus: d.focus,
-          exercises: d.exercises,
-        })),
-      })),
-      books: bookRows.map((b) => ({
+      workout_plans: workout
+        ? [
+            {
+              name: workout.planName,
+              days: workout.days.map((d) => ({
+                id: d.id,
+                weekday: d.weekday,
+                focus: d.focus,
+                exercises: d.exercises,
+                active: d.active,
+              })),
+            },
+          ]
+        : [],
+      books: (reading?.books ?? []).map((b) => ({
         id: b.id,
         title: b.title,
         author: b.author,
@@ -736,40 +361,32 @@ export async function getExport(userId: UserId, from: string, to: string) {
         started_at: b.startedAt,
         finished_at: b.finishedAt,
       })),
-      reading_goals: goals.map((g) => ({
-        id: g.id,
-        year: g.year,
-        target_books: g.targetBooks,
-        created_at: g.createdAt,
-      })),
-      routine_blocks: blocks.map((b) => ({
+      reading_goals:
+        reading && reading.targetBooksPerYear
+          ? [{ year: reading.year, target_books: reading.targetBooksPerYear }]
+          : [],
+      routine_blocks: (routine?.blocks ?? []).map((b) => ({
         id: b.id,
-        start_time: b.startTime.slice(0, 5),
-        end_time: b.endTime.slice(0, 5),
+        start_time: b.startTime,
+        end_time: b.endTime,
         activity: b.activity,
         weekdays: b.weekdays,
         active: b.active,
         position: b.position,
       })),
-      spiritual_practices: practices.map((p) => ({
-        id: p.id,
+      spiritual_practices: (spirituality?.practices ?? []).map((p) => ({
         name: p.name,
         slug: p.slug,
         countable: p.countable,
         active: p.active,
         position: p.position,
       })),
-      languages: langs.map((l) => ({
-        id: l.id,
+      languages: (duolingo?.languages ?? []).map((l) => ({
         name: l.name,
         slug: l.slug,
         active: l.active,
       })),
-      sleep_targets: sleep.map((s) => ({
-        id: s.id,
-        bedtime: s.bedtime.slice(0, 5),
-        wake_time: s.wakeTime.slice(0, 5),
-      })),
+      sleep_targets: sleep ? [{ bedtime: sleep.bedtime, wake_time: sleep.wakeTime }] : [],
     },
     days: [...daysMap.entries()].map(([date, habitsForDay]) => ({
       date,
@@ -792,35 +409,16 @@ export interface AuditLookups {
 // human-readably (book title, plan focus, block activity, language/practice
 // names). Includes inactive rows so historical references still resolve.
 export async function getAuditLookups(userId: UserId): Promise<AuditLookups> {
-  const [bks, planDays, blocks, langs, pracs] = await Promise.all([
-    db
-      .select({ id: books.id, title: books.title })
-      .from(books)
-      .where(eq(books.userId, userId)),
-    db
-      .select({
-        id: workoutPlanDays.id,
-        focus: workoutPlanDays.focus,
-        exercises: workoutPlanDays.exercises,
-      })
-      .from(workoutPlanDays)
-      .innerJoin(workoutPlans, eq(workoutPlanDays.planId, workoutPlans.id))
-      .where(eq(workoutPlans.userId, userId)),
-    db
-      .select({ id: routineBlocks.id, activity: routineBlocks.activity })
-      .from(routineBlocks)
-      .where(eq(routineBlocks.userId, userId)),
-    db
-      .select({ slug: languages.slug, name: languages.name })
-      .from(languages)
-      .where(eq(languages.userId, userId)),
-    db
-      .select({ slug: spiritualPractices.slug, name: spiritualPractices.name })
-      .from(spiritualPractices)
-      .where(eq(spiritualPractices.userId, userId)),
+  const [reading, workout, routine, duolingo, spirituality] = await Promise.all([
+    getReadingConfig(userId),
+    getWorkoutConfig(userId),
+    getRoutineConfig(userId),
+    getDuolingoConfig(userId),
+    getSpiritualityConfig(userId),
   ]);
+  const planDays = workout?.days ?? [];
   return {
-    books: Object.fromEntries(bks.map((b) => [b.id, b.title])),
+    books: Object.fromEntries((reading?.books ?? []).map((b) => [b.id, b.title])),
     planDays: Object.fromEntries(planDays.map((d) => [d.id, d.focus])),
     planExercises: Object.fromEntries(
       planDays.map((d) => [
@@ -828,9 +426,15 @@ export async function getAuditLookups(userId: UserId): Promise<AuditLookups> {
         Object.fromEntries(d.exercises.map((e) => [e.name, exerciseScheme(e)])),
       ])
     ),
-    blocks: Object.fromEntries(blocks.map((b) => [b.id, b.activity])),
-    languages: Object.fromEntries(langs.map((l) => [l.slug, l.name])),
-    practices: Object.fromEntries(pracs.map((p) => [p.slug, p.name])),
+    blocks: Object.fromEntries(
+      (routine?.blocks ?? []).map((b) => [b.id, b.activity])
+    ),
+    languages: Object.fromEntries(
+      (duolingo?.languages ?? []).map((l) => [l.slug, l.name])
+    ),
+    practices: Object.fromEntries(
+      (spirituality?.practices ?? []).map((p) => [p.slug, p.name])
+    ),
   };
 }
 
@@ -940,9 +544,15 @@ export async function getTodayComparisons(
           lte(dailyChecks.checkedAt, today)
         )
       ),
+    // Filtered by templateKind, not slug: a slug is per-account free text
+    // (two accounts can each slug a habit "sono" without either being a
+    // sleep habit at all), so matching on it here would silently mix up
+    // whose comparisons are whose the moment slugs diverge from kind — which
+    // Phase 3 makes more likely, not less, since these kinds are no longer
+    // reserved to one migrated account.
     db
       .select({
-        slug: habits.slug,
+        templateKind: habits.templateKind,
         date: dailyChecks.checkedAt,
         details: dailyChecks.details,
       })
@@ -952,7 +562,7 @@ export async function getTodayComparisons(
         and(
           eq(dailyChecks.userId, userId),
           eq(dailyChecks.done, true),
-          inArray(habits.slug, [
+          inArray(habits.templateKind, [
             "sono",
             "rotina",
             "hobby",
@@ -997,13 +607,13 @@ export async function getTodayComparisons(
   for (const row of recentRows) {
     const d = rec(row.details);
     if (!d) continue;
-    if (row.slug === "sono" && typeof d.hours === "number") {
+    if (row.templateKind === "sono" && typeof d.hours === "number") {
       recentSleep.push({ date: row.date, hours: d.hours });
     }
-    if (row.slug === "rotina" && Array.isArray(d.followed_block_ids)) {
+    if (row.templateKind === "rotina" && Array.isArray(d.followed_block_ids)) {
       routineBlockCounts.push(d.followed_block_ids.length);
     }
-    if (row.slug === "duolingo" && Array.isArray(d.sessions)) {
+    if (row.templateKind === "duolingo" && Array.isArray(d.sessions)) {
       for (const session of d.sessions) {
         const s = rec(session);
         const slug = typeof s?.language_slug === "string" ? s.language_slug : null;
@@ -1012,14 +622,14 @@ export async function getTodayComparisons(
         }
       }
     }
-    if (row.slug === "espiritualidade" && Array.isArray(d.practices)) {
+    if (row.templateKind === "espiritualidade" && Array.isArray(d.practices)) {
       for (const practice of d.practices) {
         const p = rec(practice);
         const slug = typeof p?.slug === "string" ? p.slug : null;
         if (slug) weekPractices[slug] = (weekPractices[slug] ?? 0) + 1;
       }
     }
-    if (row.slug === "hobby") {
+    if (row.templateKind === "hobby") {
       hobbySessions += 1;
       if (typeof d.minutes === "number") hobbyMinutes += d.minutes;
     }
@@ -1049,13 +659,18 @@ export async function getTrackingStart(userId: UserId): Promise<string | null> {
 }
 
 // How many routine blocks and spiritual practices are configured, so a grid
-// cell can say "4/6" rather than "4".
+// cell can say "4/6" rather than "4". Counts every block/practice ever saved,
+// active or not — the same as the old $count with no `active` filter, kept
+// as-is rather than quietly tightened to "currently active" here.
 async function getCellTotals(userId: UserId): Promise<CellTotals> {
-  const [routineBlockCount, practiceCount] = await Promise.all([
-    db.$count(routineBlocks, eq(routineBlocks.userId, userId)),
-    db.$count(spiritualPractices, eq(spiritualPractices.userId, userId)),
+  const [routine, spirituality] = await Promise.all([
+    getRoutineConfig(userId),
+    getSpiritualityConfig(userId),
   ]);
-  return { routineBlocks: routineBlockCount, practices: practiceCount };
+  return {
+    routineBlocks: routine?.blocks.length ?? 0,
+    practices: spirituality?.practices.length ?? 0,
+  };
 }
 
 export interface MonthMatrixDay {
