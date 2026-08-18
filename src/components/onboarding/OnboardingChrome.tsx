@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import type { Copy } from "@/lib/i18n";
-import { ghostButton, primaryButton } from "@/components/ui/styles";
+import { ghostButton, iconButton, primaryButton } from "@/components/ui/styles";
 
 interface ProgressProps {
   stepNumber: number;
@@ -48,12 +48,15 @@ export function StepTitle({ children, backHref, backLabel }: StepTitleProps) {
   return (
     <h1 className="display-title text-3xl sm:text-4xl flex items-center gap-3">
       {backHref && (
-        <Link
-          href={backHref}
-          aria-label={backLabel}
-          className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] -ml-2"
-        >
-          <ArrowLeft className="w-7 h-7" aria-hidden />
+        // The app's standard icon-button — bordered, shadowed, white by
+        // default — so "back" reads as the same kind of control as every
+        // other icon-only affordance (HabitRow's edit/remove, ListCard's),
+        // rather than a bare arrow with no chrome of its own. White rather
+        // than filled is already iconButton's resting state: going back
+        // isn't the primary action on these screens, so it should never
+        // outweigh the one that is.
+        <Link href={backHref} aria-label={backLabel} className={`${iconButton} -ml-1`}>
+          <ArrowLeft className="w-5 h-5" aria-hidden />
         </Link>
       )}
       {children}
