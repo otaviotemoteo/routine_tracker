@@ -36,7 +36,7 @@ export default async function EditHabitPage({
   if (!habit) notFound();
 
   // Saving an edit returns you where you came from.
-  const back = query.from === "review" ? "/habits/review" : "/habits";
+  const back = query.from === "review" ? "/onboarding/habits" : "/habits";
 
   const domainSlug: DomainSlug | null =
     habit.domainSlug && isDomainSlug(habit.domainSlug) ? habit.domainSlug : null;
