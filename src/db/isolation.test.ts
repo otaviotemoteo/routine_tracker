@@ -34,6 +34,7 @@ let Index: typeof import("./index");
 let Assess: typeof import("./assessment");
 let Habits: typeof import("./habits");
 let Queries: typeof import("./queries");
+let RichHabits: typeof import("./rich-habits");
 let Scope: typeof import("./scope");
 let Users: typeof import("./users");
 
@@ -87,9 +88,9 @@ async function wipe(id: number): Promise<void> {
   await db.execute(sql`
     DELETE FROM assessment_ratings
      WHERE assessment_id IN (SELECT id FROM assessments WHERE user_id = ${id})`);
-  await db.execute(sql`
-    DELETE FROM workout_plan_days
-     WHERE plan_id IN (SELECT id FROM workout_plans WHERE user_id = ${id})`);
+  // The six rich domains (workout plan, reading list, routine blocks,
+  // languages, spiritual practices, sleep target) no longer have tables of
+  // their own — deleting the `habits` row below takes their `config` with it.
   for (const table of [
     "daily_checks",
     "ai_runs",
@@ -98,13 +99,6 @@ async function wipe(id: number): Promise<void> {
     "habits",
     "assessments",
     "cycles",
-    "workout_plans",
-    "books",
-    "reading_goals",
-    "routine_blocks",
-    "spiritual_practices",
-    "languages",
-    "sleep_targets",
   ]) {
     await db.execute(sql`DELETE FROM ${sql.raw(table)} WHERE user_id = ${id}`);
   }
@@ -121,11 +115,12 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
   let bCycle: number;
 
   beforeAll(async () => {
-    [Index, Assess, Habits, Queries, Scope, Users] = await Promise.all([
+    [Index, Assess, Habits, Queries, RichHabits, Scope, Users] = await Promise.all([
       import("./index"),
       import("./assessment"),
       import("./habits"),
       import("./queries"),
+      import("./rich-habits"),
       import("./scope"),
       import("./users"),
     ]);
@@ -162,6 +157,18 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
     await Queries.getDayChecks(A, DATE);
     const bChecks = await Queries.getDayChecks(B, DATE);
     bCheck = bChecks[0].id;
+
+    // A rich habit for B only — config-scoping has nothing to prove without
+    // one account actually having a config the other could try to reach.
+    await RichHabits.saveRoutineBlocks(B, [
+      {
+        startTime: "07:00",
+        endTime: "08:00",
+        activity: "B's secret block",
+        weekdays: [1],
+        position: 0,
+      },
+    ]);
   });
 
   afterAll(async () => {
@@ -277,5 +284,25 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
     expect((await Habits.listProposedHabits(A)).map((h) => h.id)).toContain(
       proposal
     );
+  });
+
+  // ─── Rich habit config (Phase 3) ───────────────────────────────────────────
+  //
+  // The six rich domains used to be account-scoped by construction — a
+  // dedicated table's own `user_id` column. Now they're one habit's `config`,
+  // reached through getHabitByTemplateKind(userId, kind) — scoped the same
+  // way every other habit read is, but never exercised by a test until now.
+
+  test("A has no access to B's routine config", async () => {
+    // A never created a 'rotina' habit, so there is nothing to find — not a
+    // read that happens to come back empty because of a filter elsewhere.
+    expect(await RichHabits.getRoutineConfig(A)).toBeNull();
+    expect((await RichHabits.listRoutineBlocks(A)).map((b) => b.activity)).not
+      .toContain("B's secret block");
+  });
+
+  test("A's Day Audit lookups carry none of B's block names", async () => {
+    const lookups = await Queries.getAuditLookups(A);
+    expect(Object.values(lookups.blocks)).not.toContain("B's secret block");
   });
 });
