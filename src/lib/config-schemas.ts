@@ -40,10 +40,14 @@ export const workoutConfig = z
             weekday: z.number().int().min(1).max(7).describe("ISO: 1=Mon … 7=Sun"),
             focus: z.string().max(80).describe("'Push', 'Rest', 'Cardio'"),
             exercises: z.array(plannedExercise),
+            active: z.boolean().describe("false once superseded by a later save — kept for old days' lookups"),
           })
           .strict()
       )
-      .describe("One entry per weekday; the current plan only — no version history"),
+      .describe(
+        "Every day ever planned, active and retired. Only the active ones are " +
+          "'the current plan' — no separate version history beyond that flag."
+      ),
   })
   .strict();
 
@@ -90,6 +94,7 @@ export const routineConfig = z
             endTime: z.string().regex(/^\d{2}:\d{2}$/),
             activity: z.string().max(120),
             weekdays: z.array(z.number().int().min(1).max(7)),
+            position: z.number().int(),
             active: z.boolean(),
           })
           .strict()
