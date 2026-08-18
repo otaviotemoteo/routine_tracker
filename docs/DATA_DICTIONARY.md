@@ -305,7 +305,7 @@ Rejection rate = what `output` proposed, against
 ### `ai_pending_requests`
 Written only when **every** provider failed, which takes all three being down at
 once. Deliberately not a queue and not a cron: the retry happens on the next
-visit to `/habits/review`.
+visit to `/onboarding/habits`.
 | Column | Type | Meaning |
 |--------|------|---------|
 | id | serial PK | |
