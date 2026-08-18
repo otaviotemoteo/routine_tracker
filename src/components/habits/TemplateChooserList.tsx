@@ -95,17 +95,25 @@ export function TemplateChooserList({
             </button>
 
             {open && (
-              <div className="px-4 pb-4 border-t-2 border-dashed border-sand pt-3.5 flex flex-col gap-3">
+              <div className="px-4 pb-4 border-t-2 border-dashed border-sand pt-3.5 grid grid-cols-2 gap-3">
                 {GENERIC_TEMPLATE_KINDS.map((kind: GenericTemplateKind) => (
-                  <TemplateOption
+                  // Checklist alone spans both columns — its editing state
+                  // grows a textarea that a squarish half-width cell can't
+                  // hold; the other four sit two-up, closer to a real card's
+                  // own squarish shape than the old full-width strip.
+                  <div
                     key={kind}
-                    habit={habit}
-                    kind={kind}
-                    chosen={chosenKind === kind}
-                    suggested={!chosenKind && suggestedKind === kind}
-                    copy={copy}
-                    todayCopy={todayCopy}
-                  />
+                    className={kind === "checklist" ? "col-span-2" : undefined}
+                  >
+                    <TemplateOption
+                      habit={habit}
+                      kind={kind}
+                      chosen={chosenKind === kind}
+                      suggested={!chosenKind && suggestedKind === kind}
+                      copy={copy}
+                      todayCopy={todayCopy}
+                    />
+                  </div>
                 ))}
               </div>
             )}
