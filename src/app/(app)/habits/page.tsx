@@ -75,7 +75,7 @@ export default async function HabitsPage() {
           screen is where they can be accepted or thrown away. */}
       {proposed.length > 0 && !pending && (
         <p className="mb-6 border-2 border-forest bg-mint rounded-card px-4 py-3">
-          <Link href="/habits/review" className="font-semibold underline">
+          <Link href="/onboarding/habits" className="font-semibold underline">
             {copy.reviewTitle}
           </Link>
         </p>
