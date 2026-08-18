@@ -46,6 +46,22 @@ brand is only worth having while it means one thing.
 reached a query. It cannot prove the query *used* it. That gap is covered
 behaviourally instead, by `src/db/isolation.test.ts` (§4).
 
+**A second limit, found and closed this phase (3.1):** the brand also used to
+prove less than it looked like it did — `asUserId()`'s input was "a signature
+this process verified," never "a row that still exists." The auth cookie is
+valid for a year regardless of what happens to the account; a stale browser
+session surviving an account cleanup would keep minting a UserId every
+downstream write assumed was real, until the first foreign-key constraint it
+touched threw (`cycles_user_id_fkey`, in production, from `/onboarding`).
+`requireUserId()`/`getUserId()` now confirm the row exists before minting
+(`src/lib/session-resolve.ts`'s `resolveSessionUserId`, tested directly
+against a real database in `src/lib/session-resolve.test.ts` — a deleted
+account's still-valid-signature cookie now resolves to `null`, not a crash).
+The stale cookie is also cleared where Next allows a cookie write from that
+call site (Server Actions, Route Handlers); a plain page render can't legally
+clear it, so it's left in place there and simply re-rejected on every
+subsequent request until a fresh login overwrites it.
+
 Two unbranded `userId: number` parameters remain and both are correct:
 `createAuthCookieValue` in `src/lib/auth.ts` and `startSession` in
 `src/app/login/actions.ts`. Both run at the moment a session is being *created*,
