@@ -141,15 +141,23 @@ v2 turns the binary spine into an auditable dataset without disturbing it. Three
 
 ## Route groups & persistent shell (v2)
 
-The authenticated app lives in an `app/(app)/` route group whose layout renders the `NavBar` **once** — it persists across navigations instead of remounting per page (the real cause of the old "reload" flash; all navigation was already `next/link`). `/login` and `/onboarding` sit outside the group and get no NavBar. `/semana` and `/mes` are permanent redirects into the `/overview` Week|Month toggle (`next.config.ts`).
+The authenticated app lives in an `app/(app)/` route group whose layout renders the `NavBar` **once** — it persists across navigations instead of remounting per page (the real cause of the old "reload" flash; all navigation was already `next/link`). `/login` and `/onboarding` sit outside the group and get no NavBar (except the two `/habits/*` subpaths the gate exempts — see below, which are inside `(app)` and get the layout's own conditional NavBar). `/semana` and `/mes` are permanent redirects into the `/overview` Week|Month toggle (`next.config.ts`).
 
-## Onboarding (v2, reconciled)
+## Onboarding (v2, consolidated)
 
-**The first run is the values chain, not a manual wizard.** The `(app)` layout gates the app on one predicate — `countTrackedHabits(userId) === 0` (`src/db/habits.ts`) — and redirects a brand-new account to `/assessment`, which walks values → priority areas → written directions → AI-suggested habits → `/habits/review` → "Start tracking" → Today (see "The values layer (M1)" and "The AI layer (M2)" below for the chain itself). Completion is derived from the database — an active habit exists or it doesn't — not from a cookie, so it survives a cleared browser or a second device. There used to be a separate `onboarded` cookie and an `isConfigured()` check against six manual-entry tables; both are gone. `src/components/assessment/IntroStep.tsx` carries the framing for this: since it's now the first screen a new account ever sees, it explains the whole journey (priorities, directions, AI habits, then a short daily check-in), not just the twelve-question grid.
+**`/onboarding` is the entire first run, one namespace, one gate.** It used to be split across `/assessment/*` (outside `(app)`, its own guard style) and `/habits/review` (inside `(app)`, gated by a blunt, unrelated predicate) — a split that let a first-run user finish directions and generate habits and then get silently bounced back to a blank "Start" screen the instant they reached the review step, because `(app)`'s gate only recognised *active* habits and a freshly generated one is still `active_from IS NULL` at that point. Both routes now live under `/onboarding`: the values grid (`/onboarding`), results, directions, areas, and habits review (`/onboarding/habits`, moved out of `(app)` entirely).
 
-**`/onboarding?step=…`, the original 8-step manual wizard, still exists but is no longer the gate.** Each step is a form whose server action upserts an entity table and redirects to the next step (via a hidden `next` field), so abandoning mid-way loses nothing. The dynamic steps are client components that serialize their rows into one hidden JSON field. Nothing links to `/onboarding` anymore — it's reachable only by URL — because `/config` already exposes the same six sections independently (`src/app/config/page.tsx`'s own index), reusing the identical step components with `next="/config"`, saving in place instead of advancing. That's the practical "set up richer detail for a habit" surface now. Prefill loaders are shared in `src/lib/onboarding-prefill.ts`, and `src/lib/setup-summary.ts` builds the one summary rendered by `/config`'s index and the Overview **Activities** section (below the week/month chart) — so the two never drift. Because `/onboarding` and `/config` sit outside the `(app)` group (no NavBar), each renders its own `LanguageSelect`.
+**One resolver decides where an account belongs.** `resolveOnboardingStep(userId)` (`src/lib/onboarding-flow.ts`) reads the real rows — open draft, sealed assessment, priority domains, written directions, proposed habits, a pending AI request — and returns exactly one of `intro | grid | results | directions | areas | habits`. Two call sites use it strictly: the `(app)` gate (`src/app/(app)/layout.tsx`), which redirects there whenever `countTrackedHabits(userId) === 0`, and `/onboarding`'s own entry page, which redirects away from `IntroStep` the moment there's anything to resume into instead — making that screen reachable only for a genuine blank slate. Every other page in the chain keeps its own *loose* "is the prerequisite met" guard (`if (!sealed) redirect(...)`), unchanged from before the move, so a returning user's periodic recheck-in (see "The values layer" below) can still jump straight to results or areas without being forced through the resolver's idea of their *first-run* position — the two are deliberately asymmetric. No new column or flag backs this: `users.first_run_step` stays write-only churn analytics (see "Onboarding churn" below), structurally too coarse to serve as the resume signal (it can't tell "habits proposed, deciding" from "generation failed, retriable" from "started tracking" apart) — the same "derive it from the database" principle the gate itself was already built on, one level deeper.
+
+**Two narrow, deliberate exceptions to "no NavBar until done."** First-run accounts get no NavBar anywhere in the chain (`AssessmentShell`'s `firstRun` prop, required by its own type whenever `chrome="nav"` — an optional prop here would let a forgotten call site silently reintroduce it). But adding or editing a *proposed* habit from the review screen happens on `/habits/new` and `/habits/[id]` — shared with the ordinary, already-onboarded `/habits` list, so they can't move into `/onboarding` themselves. The `(app)` gate exempts exactly those two paths, and only while the resolver says `"habits"`, via a pathname header `src/middleware.ts` sets for the layout to read (a Server Component layout gets no `searchParams` and no pathname on its own). The exemption skips the redirect only — `showNav` still stays false on that path, so the NavBar rule holds even there.
+
+**Directions gained the ceiling the grid already had.** `firstUndirected()` (`src/lib/assessment.ts`, mirroring `firstUnanswered()`) clamps forward navigation through the five priority domains to the first one with nothing written — "backwards is free, forwards is not," extended past the grid. The one deliberate exception is `?from=areas` ("add another area" after the core five are done): free, unclamped editing, since by definition the ordered first walk is already finished by the time that path is reachable.
+
+**A dead end closed as part of the same fix.** Rating every domain's general importance ≤4 makes `prioritize()` legitimately return zero priority domains — a real answer, but one nothing downstream (directions, areas) has anything to do with. The resolver routes that case straight to `/onboarding/habits`'s existing manual-add empty state, and `/onboarding/results` gained its own branch explaining why (`copy.assessment.results.noPriority*`) instead of silently omitting the forward button it shows otherwise.
 
 The six manual-entry tables (workout plans, books, routine blocks, languages, spiritual practices, sleep targets) remain account-singleton, not per-habit — see "Templates: why a new habit is always plain" below. Wiring AI-suggested habits into richer, per-habit activities is deliberately out of scope here; it needs that constraint lifted first.
+
+**The old 8-step manual wizard is gone, not just disconnected.** `/onboarding` used to be its route; once nothing linked to it any more (`/config` already exposed the same six sections independently, reusing the identical step components with `next="/config"`), the route itself was deleted to free the namespace for the real first run, along with its two orphaned step components (`WelcomeStep`, `ReviewStep`). Its shared save actions moved to `src/app/config/actions.ts` (their only remaining caller), and `slugify()` — the one export from the old `src/lib/onboarding.ts` used outside the wizard — moved to its own `src/lib/slugify.ts`. Prefill loaders are still shared in `src/lib/onboarding-prefill.ts`, and `src/lib/setup-summary.ts` still builds the one summary rendered by `/config`'s index and the Overview **Activities** section — so the two never drift. `/config` sits outside the `(app)` group (no NavBar) and renders its own `LanguageSelect`, as it always did.
 
 Books are reconciled **by id** (`saveReadingList`): existing rows update, new ones insert, and only removed-and-untouched books are deleted — a book with progress or a done/abandoned status is never deleted, since past `details.book_id` references it.
 
@@ -178,7 +186,7 @@ intact while still letting a person overrule the arithmetic — and one function
 means the areas screen and the habit generator cannot disagree about which areas
 the cycle is about.
 
-**Focus mode.** `/assessment` sits outside the `(app)` group, so there is no NavBar to wander off through mid-grid and it renders its own `LanguageSelect`, exactly as `/onboarding` and `/config` do. `src/lib/assessment.ts` is the third instance of the wizard mechanic (after `onboarding.ts` and `daily.ts`); the one thing it adds is a ceiling — `resolveAssessmentStep` clamps a requested step to the first unanswered domain, so backwards is free, forwards is impossible, and the results screen cannot be reached before the grid is finished. That is arithmetic rather than a hidden button, because a UI convention is one URL edit away from being ignored.
+**Focus mode.** `/onboarding` sits outside the `(app)` group, so there is no NavBar to wander off through mid-grid and it renders its own `LanguageSelect`, exactly as `/config` does. `src/lib/assessment.ts` is the second instance of the wizard mechanic still standing (after `daily.ts` — the old wizard-vocabulary module it used to share the pattern with is gone, see "Onboarding" above); the one thing it adds is a ceiling — `resolveAssessmentStep` clamps a requested step to the first unanswered domain, so backwards is free, forwards is impossible, and the results screen cannot be reached before the grid is finished. That is arithmetic rather than a hidden button, because a UI convention is one URL edit away from being ignored. `firstUndirected()`, the same idea for directions, is right beside it.
 
 **Scripts.** `bun run db:migrate:assessment` creates the layer (idempotent, one transaction, `pg` over TCP). `bun run assessment:seed <file.json>` backfills a grid answered on paper, through the same Zod schema and the same `prioritize()` the app uses, and refuses to overwrite a sealed assessment. In that file `ratings` is optional: a file carrying only `directions` writes the written half alone, which is what you want when the numbers will be answered in the app but the reflections already exist on paper. Seed them first and the writing step opens with your own words in it, to review rather than retype. It never prefills a rating.
 
@@ -191,8 +199,8 @@ app**, and the architecture exists to keep it that way — a provider can be
 swapped, added or removed, and the whole thing can be deleted, without touching
 the data model or a single screen.
 
-**The chain.** Directions complete → the "Cycle set" dialog → `/assessment/areas`
-(the review) → Generate → `/habits/review` (the proposals) → Start tracking →
+**The chain.** Directions complete → the "Cycle set" dialog → `/onboarding/areas`
+(the review) → Generate → `/onboarding/habits` (the proposals) → Start tracking →
 Today.
 
 ### The harness is the whole design
@@ -276,7 +284,7 @@ or an accidental refresh would lose the whole set and charge for it again.
 
 Instead the output is written straight to `habits` with `source =
 'ai_suggested'` and `active_from = NULL` — real rows no user-facing read can
-see. `/habits/review` then:
+see. `/onboarding/habits` then:
 
 | Action | Effect |
 |---|---|
@@ -298,8 +306,12 @@ nothing.
 
 `ai_pending_requests` gets one row and the user falls straight through to the
 manual form. The retry is **not a queue and not a cron**: an unresolved row is
-re-attempted on the next visit to `/habits/review`, and `/habits` carries a
-quiet, non-blocking line pointing back. It resolves when a retry succeeds *or*
+re-attempted on the next visit to `/onboarding/habits`, and `/habits` carries a
+quiet, non-blocking line pointing back — and so does the resolver
+(`src/lib/onboarding-flow.ts`), which routes a first-run account with a
+pending request straight to `/onboarding/habits` rather than back to
+`/onboarding/areas`, so the retry-on-visit property survives being reached via
+the gate too. It resolves when a retry succeeds *or*
 when the user presses Start tracking with hand-written habits — at that point a
 human has satisfied the request, and regenerating over a finished set would be a
 second surprise after they thought they were done.
