@@ -305,6 +305,20 @@ export async function createHabit(
   return row.id;
 }
 
+// The account's one habit of a given kind, tracked or not — read-only, never
+// creates one. Used both by getOrCreateSingletonHabit below and directly by
+// rich-habits.ts, which only ever reads (a Today-page load must not create a
+// workout habit just because it looked).
+export async function getHabitByTemplateKind(
+  userId: UserId,
+  kind: string
+): Promise<HabitRow | null> {
+  const [row] = await selectHabits().where(
+    and(eq(habits.userId, userId), eq(habits.templateKind, kind))
+  );
+  return row ? toRow(row) : null;
+}
+
 // Finds the account's one habit of a rich kind (treino/leitura/sono/rotina/
 // duolingo/espiritualidade), creating it if none exists yet. Every rich kind
 // is a de-facto singleton per account — see templates.ts, and setHabitTemplate
@@ -325,10 +339,8 @@ export async function getOrCreateSingletonHabit(
   kind: RichTemplateKind,
   defaultName: string
 ): Promise<HabitRow> {
-  const [existing] = await selectHabits().where(
-    and(eq(habits.userId, userId), eq(habits.templateKind, kind))
-  );
-  if (existing) return toRow(existing);
+  const existing = await getHabitByTemplateKind(userId, kind);
+  if (existing) return existing;
 
   const [{ max }] = await db
     .select({ max: sql<number>`coalesce(max(${habits.position}), 0)` })
