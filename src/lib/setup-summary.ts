@@ -3,14 +3,13 @@ import type { UserId } from "@/db/scope";
 // onboarding Review step, the /config index and the Overview "Activities"
 // section — so those three never drift.
 import {
-  getActiveWorkoutPlan,
-  getReadingGoal,
-  getSleepTarget,
-  listBooks,
+  getReadingConfig,
+  getSleepConfig,
+  getWorkoutConfig,
   listLanguages,
   listRoutineBlocks,
   listSpiritualPractices,
-} from "@/db/queries";
+} from "@/db/rich-habits";
 import { format, plural, type Copy } from "@/lib/i18n";
 import { daysLeftInYear, readingPace, todayInSaoPaulo } from "@/lib/utils";
 
@@ -54,7 +53,7 @@ export interface SetupRow {
 // Hours between bedtime and wake time, wrapping past midnight.
 function sleepWindowHours(bedtime: string, wakeTime: string): number {
   const mins = (t: string) => {
-    const [h, m] = t.slice(0, 5).split(":").map(Number);
+    const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   };
   const span = (mins(wakeTime) - mins(bedtime) + 1440) % 1440;
@@ -67,22 +66,28 @@ export async function getSetupSummary(
   todayCopy?: Copy["today"]
 ): Promise<SetupRow[]> {
   const today = todayInSaoPaulo();
-  const [plan, goal, books, sleep, routine, langs, practices] = await Promise.all([
-    getActiveWorkoutPlan(userId),
-    getReadingGoal(userId, Number(today.slice(0, 4))),
-    listBooks(userId),
-    getSleepTarget(userId),
+  const year = Number(today.slice(0, 4));
+  const [workout, reading, sleep, routine, langs, practices] = await Promise.all([
+    getWorkoutConfig(userId),
+    getReadingConfig(userId),
+    getSleepConfig(userId),
     listRoutineBlocks(userId),
     listLanguages(userId),
     listSpiritualPractices(userId),
   ]);
+
+  const plan = workout ? { name: workout.planName, days: workout.days.filter((d) => d.active) } : null;
+  // The goal is per-year — see onboarding-prefill.ts's readingInitial for the
+  // same rule: a target saved in an earlier year reads as unset here too.
+  const goal = reading && reading.year === year ? reading.targetBooksPerYear : null;
+  const books = reading?.books ?? [];
 
   // Reading hint. The list must be complete before a pace means anything —
   // otherwise it quotes a target computed from books the user hasn't added yet.
   let readingHint: string | undefined;
   let readingTone: "info" | "warn" | undefined;
   let paceValues: PaceValues | undefined;
-  const missingBooks = goal ? goal.targetBooks - books.length : 0;
+  const missingBooks = goal ? goal - books.length : 0;
   if (todayCopy && missingBooks > 0) {
     readingHint = format(
       plural(missingBooks, todayCopy.bookMissing, todayCopy.booksMissing),
@@ -125,7 +130,7 @@ export async function getSetupSummary(
       section: "reading",
       label: copy.review.sections.reading,
       configured: goal !== null || books.length > 0,
-      value: goal ? `${goal.targetBooks} ${copy.reading.goalUnit}` : null,
+      value: goal ? `${goal} ${copy.reading.goalUnit}` : null,
       meta: books.length
         ? format(copy.review.meta.books, { n: books.length })
         : undefined,
@@ -137,9 +142,7 @@ export async function getSetupSummary(
       section: "sleep",
       label: copy.review.sections.sleep,
       configured: sleep !== null,
-      value: sleep
-        ? `${sleep.bedtime.slice(0, 5)} – ${sleep.wakeTime.slice(0, 5)}`
-        : null,
+      value: sleep ? `${sleep.bedtime} – ${sleep.wakeTime}` : null,
       // Wall-clock hours between the two times, wrapping past midnight — a
       // 23:00–06:00 window is 7 hours, not −17.
       meta: sleep

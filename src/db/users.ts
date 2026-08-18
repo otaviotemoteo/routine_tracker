@@ -1,16 +1,7 @@
 import { eq, isNull, and } from "drizzle-orm";
 import { db } from "./index";
-import { spiritualPractices, users } from "./schema";
+import { users } from "./schema";
 import { hashPassword, toHandle } from "@/lib/password";
-
-// Practices are per-account, so a new account starts with the same three
-// defaults the app has always shipped. Editable in onboarding like everything
-// else; this is a starting point, not a fixed list.
-const DEFAULT_PRACTICES = [
-  { name: "Oração", slug: "oracao", countable: false, position: 0 },
-  { name: "Terço", slug: "terco", countable: true, position: 1 },
-  { name: "Leitura bíblica", slug: "leitura-biblica", countable: false, position: 2 },
-];
 
 export interface AccountRow {
   id: number;
@@ -43,13 +34,18 @@ export async function claimAccount(
     .set({ passwordHash: await hashPassword(password) })
     .where(and(eq(users.id, id), isNull(users.passwordHash)))
     .returning({ id: users.id });
-  if (!row) return false;
-
-  await db
-    .insert(spiritualPractices)
-    .values(DEFAULT_PRACTICES.map((p) => ({ userId: id, ...p, active: true })))
-    .onConflictDoNothing();
-  return true;
+  // The three starter practices this used to seed here (Oração/Terço/Leitura
+  // bíblica) were, for every account but the one this app was migrated from,
+  // already dead weight before Phase 3 — spiritual_practices rows with no
+  // "espiritualidade" habit any new account could ever have to attach them
+  // to (that kind was legacy-only, unreachable from the chooser or the AI
+  // suggester). Phase 3 makes the kind reachable, but only by actually
+  // creating a tracked habit — and seeding one unasked, the moment someone
+  // sets their first password, would be a real habit appearing on Today that
+  // nobody chose. Dropped rather than half-carried-forward; a genuine
+  // starter practice list belongs behind a real "add this" moment, not a
+  // side effect of claiming an account.
+  return Boolean(row);
 }
 
 // Script-only (bun run user:password): there is no self-service reset.

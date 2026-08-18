@@ -108,26 +108,32 @@ created_at TIMESTAMPTZ   template_kind / config
 - `daily_checks` holds one row per habit per day. Rows are lazily created: the first GET of a given day inserts one check per live habit with `done = false` as a single multi-row `INSERT … ON CONFLICT DO NOTHING` — one atomic statement (the neon-http driver has no interactive transactions), with the UNIQUE constraint guaranteeing idempotency under concurrent first-loads. The insert is scoped by `habitsFor(userId, date)`, so a removed habit stops materialising checks and a proposal never starts.
 - The `optional` flag drives presentation and scoring: optional habits render with a dashed border and are excluded from the daily progress bar and from best/worst weekly summaries.
 
-### Templates: why a new habit is always plain
+### Templates: how a habit renders
 
 `template_kind` decides how a habit renders — its Today card, its grid cell, its
-check-in sheet, its summary sentence. `NULL` is the generic renderer; the seven
-legacy kinds equal their old slug (`leitura`, `treino`, …).
+check-in sheet, its summary sentence. `NULL` is the generic renderer. Every
+other kind reads only the habit's own columns and its own `config`/`details`
+— never another account's data, never a shared table — so any kind may be
+given to any habit. Through Phase 3 that wasn't true of six of them
+(`treino`/`leitura`/`sono`/`rotina`/`duolingo`/`espiritualidade`; `hobby` was
+walled off by association only, never by needing a table of its own): each
+read a per-domain table whose every row belonged to the one account that
+filled it in through `/onboarding`, so a habit with `template_kind = 'leitura'`
+on any other account would have rendered a reading card with no current book,
+no page target and no pace — a broken screen, not a degraded one. Phase 3
+moved that setup into `habits.config` (see "Rich habits" below), which is what
+closed the gap: `config` belongs to the habit, not the account.
 
-**Only the owner's migrated rows may carry a legacy kind, and that is a
-constraint rather than a leftover.** The seven rich renderers are not merely
-un-extracted, they are *owner-shaped*: each reads a per-domain table (`books`,
-`reading_goals`, `workout_plans`, `routine_blocks`, `spiritual_practices`,
-`languages`) whose every row belongs to the one account that filled them in
-through `/onboarding`, and their kinds are that account's Portuguese slugs. A
-habit with `template_kind = 'leitura'` on a new account renders a reading card
-with no current book, no page target and no pace — a broken screen, not a
-degraded one.
-
-So `SUGGESTABLE_TEMPLATE_KINDS` in `src/lib/templates.ts` has one member,
-`plain`, for everyone including the owner, and both the habit form and the
-generator's Zod enum read it. Widening the list once the renderers read a
-habit's own `config` is a one-line change to that constant.
+`src/lib/templates.ts` still keeps two lists apart, for a narrower and now
+purely UI reason: `GENERIC_TEMPLATE_KINDS` is the five kinds the card-style
+chooser (`/habits/templates`) actually has a card for; `RICH_TEMPLATE_KINDS`
+is the six with real setup (plus `hobby`, which needs none), collected through
+`/config` or a "suggest" action, not the chooser. `SUGGESTABLE_TEMPLATE_KINDS`
+— what a model may propose *unprompted*, during onboarding — still has one
+member, `plain`: offering someone a full workout program before they asked is
+a bigger initiative than letting them pick one from a menu, so it stays
+deliberately narrow even though the safety reason for the old restriction is
+gone.
 
 ## v2 — Rich tracking (three tiers)
 
@@ -135,9 +141,65 @@ v2 turns the binary spine into an auditable dataset without disturbing it. Three
 
 1. **Spine (Tier 1):** `daily_checks.done` — unchanged. The grid, streaks and adherence % read only this and never regress.
 2. **Daily details (Tier 2):** `daily_checks.details JSONB` + `note TEXT`. `details` is habit-specific and **validated by a Zod schema on every write** (`src/lib/details-schemas.ts`, one per slug, `.strict()`). `NULL` details = "done without details" (v1 rows and quick-toggle days) — valid forever.
-3. **Entities (Tier 3):** normalized tables for things with a lifecycle beyond a day — `workout_plans`(+`_days`), `reading_goals`, `books`, `routine_blocks`, `spiritual_practices`, `languages`. `details` references them by id/slug. **Workout plans are immutable & versioned** (edit = insert `version+1`, flip `active`); the change log is `ORDER BY version`, no audit table.
+3. **Entities (Tier 3):** a rich habit's own setup — through Phase 3, normalized tables for things with a lifecycle beyond a day (`workout_plans`(+`_days`), `reading_goals`, `books`, `routine_blocks`, `spiritual_practices`, `languages`); since Phase 3, each domain's own `habits.config`, shaped by `src/lib/config-schemas.ts` — see "Rich habits become per-habit" below. `details` references items by id/slug either way, and neither is ever reassigned.
 
-`src/lib/details-schemas.ts` is the single source of truth: it validates writes, generates the TS types (`z.infer`), and feeds `DATA_DICTIONARY.md` via each field's `.describe()`. All Tier-3 access stays in `src/db/queries.ts` like the spine. Derived metrics (reading pace, routine/plan adherence) are pure helpers in `src/lib/utils.ts` — computed, never stored.
+`src/lib/details-schemas.ts` is the single source of truth for Tier 2: it validates writes, generates the TS types (`z.infer`), and feeds `DATA_DICTIONARY.md` via each field's `.describe()`. `src/lib/config-schemas.ts` is the same thing one tier up, for `config`. Tier-3 reads/writes live in `src/db/rich-habits.ts`; everything else stays in `src/db/queries.ts` like the spine. Derived metrics (reading pace, routine/plan adherence) are pure helpers in `src/lib/utils.ts` — computed, never stored.
+
+### Rich habits become per-habit (Phase 3)
+
+The six tables above were account-wide singletons — one active workout plan,
+one sleep window — which is exactly what made their template kinds
+owner-shaped (see "Templates" above). Phase 3 folded each into the owning
+habit's own `config` column, the same "one JSONB column, one Zod schema per
+kind" idiom `details` already used one tier down, via `src/lib/config-schemas.ts`
+and a new access module, `src/db/rich-habits.ts`, replacing the table-specific
+functions that used to live in `queries.ts`.
+
+**The singleton invariant moved from the table to the habit.** Where "one
+workout plan per account" used to be true because there was one `workout_plans`
+row, it's now true because `getOrCreateSingletonHabit(userId, kind, defaultName)`
+(`src/db/habits.ts`) always finds-or-creates the *one* habit of that kind for
+an account — the exact same "first save creates it" behavior `/config`
+already had, now applied to a habit row instead of a bare table row, so
+`/config`'s six forms needed no redesign, only a new function to call.
+`setHabitTemplate`'s guard (the chooser's write path) still refuses to hand a
+rich kind to a second habit, unchanged in spirit from before.
+
+**Nothing in a list is ever hard-removed**, carried forward from every one of
+the six old tables: a retired workout day, routine block, language or
+practice stays in its array flagged `active: false` rather than deleted,
+because a `details` row from before it was retired still names its id or
+slug. Reading keeps its own, narrower exception: only a book with zero
+progress and status `queued`/`reading` may be dropped on edit.
+
+**Ids and slugs are carried forward, never reassigned.** The migration
+(`bun run db:migrate:rich-configs`, `src/db/migrate-rich-configs.ts`, following
+`migrate-habits.ts`'s guarded-transaction pattern exactly) moves each table's
+rows into the corresponding habit's `config` keeping every numeric id and
+every slug exactly as it was — a `plan_day_id` or a `language_slug` written
+into `daily_checks.details` years ago still resolves without being touched.
+The migration's last step, before dropping the six old tables, is a
+verification pass over every `details` row with an entity reference,
+confirming it resolves against the config just written; any miss aborts the
+whole transaction rather than dropping a table something still points at.
+
+**One dropped simplification, deliberately:** workout-plan version history.
+The old `workout_plans.version`/`active` pair kept every past plan version
+in the table forever; nothing in the app ever read a version other than the
+active one (`listWorkoutPlanVersions` had no caller). `config.days[].active`
+keeps the same "today's plan vs. everything before it" distinction; a fuller
+history is not rebuilt unless something is found to actually need it.
+
+**One generator joins the harness:** `activity_proposer`
+(`src/lib/ai/activity-proposer.ts` + the caller, `propose-activities.ts`),
+covering the five rich kinds with something to propose (`sono` needs none —
+a preference, not a list). Unlike `habit_suggester`, it runs **only on
+request** — a "suggest" action on an existing rich habit, or the same action
+with a natural-language `request` attached ("recommend me 5 fiction books")
+— never unprompted during onboarding. It also never writes `config` directly:
+its output is a draft that prefills the same `/config` form a person would
+fill by hand, so accepting a proposal goes through the one write path that
+already existed rather than a second one.
 
 ## Route groups & persistent shell (v2)
 
@@ -155,11 +217,11 @@ The authenticated app lives in an `app/(app)/` route group whose layout renders 
 
 **A dead end closed as part of the same fix.** Rating every domain's general importance ≤4 makes `prioritize()` legitimately return zero priority domains — a real answer, but one nothing downstream (directions, areas) has anything to do with. The resolver routes that case straight to `/onboarding/habits`'s existing manual-add empty state, and `/onboarding/results` gained its own branch explaining why (`copy.assessment.results.noPriority*`) instead of silently omitting the forward button it shows otherwise.
 
-The six manual-entry tables (workout plans, books, routine blocks, languages, spiritual practices, sleep targets) remain account-singleton, not per-habit — see "Templates: why a new habit is always plain" below. Wiring AI-suggested habits into richer, per-habit activities is deliberately out of scope here; it needs that constraint lifted first.
+The six manual-entry domains (workout plan, reading list, routine blocks, languages, spiritual practices, sleep target) are per-habit now, not per-table — see "Rich habits become per-habit (Phase 3)" below. At the time this section was first written they were still account-singleton tables, which is exactly the constraint that later got lifted.
 
 **The old 8-step manual wizard is gone, not just disconnected.** `/onboarding` used to be its route; once nothing linked to it any more (`/config` already exposed the same six sections independently, reusing the identical step components with `next="/config"`), the route itself was deleted to free the namespace for the real first run, along with its two orphaned step components (`WelcomeStep`, `ReviewStep`). Its shared save actions moved to `src/app/config/actions.ts` (their only remaining caller), and `slugify()` — the one export from the old `src/lib/onboarding.ts` used outside the wizard — moved to its own `src/lib/slugify.ts`. Prefill loaders are still shared in `src/lib/onboarding-prefill.ts`, and `src/lib/setup-summary.ts` still builds the one summary rendered by `/config`'s index and the Overview **Activities** section — so the two never drift. `/config` sits outside the `(app)` group (no NavBar) and renders its own `LanguageSelect`, as it always did.
 
-Books are reconciled **by id** (`saveReadingList`): existing rows update, new ones insert, and only removed-and-untouched books are deleted — a book with progress or a done/abandoned status is never deleted, since past `details.book_id` references it.
+Books are reconciled **by id** (`saveReadingList`, `src/db/rich-habits.ts`): existing entries update in place, new ones append with a fresh id, and only removed-and-untouched books drop out of `config.books` — a book with progress or a done/abandoned status is never dropped, since past `details.book_id` references it.
 
 ## The values layer (M1)
 
@@ -540,9 +602,10 @@ and `ai.ts`:
    inferred from the id alone.
 
 Uniqueness that used to be global is per-account:
-`habits(user_id, slug)`, `daily_checks(user_id, habit_id, checked_at)`,
-`reading_goals(user_id, year)`, `spiritual_practices(user_id, slug)`,
-`languages(user_id, slug)`.
+`habits(user_id, slug)`, `daily_checks(user_id, habit_id, checked_at)`. The
+six rich domains' own uniqueness (a reading goal's year, a language's or
+practice's slug) is scoped the same way, one level down — each lives inside
+one habit's `config`, itself already scoped to its account by `habits.user_id`.
 
 ### Scope by construction, and the honest limit of it
 

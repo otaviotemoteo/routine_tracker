@@ -6,14 +6,14 @@
 // live).
 import { redirect } from "next/navigation";
 import {
-  replaceLanguages,
-  replaceRoutineBlocks,
-  replaceSpiritualPractices,
+  getReadingConfig,
+  saveLanguages,
   saveReadingList,
+  saveRoutineBlocks,
+  saveSleepTarget,
+  saveSpiritualPractices,
   saveWorkoutPlan,
-  upsertReadingGoal,
-  upsertSleepTarget,
-} from "@/db/queries";
+} from "@/db/rich-habits";
 import type { PlannedExercise } from "@/db/schema";
 import { slugify } from "@/lib/slugify";
 import { todayInSaoPaulo } from "@/lib/utils";
@@ -55,9 +55,19 @@ export async function saveWorkoutStep(formData: FormData): Promise<void> {
 
 export async function saveReadingStep(formData: FormData): Promise<void> {
   const userId = await requireUserId();
-  const target = Number(formData.get("targetBooks"));
-  if (Number.isFinite(target) && target > 0) {
-    await upsertReadingGoal(userId, Number(todayInSaoPaulo().slice(0, 4)), target);
+  const year = Number(todayInSaoPaulo().slice(0, 4));
+  const submittedTarget = Number(formData.get("targetBooks"));
+  // A blank/invalid target field leaves the existing goal untouched — the
+  // same rule the old upsertReadingGoal call had by simply not being called
+  // in that case. saveReadingList always writes year+target together now, so
+  // "untouched" here means "carry the current value forward" rather than
+  // "skip the write".
+  let targetBooksPerYear = 0;
+  if (Number.isFinite(submittedTarget) && submittedTarget > 0) {
+    targetBooksPerYear = submittedTarget;
+  } else {
+    const current = await getReadingConfig(userId);
+    if (current && current.year === year) targetBooksPerYear = current.targetBooksPerYear;
   }
   const rows = parseJsonArray(formData)
     .map((b) => b as Record<string, unknown>)
@@ -76,7 +86,9 @@ export async function saveReadingStep(formData: FormData): Promise<void> {
           ? Math.min(current, totalPages)
           : 0,
       // First book flagged "reading now" becomes the current book.
-      status: b.reading ? "reading" : "queued",
+      status: (b.reading ? "reading" : "queued") as
+        | "reading"
+        | "queued",
       position: i,
     };
   });
@@ -91,7 +103,7 @@ export async function saveReadingStep(formData: FormData): Promise<void> {
       seenReading = true;
     }
   }
-  await saveReadingList(userId, books);
+  await saveReadingList(userId, year, targetBooksPerYear, books);
   redirect(safeNext(formData));
 }
 
@@ -100,7 +112,7 @@ export async function saveSleepStep(formData: FormData): Promise<void> {
   const bedtime = String(formData.get("bedtime") || "").trim();
   const wake = String(formData.get("wakeTime") || "").trim();
   if (/^\d{2}:\d{2}$/.test(bedtime) && /^\d{2}:\d{2}$/.test(wake)) {
-    await upsertSleepTarget(userId, bedtime, wake);
+    await saveSleepTarget(userId, bedtime, wake);
   }
   redirect(safeNext(formData));
 }
@@ -125,7 +137,7 @@ export async function saveRoutineStep(formData: FormData): Promise<void> {
       position: i,
     }))
     .filter((b) => b.weekdays.length > 0);
-  await replaceRoutineBlocks(userId, blocks);
+  await saveRoutineBlocks(userId, blocks);
   redirect(safeNext(formData));
 }
 
@@ -137,7 +149,7 @@ export async function saveDuolingoStep(formData: FormData): Promise<void> {
     .filter(Boolean)
     .map((name) => ({ name, slug: slugify(name) }))
     .filter((l) => l.slug && !seen.has(l.slug) && seen.add(l.slug));
-  await replaceLanguages(userId, items);
+  await saveLanguages(userId, items);
   redirect(safeNext(formData));
 }
 
@@ -153,6 +165,6 @@ export async function saveSpiritualityStep(formData: FormData): Promise<void> {
       position: i,
     }))
     .filter((p) => p.name && p.slug && !seen.has(p.slug) && seen.add(p.slug));
-  await replaceSpiritualPractices(userId, practices);
+  await saveSpiritualPractices(userId, practices);
   redirect(safeNext(formData));
 }

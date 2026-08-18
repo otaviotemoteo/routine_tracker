@@ -15,18 +15,19 @@ Drizzle tables in `src/db/schema.ts`.
   database clock (which runs UTC).
 - **Times** are `HH:MM` (24h), São Paulo local.
 - **Weekdays** are ISO: `1` = Monday … `7` = Sunday.
-- **Slugs** (`habits.slug`, `languages.slug`, `spiritual_practices.slug`) are
-  stable identifiers — never renamed, only deactivated. `details` references
-  entities by id or slug.
+- **Slugs** (`habits.slug`, and — inside a rich habit's `config`, see Tier 3 —
+  a language's or practice's `slug`) are stable identifiers — never renamed,
+  only deactivated. `details` references config items by id or slug, and
+  those ids/slugs are permanent: nothing in this app ever reassigns one, so a
+  `details` row written years ago still resolves against today's `config`.
 - **Every table carries `user_id`** except `life_domains` (12 seeded rows, the
-  same twelve for everyone), `workout_plan_days` (reaches its owner through
-  `plan_id`) and `login_attempts` (pre-auth: there is no user yet). Slugs and
-  years are unique *per account*, not globally: `habits(user_id, slug)`,
-  `languages(user_id, slug)`, `spiritual_practices(user_id, slug)`,
-  `reading_goals(user_id, year)`.
+  same twelve for everyone) and `login_attempts` (pre-auth: there is no user
+  yet). Slugs are unique *per account*, not globally: `habits(user_id, slug)`.
 - **The export is one account's data.** `GET /api/export` returns only the rows
   belonging to the signed-in user, so `user_id` never appears in the payload.
-- **`schema_version`** in the export is `2`.
+- **`schema_version`** in the export is `3` (bumped from `2` when the six
+  entity tables below folded into `habits.config` — see Tier 3 and Export
+  endpoint).
 
 ## Tier 0 — accounts
 
@@ -80,8 +81,8 @@ else from using the app. `UNIQUE(user_id, slug)`.
 | unit | varchar(20) NULL | What the number counts: "pages", "minutes", "lessons". NULL for `binary` |
 | target | int NULL | Optional, shown for comparison and **never enforced**. Always human-entered: no generator can produce one |
 | minimal_action | varchar(200) NULL | The bad-day version — what still counts when the day has gone wrong |
-| template_kind | varchar(30) NULL | How it renders. **NULL = plain** (the generic renderer). The seven legacy kinds equal their old slug and read owner-shaped per-domain tables, so only the owner's migrated rows may carry one |
-| config | jsonb NULL | Template setup. **Never written by a model** |
+| template_kind | varchar(30) NULL | How it renders. **NULL = plain** (the generic renderer). Every other kind — the five card-style kinds and the six richer ones (`treino`/`leitura`/`sono`/`rotina`/`duolingo`/`espiritualidade`) — reads only this habit's own columns and `config`, never another table, so any kind may be given to any habit |
+| config | jsonb NULL | Template setup: the Checklist kind's `{items}`, or — for the six rich kinds — that habit's own plan/list/schedule, shaped by `src/lib/config-schemas.ts` (below). **Never written by a model directly**; `activity_proposer` (Tier 5) only ever returns a draft for a human to accept through the same form that writes this column by hand |
 | source | varchar(12) | `human` \| `ai_suggested` \| `ai_edited`. Mirrors `direction_narratives.source`; moves `ai_suggested → ai_edited` on the first edit and then stops |
 | why | text NULL | The one line a suggestion gave for why this habit serves the direction. Kept after an edit — it is why the habit is on the list at all |
 | active_from | date NULL | **NULL = PROPOSED, not yet tracked.** A generated habit is a real row that no user-facing read can see until "Start tracking" fills this in. Load-bearing: it is what lets a 5–20s call survive a refresh without anything reaching Today |
@@ -107,87 +108,50 @@ One row per habit per day **per account**. `UNIQUE(user_id, habit_id, checked_at
 | note | text NULL | Free text, always optional |
 | created_at / updated_at | timestamptz | |
 
-## Tier 3 — entities
+## Tier 3 — a rich habit's own setup (`habits.config`)
 
-### `workout_plans` (immutable, versioned)
-Editing a plan inserts `version+1` and flips `active`; history = `ORDER BY version`.
-| Column | Type | Meaning |
-|--------|------|---------|
-| id | serial PK | |
-| user_id | int FK→users | Whose plan |
-| version | int | 1-based; monotonic |
-| name | varchar(80) | e.g. "Push/Pull/Legs" |
-| active | boolean | Exactly one active at a time |
-| created_at | timestamptz | |
+Through schema v2 this tier was six tables — `workout_plans`+`workout_plan_days`,
+`reading_goals`+`books`, `routine_blocks`, `spiritual_practices`, `languages`,
+`sleep_targets` — each account-wide and singleton (one active plan, one sleep
+window), which is why only the one account this app was built for could ever
+carry one of these six kinds. Phase 3 moved every one of them into the owning
+habit's own `config` column instead: the tables are gone, the shapes below are
+what replaces them, validated by `src/lib/config-schemas.ts` on every write —
+the same "one JSONB column, one Zod schema per kind" idiom `details` already
+uses one tier down. A rich kind is now exactly as safe as any generic one:
+`config` belongs to the habit, not the account, so any habit — old or new —
+may carry it.
 
-### `workout_plan_days`
-| Column | Type | Meaning |
-|--------|------|---------|
-| id | serial PK | Referenced by `details.plan_day_id` (treino) |
-| plan_id | int FK→workout_plans | |
-| weekday | int | ISO 1..7 |
-| focus | varchar(80) | "Push", "Rest", "Cardio" |
-| exercises | jsonb | `[{ name, kind?, sets?, reps?, seconds?, distance?, minutes?, load? }]` (plan config, not a daily log). `kind` is `reps` (default when absent) \| `time` \| `distance`; `reps` applies to `reps`, `seconds` (hold per set) to `time`, `distance` (km) + optional `minutes` to `distance` |
+**The one invariant carried forward from every one of the six old tables:**
+nothing in a list is ever hard-removed on save, only flagged `active: false`
+(reading is the one exception, and it inherits the old table's own exception
+too: a book with zero progress and status `queued`/`reading` may be dropped,
+but anything with real progress or a `done`/`abandoned` status never is).
+`details` references an item by the exact id or slug it was given when
+created, forever — that's what makes the rule necessary.
 
-### `reading_goals`
-| Column | Type | Meaning |
-|--------|------|---------|
-| id | serial PK | |
-| user_id | int FK→users | Whose goal |
-| year | int UNIQUE | |
-| target_books | int | Books to finish that year |
-| created_at | timestamptz | |
-
-### `books`
-| Column | Type | Meaning |
-|--------|------|---------|
-| id | serial PK | Referenced by `details.book_id` (leitura) |
-| user_id | int FK→users | Whose list |
-| title | varchar(200) | |
-| author | varchar(120) NULL | |
-| total_pages | int | |
-| status | varchar(12) | `queued` \| `reading` \| `done` \| `abandoned` |
-| current_page | int | Advanced by daily reading logs |
-| position | int | Order in the reading list |
-| started_at / finished_at | date NULL | Set when reading starts / the last page is reached |
-
-### `routine_blocks`
-| Column | Type | Meaning |
-|--------|------|---------|
-| id | serial PK | Referenced by `details.followed_block_ids` / `struggled_block_id` (rotina) |
-| user_id | int FK→users | Whose routine |
-| start_time / end_time | time | HH:MM |
-| activity | varchar(120) | "Deep work", "Gym" |
-| weekdays | int[] | ISO weekdays the block applies to |
-| active | boolean | Editing deactivates old blocks (ids kept for history) |
-| position | int | |
-
-### `spiritual_practices`
-| Column | Type | Meaning |
-|--------|------|---------|
-| id | serial PK | |
-| user_id | int FK→users | Whose practices |
-| name | varchar(80) | |
-| slug | varchar(80) UNIQUE | Referenced by `details.practices[].slug` |
-| countable | boolean | If true, has a daily count (e.g. rosaries) |
-| active | boolean | |
-| position | int | |
-
-### `languages`
-| Column | Type | Meaning |
-|--------|------|---------|
-| id | serial PK | |
-| user_id | int FK→users | Whose languages |
-| name | varchar(50) | |
-| slug | varchar(50) UNIQUE | Referenced by `details.sessions[].language_slug` |
-| active | boolean | |
-
-### `sleep_targets` (one row per account)
-| Column | Type | Meaning |
-|--------|------|---------|
-| id | serial PK | |
-| user_id | int FK→users | Whose window |
-| bedtime / wake_time | time | Target window; sets the daily sleep-hours default. Not referenced by `details` |
+- **`treino`** — `{ planName: string, days: [{ id, weekday: 1..7, focus, exercises: [{ name, kind?, sets?, reps?, seconds?, distance?, minutes?, load? }], active: bool }] }`
+  - `id` → `details.plan_day_id`. `active: true` = today's plan; `false` = a
+    retired day, kept only so an old logged day still names it correctly.
+    `kind` is `reps` (default when absent) \| `time` \| `distance`; `reps`
+    applies to `reps`, `seconds` (hold per set) to `time`, `distance` (km) +
+    optional `minutes` to `distance`. No separate version history beyond the
+    `active` flag — nothing in the app ever read `workout_plans.version` on
+    its own.
+- **`leitura`** — `{ year: int, targetBooksPerYear: int, books: [{ id, title, author, totalPages, currentPage, status, position, startedAt, finishedAt }] }`
+  - `id` → `details.book_id`. `status` is `queued` \| `reading` \| `done` \|
+    `abandoned`. The goal is for `year` alone — a target saved in an earlier
+    year reads as unset, the same as the old `reading_goals(user_id, year)`
+    lookup.
+- **`sono`** — `{ bedtime: "HH:MM", wakeTime: "HH:MM" }`
+  - Not referenced by `details`; a preference, not a list, so it's the one
+    rich kind with nothing to keep history of.
+- **`rotina`** — `{ blocks: [{ id, startTime, endTime, activity, weekdays: int[], position, active: bool }] }`
+  - `id` → `details.followed_block_ids` / `struggled_block_id`.
+- **`duolingo`** — `{ languages: [{ slug, name, active: bool }] }`
+  - `slug` → `details.sessions[].language_slug`.
+- **`espiritualidade`** — `{ practices: [{ slug, name, countable, position, active: bool }] }`
+  - `slug` → `details.practices[].slug`.
 
 ## Tier 4 — the values layer
 
@@ -287,7 +251,7 @@ counter (`count(*)` today where `cached = false`).
 |--------|------|---------|
 | id | serial PK | |
 | user_id | int FK→users | Whose generation |
-| generator | varchar(40) | `habit_suggester` today |
+| generator | varchar(40) | `habit_suggester` \| `activity_proposer`. The latter runs only on request — a "suggest" action on a rich habit, or a natural-language request alongside one — never unprompted, and its output is a draft for the same `/config` form to save, not a direct write to `config` |
 | provider | varchar(20) | `google` \| `groq` \| `openai`; `none` when the outcome was decided before a provider was reached |
 | model | varchar(60) | The exact model id, so a change in behaviour can be attributed |
 | outcome | varchar(12) | `ok` \| `unavailable` (no key or quota spent — decided **before any I/O**) \| `invalid` (answered, wrong shape) \| `error` (network, timeout, 5xx, 429) |
@@ -318,8 +282,7 @@ visit to `/onboarding/habits`.
 ## Tier 2 — `daily_checks.details` by template kind
 
 Validated on every write against `src/lib/details-schemas.ts`. Keyed on
-`habits.template_kind`; since the seven legacy kinds equal their old slugs, the
-seven entries below are unchanged and one — `plain` — is new. `?` = optional.
+`habits.template_kind`. `?` = optional.
 
 - **plain** (the generic renderer, and the only kind a new habit can have) —
   `{ value: number }`
@@ -328,17 +291,17 @@ seven entries below are unchanged and one — `plain` — is new. `?` = optional
     row itself, which is what makes this one schema serve any habit.
 
 - **treino** — `{ plan_day_id: int, completed: [{ name: string, done: bool }], effort?: 1..5 }`
-  - `plan_day_id` → `workout_plan_days.id`; `completed` mirrors that day's exercises; `effort` = perceived 1(easy)–5(max).
+  - `plan_day_id` → that habit's `config.days[].id` (Tier 3); `completed` mirrors that day's exercises; `effort` = perceived 1(easy)–5(max).
 - **leitura** — `{ book_id: int, ended_on_page: int, pages_read: int }`
-  - `book_id` → `books.id`; `pages_read` = ended_on_page − previous current_page.
+  - `book_id` → that habit's `config.books[].id`; `pages_read` = ended_on_page − previous current_page.
 - **sono** — `{ hours: number, woke_up_at_night: bool, quality?: 1..5 }`
   - `hours` one decimal.
 - **rotina** — `{ followed_block_ids: int[], struggled_block_id?: int, struggle_note?: string }`
-  - ids → `routine_blocks.id`.
+  - ids → that habit's `config.blocks[].id`.
 - **duolingo** — `{ sessions: [{ language_slug: string, lessons: int }] }`
-  - all-zero lessons = not done.
+  - `language_slug` → that habit's `config.languages[].slug`; all-zero lessons = not done.
 - **espiritualidade** — `{ practices: [{ slug: string, count?: int }] }`
-  - only practices done are listed; `count` present for countable practices.
+  - `slug` → that habit's `config.practices[].slug`; only practices done are listed; `count` present for countable practices.
 - **hobby** — `{ activity?: string, minutes?: int }`
 
 ## Export endpoint
@@ -347,13 +310,20 @@ seven entries below are unchanged and one — `plain` — is new. `?` = optional
 
 ```jsonc
 {
-  "meta": { "from", "to", "timezone": "America/Sao_Paulo", "schema_version": 2 },
-  "entities": { "workout_plans": [ /* +nested days, all versions */ ],
-                "books", "reading_goals", "routine_blocks",
-                "spiritual_practices", "languages", "sleep_targets" },
+  "meta": { "from", "to", "timezone": "America/Sao_Paulo", "schema_version": 3 },
+  "entities": { "workout_plans": [ /* one entry: {name, days[] — active + retired} */ ],
+                "books", "reading_goals": [ /* one entry, or [] */ ],
+                "routine_blocks", "spiritual_practices", "languages",
+                "sleep_targets": [ /* one entry, or [] */ ] },
   "days": [ { "date": "YYYY-MM-DD",
               "habits": { "<slug>": { "done", "details", "note" }, ... } } ]
 }
 ```
+
+Since v2: these six entities are read from `habits.config` (Tier 3), not a
+dedicated table — `workout_plans`/`reading_goals` no longer carry a separate
+id or `created_at` (no history beyond `workout_plans[0].days[].active`), and
+`spiritual_practices`/`languages` are identified by `slug` alone, never a
+numeric id — neither was ever referenced by one.
 
 The `/overview/[date]` Day Audit screen is the visual twin of one `days[]` object.
