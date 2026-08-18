@@ -587,15 +587,17 @@ opens. The policy is `src/lib/login-guard.ts`, the counters are
 ## Data ownership
 
 Every per-user table carries `user_id`, `habits` included since the remodel.
-`life_domains` is the one shared table (12 seeded rows, no owner), and
-`workout_plan_days` reaches its owner through `plan_id`.
+`life_domains` is the one shared table (12 seeded rows, no owner).
 
 Two rules hold everywhere in `src/db/queries.ts`, `habits.ts`, `assessment.ts`
 and `ai.ts`:
 
 1. **Every function takes `userId` as its first argument**, resolved once per
    request by `requireUserId()` (pages/actions) or `getUserId()` (API routes,
-   which answer 401 rather than redirect) — `src/lib/session.ts`.
+   which answer 401 rather than redirect) — `src/lib/session.ts`. Both now
+   also confirm the account behind the cookie still exists (Phase 3.1's
+   `resolveSessionUserId`, `src/lib/session-resolve.ts`) — see "Scope by
+   construction" below.
 2. **Every id-addressed write filters on the user too**
    (`WHERE id = ? AND user_id = ?`), so a check or book id belonging to
    somebody else matches no row instead of being mutated. Ownership is never
@@ -611,10 +613,30 @@ one habit's `config`, itself already scoped to its account by `habits.user_id`.
 
 `src/db/scope.ts` defines `UserId` as a **branded number**. Only
 `src/lib/session.ts` mints one, out of a cookie whose signature this process
-verified, so a raw integer off a route param or a request body no longer
-typechecks as a user id. Passing the wrong integer became a compile error
-rather than a leak, and a cast is greppable — the only two in the tree are
-inside `asUserId()` and `scriptUserId()` themselves.
+verified **and confirmed against a live `users` row** (Phase 3.1), so a raw
+integer off a route param or a request body no longer typechecks as a user
+id. Passing the wrong integer became a compile error rather than a leak, and
+a cast is greppable — the only two in the tree are inside `asUserId()` and
+`scriptUserId()` themselves.
+
+**The existence check, and why a signature alone was never enough.** The auth
+cookie (`src/lib/auth.ts`) is valid for a year — its signature says who it
+claims to be and that the claim hasn't expired, nothing about whether that
+account still exists. A stale browser session surviving an account cleanup
+would keep resolving to a UserId every downstream write assumes is real,
+until the first foreign-key constraint it touched threw (exactly what
+happened: `cycles_user_id_fkey`, on `/onboarding`, for a deleted account).
+The fix is the same "derive it from the database, not a trusted flag" rule
+`resolveOnboardingStep` already runs on, one layer earlier — identity itself
+now comes from a live row, not just a signature that once matched one.
+
+The check lives in `src/lib/session-resolve.ts`, deliberately **not**
+`server-only`-guarded, split out of `session.ts` (which is) for one reason:
+`import "server-only"` throws unconditionally outside Next's own bundler, so
+a guarded file can never be imported by a plain `bun test` — and this is the
+one piece of session logic worth testing directly against a real database
+(`src/lib/session-resolve.test.ts`), the same way every other db-touching
+function in this app is tested.
 
 Which modules the brand covers, stated rather than assumed:
 
