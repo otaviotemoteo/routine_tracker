@@ -243,7 +243,14 @@ settle decisions that were already made, not re-open them.
   there (`?from=overview`). The change should be visible where it was made.
 - **Don't make the user scroll to leave, and don't stack two ways back.** The
   back arrow lives *on the screen's title* ("← Reading"), not as a separate
-  link above it (`StepTitle`).
+  link above it (`StepTitle`) — styled like every other icon-only control in
+  the app (`iconButton`: bordered, shadowed, white), not a bare unstyled icon.
+- **A step counter names the step, not the section.** "Área 6 de 12" says
+  *where* in the grid you are; it doesn't say what the grid itself is. A
+  focus-mode onboarding screen carries a second, persistent label next to the
+  language toggle ("Values assessment") for exactly that — the thing that
+  doesn't change from step to step, stated once, not folded into a counter
+  that already has a different job.
 - **Client transitions only.** The nav bar lives in the `(app)` layout so it
   persists across navigations; everything uses `<Link>`. A full reload is a bug.
 - **URL carries view state** so a view is linkable and survives refresh:
