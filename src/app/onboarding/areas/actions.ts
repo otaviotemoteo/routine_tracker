@@ -14,10 +14,10 @@ import { requireUserId } from "@/lib/session";
 // same screen with nothing on it yet.
 //
 // The generation itself is NOT started here. `?generate=1` is a request, and
-// /habits/review decides: it generates only when the proposed set is empty, so
-// a refresh — or a second press of a button that was already pressed — costs
-// no quota. Consent is still explicit, because nothing generates without that
-// parameter, and only this action puts it in the URL.
+// /onboarding/habits decides: it generates only when the proposed set is
+// empty, so a refresh — or a second press of a button that was already
+// pressed — costs no quota. Consent is still explicit, because nothing
+// generates without that parameter, and only this action puts it in the URL.
 export async function goToHabitsAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
 
@@ -27,5 +27,5 @@ export async function goToHabitsAction(formData: FormData): Promise<void> {
   await markFirstRunStep(userId, "habits");
 
   const generate = formData.get("generate") === "1";
-  redirect(generate ? "/habits/review?generate=1" : "/habits/review");
+  redirect(generate ? "/onboarding/habits?generate=1" : "/onboarding/habits");
 }

@@ -13,6 +13,7 @@ import { rankByGap } from "@/lib/diagnose";
 import { isDomainSlug } from "@/lib/domains";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
+import { isFirstRun } from "@/lib/onboarding-flow";
 import { primaryButton } from "@/components/ui/styles";
 import { requireUserId } from "@/lib/session";
 
@@ -40,7 +41,7 @@ export default async function AreasPage() {
   const copy = COPY[lang].assessment;
 
   const sealed = await getLatestSealed(userId);
-  if (!sealed) redirect("/assessment");
+  if (!sealed) redirect("/onboarding");
 
   const written = await listDirectionNarratives(userId, sealed.cycleId);
   const priority = sealed.priorityDomains.filter(isDomainSlug);
@@ -59,11 +60,13 @@ export default async function AreasPage() {
     (row) => !building.includes(row.domainSlug)
   );
 
+  const firstRun = await isFirstRun(userId);
+
   return (
-    <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="nav">
+    <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="nav" firstRun={firstRun}>
       <p className="eyebrow mb-2">{copy.areas.eyebrow}</p>
       <StepTitle
-        backHref="/assessment/directions"
+        backHref="/onboarding/directions"
         backLabel={copy.directions.indexTitle}
       >
         {copy.areas.title}
@@ -76,7 +79,7 @@ export default async function AreasPage() {
         // generate button with nothing to generate from.
         <div className="border-2 border-forest rounded-card bg-white shadow-hard px-6 py-8 text-center">
           <h2 className="display-title text-2xl">{copy.areas.empty}</h2>
-          <Link href="/assessment/directions" className={`${primaryButton} mt-6`}>
+          <Link href="/onboarding/directions" className={`${primaryButton} mt-6`}>
             {copy.areas.emptyAction}
           </Link>
         </div>
