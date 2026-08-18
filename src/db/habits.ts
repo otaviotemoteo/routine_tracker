@@ -30,7 +30,7 @@ import {
 } from "./schema";
 import { habitsFor, proposedHabitsFor, type UserId } from "./scope";
 import {
-  LEGACY_TEMPLATE_KINDS,
+  RICH_TEMPLATE_KINDS,
   storedTemplateKind,
   type GenericTemplateKind,
   type SuggestableTemplateKind,
@@ -357,8 +357,10 @@ export async function updateHabit(
 // clearing it.
 //
 // The WHERE clause is a second guard behind the UI, which never offers this
-// action for one of the seven legacy kinds: a row already carrying one is
-// left untouched even if this were somehow called on it.
+// action on a habit that already has one of the six rich kinds: that kind's
+// real setup lives in `config` too, and this function's simple callers never
+// collect one — overwriting it would silently orphan a workout plan or a
+// reading list a habit already has.
 export async function setHabitTemplate(
   userId: UserId,
   id: number,
@@ -377,7 +379,7 @@ export async function setHabitTemplate(
         eq(habits.userId, userId),
         or(
           isNull(habits.templateKind),
-          notInArray(habits.templateKind, [...LEGACY_TEMPLATE_KINDS])
+          notInArray(habits.templateKind, [...RICH_TEMPLATE_KINDS])
         )
       )
     )
