@@ -1,5 +1,6 @@
 import { NavBar } from "@/components/NavBar";
 import { LanguageSelect } from "@/components/landing/LanguageSelect";
+import { ASSESSMENT_COPY } from "@/lib/i18n-assessment";
 import type { Copy, Lang } from "@/lib/i18n";
 
 // A discriminated union rather than an optional `firstRun?: boolean` on purpose:
@@ -29,8 +30,10 @@ type AssessmentShellProps = { lang: Lang; navCopy: Copy["nav"]; children: React.
 // The frame every onboarding screen sits in.
 //
 // These routes live outside the (app) group, so they get no layout NavBar and
-// have to make the call themselves. The language toggle is rendered here only
-// in focus mode: NavBar already carries one, and two would be two.
+// have to make the call themselves. The language toggle — and, alongside it,
+// the one persistent section label ("Values assessment") — is rendered here
+// only in focus mode: NavBar already carries a language toggle, and two would
+// be two; a "nav" screen has its own StepTitle instead.
 export function AssessmentShell(props: AssessmentShellProps) {
   const { lang, navCopy, children } = props;
   const showNav = props.chrome === "nav" && !props.firstRun;
@@ -39,7 +42,11 @@ export function AssessmentShell(props: AssessmentShellProps) {
       {showNav && <NavBar lang={lang} copy={navCopy} />}
       <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-24">
         {props.chrome === "focus" && (
-          <div className="flex justify-end mb-4">
+          <div className="flex items-center justify-between mb-4">
+            {/* The one persistent "what section is this" signal on a focus
+                screen — "Área 6 de 12" says where in the grid you are, not
+                what the grid itself is. */}
+            <p className="eyebrow">{ASSESSMENT_COPY[lang].navLabel}</p>
             <LanguageSelect current={lang} />
           </div>
         )}
