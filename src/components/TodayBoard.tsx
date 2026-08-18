@@ -23,6 +23,13 @@ interface TodayBoardProps {
   readingCopy: Copy["onboarding"]["reading"];
   pace?: ReadingPace;
   paceValues?: PaceValues;
+  // The first-run template-chooser invite (src/components/today/TemplatesNudge.tsx),
+  // handed in already-built rather than built here — the cookie check that
+  // decides whether to show it at all belongs to the page, not the board.
+  // Rendered in the same gap-5 flow as the progress card and the grid, so it
+  // reads as one more section of a working Today rather than an announcement
+  // stacked above one.
+  templatesNudge?: React.ReactNode;
 }
 
 // Today is a status board: the day in two figures, a progress bar, one call to
@@ -42,6 +49,7 @@ export function TodayBoard({
   readingCopy,
   pace,
   paceValues,
+  templatesNudge,
 }: TodayBoardProps) {
   const required = checks.filter((c) => !c.optional);
   const doneCount = required.filter((c) => c.done).length;
@@ -136,6 +144,8 @@ export function TodayBoard({
               ? dailyCopy.review
               : dailyCopy.startRemaining}
         </Link>
+
+        {templatesNudge}
 
         {/* A fixed row height, not 1fr: the card is a fixed frame that shows as
             much as it can hold, so a habit with a long list can't stretch every
