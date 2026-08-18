@@ -85,6 +85,8 @@ export interface Book {
   currentPage: number;
   status: "queued" | "reading" | "done" | "abandoned";
   position: number;
+  startedAt: string | null;
+  finishedAt: string | null;
 }
 
 export interface ReadingConfigResult {
@@ -156,13 +158,20 @@ export async function saveReadingList(
       !keptIds.has(b.id) &&
       !(b.currentPage === 0 && (b.status === "queued" || b.status === "reading"))
   );
+  const existingById = new Map(existing.books.map((b) => [b.id, b]));
   let id = nextId(existing.books.map((b) => b.id));
+  // The form has no field for startedAt/finishedAt (applyReadingProgress owns
+  // those) — an update keeps whatever the book already had, same as the old
+  // UPDATE statement only ever touching the columns it named.
   const updated = submitted
-    .filter((b): b is Book => b.id !== undefined)
-    .map((b) => ({ ...b }));
+    .filter((b): b is Book & { id: number } => b.id !== undefined)
+    .map((b) => ({
+      ...(existingById.get(b.id) ?? { startedAt: null, finishedAt: null }),
+      ...b,
+    }));
   const added = submitted
     .filter((b) => b.id === undefined)
-    .map((b) => ({ ...b, id: id++ }));
+    .map((b) => ({ ...b, id: id++, startedAt: null, finishedAt: null }));
   const merged: ReadingConfig = {
     year,
     targetBooksPerYear,
@@ -176,7 +185,12 @@ export async function saveReadingList(
 export async function updateBook(
   userId: UserId,
   id: number,
-  patch: { currentPage?: number; status?: Book["status"] }
+  patch: {
+    currentPage?: number;
+    status?: Book["status"];
+    startedAt?: string;
+    finishedAt?: string;
+  }
 ): Promise<void> {
   const habit = await getHabitByTemplateKind(userId, "leitura");
   if (!habit) return;

@@ -66,6 +66,8 @@ export const readingConfig = z
             currentPage: z.number().int().min(0),
             status: z.enum(["queued", "reading", "done", "abandoned"]),
             position: z.number().int(),
+            startedAt: z.string().nullable(),
+            finishedAt: z.string().nullable(),
           })
           .strict()
       )
