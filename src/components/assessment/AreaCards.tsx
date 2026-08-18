@@ -58,7 +58,7 @@ export function AreaCards({ areas, written, copy }: AreaCardsProps) {
                 it does not grow a textarea. */}
             <div className="flex justify-end mt-3">
               <Link
-                href={`/assessment/directions?domain=${slug}&from=areas`}
+                href={`/onboarding/directions?domain=${slug}&from=areas`}
                 className="min-h-[44px] inline-flex items-center gap-1.5 px-3 -mr-1 font-semibold text-sm underline"
               >
                 <Pencil className="w-4 h-4" aria-hidden />
