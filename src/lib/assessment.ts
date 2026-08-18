@@ -106,11 +106,18 @@ export function prevAssessmentHref(step: AssessmentStep): string | undefined {
 // it, which is what keeps them from disagreeing about what the cycle is about.
 export function buildingAreas(
   priority: DomainSlug[],
-  written: Record<string, { narrative: string }>
+  written: Record<string, { id: number; narrative: string }>
 ): DomainSlug[] {
   const added = DOMAIN_SLUGS.filter(
     (slug) => !priority.includes(slug) && written[slug]?.narrative?.trim()
+  ).sort(
+    // `id` is insertion order (see NarrativeRow, src/db/assessment.ts) —
+    // sorting by it, not by DOMAIN_SLUGS' fixed taxonomy order, is what makes
+    // a second and third added area land in the order they were actually
+    // written, not wherever their domain happens to sit in the canonical
+    // twelve.
+    (a, b) => written[a].id - written[b].id
   );
-  // Priority first, in the engine's order; additions after, in domain order.
+  // Priority first, in the engine's order; additions after, in the order written.
   return [...priority, ...added];
 }
