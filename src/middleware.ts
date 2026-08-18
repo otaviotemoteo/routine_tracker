@@ -28,7 +28,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  return NextResponse.next();
+  // A layout can't see the request's pathname or search params — only a page
+  // can. The (app) gate needs the pathname to make one narrow exemption (see
+  // its own comment), so it rides in on a header, the standard way to hand a
+  // layout something only middleware can see.
+  const response = NextResponse.next();
+  response.headers.set("x-pathname", pathname);
+  return response;
 }
 
 export const config = {
