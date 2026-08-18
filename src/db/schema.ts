@@ -178,117 +178,17 @@ export const dailyChecks = pgTable(
   ]
 );
 
-// ─── Tier 3: entities (lifecycle beyond a single day) ────────────────────────
-
-// Workout plans are immutable & versioned: editing = insert version+1, flip
-// active. History is `SELECT * FROM workout_plans ORDER BY version`.
-export const workoutPlans = pgTable("workout_plans", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
-  version: integer("version").notNull(),
-  name: varchar("name", { length: 80 }).notNull(),
-  active: boolean("active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
-
-export const workoutPlanDays = pgTable("workout_plan_days", {
-  id: serial("id").primaryKey(),
-  planId: integer("plan_id")
-    .notNull()
-    .references(() => workoutPlans.id),
-  weekday: integer("weekday").notNull(), // ISO: 1=Mon … 7=Sun
-  focus: varchar("focus", { length: 80 }).notNull(), // "Push", "Rest", "Cardio"
-  exercises: jsonb("exercises")
-    .$type<PlannedExercise[]>()
-    .notNull()
-    .default([]),
-});
-
-export const readingGoals = pgTable(
-  "reading_goals",
-  {
-    id: serial("id").primaryKey(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id),
-    year: integer("year").notNull(),
-    targetBooks: integer("target_books").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  },
-  (t) => [unique().on(t.userId, t.year)]
-);
-
-export const books = pgTable("books", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
-  title: varchar("title", { length: 200 }).notNull(),
-  author: varchar("author", { length: 120 }),
-  totalPages: integer("total_pages").notNull(),
-  status: varchar("status", { length: 12 }).notNull().default("queued"),
-  // 'queued' | 'reading' | 'done' | 'abandoned'
-  currentPage: integer("current_page").notNull().default(0),
-  position: integer("position").notNull(), // order in the reading list
-  startedAt: date("started_at"),
-  finishedAt: date("finished_at"),
-});
-
-export const routineBlocks = pgTable("routine_blocks", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
-  startTime: time("start_time").notNull(),
-  endTime: time("end_time").notNull(),
-  activity: varchar("activity", { length: 120 }).notNull(),
-  weekdays: integer("weekdays").array().notNull(), // ISO weekdays
-  active: boolean("active").notNull().default(true),
-  position: integer("position").notNull(),
-});
-
-export const spiritualPractices = pgTable(
-  "spiritual_practices",
-  {
-    id: serial("id").primaryKey(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id),
-    name: varchar("name", { length: 80 }).notNull(),
-    slug: varchar("slug", { length: 80 }).notNull(),
-    countable: boolean("countable").notNull().default(false),
-    active: boolean("active").notNull().default(true),
-    position: integer("position").notNull(),
-  },
-  (t) => [unique().on(t.userId, t.slug)]
-);
-
-export const languages = pgTable(
-  "languages",
-  {
-    id: serial("id").primaryKey(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id),
-    name: varchar("name", { length: 50 }).notNull(),
-    slug: varchar("slug", { length: 50 }).notNull(),
-    active: boolean("active").notNull().default(true),
-  },
-  (t) => [unique().on(t.userId, t.slug)]
-);
-
-// Sleep targets (single row): the planned bedtime/wake used to derive the
-// default hours for the daily sleep stepper. Not referenced by `details`.
-export const sleepTargets = pgTable("sleep_targets", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
-  bedtime: time("bedtime").notNull(),
-  wakeTime: time("wake_time").notNull(),
-});
+// ─── Tier 3: a rich habit's own setup ─────────────────────────────────────────
+//
+// Through Phase 3 this was six tables here — workout_plans(+_days),
+// reading_goals, books, routine_blocks, spiritual_practices, languages,
+// sleep_targets — each an account-wide singleton, which is exactly what made
+// their template kinds owner-shaped (see templates.ts). They're gone: each
+// domain's setup now lives in the owning habit's own `config` column above,
+// shaped by src/lib/config-schemas.ts and read/written through
+// src/db/rich-habits.ts. See docs/ARCHITECTURE.md, "Rich habits become
+// per-habit (Phase 3)", and src/db/migrate-rich-configs.ts for how the six
+// tables' data got there without losing an id or a slug.
 
 // ─── Tier 4: the values layer ────────────────────────────────────────────────
 //
