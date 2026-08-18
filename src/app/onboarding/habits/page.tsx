@@ -104,9 +104,13 @@ export default async function HabitsReviewPage({
 
       {/* Straw, not red, and it does not block anything: a provider being down
           is not the user's error and must never be their problem. The habits
-          they can write by hand are right underneath. */}
+          they can write by hand are right underneath. bg-straw/15 rather than
+          a solid fill — the same soft tone TemplateOption already uses for
+          "suggested, not urgent" — so this reads as a gentle notice, not an
+          alarm; the border stays solid forest, since this app's borders are
+          structural, not the thing carrying the warning's weight. */}
       {failed && (
-        <p className="mb-6 flex items-start gap-2.5 border-2 border-forest bg-straw rounded-card px-4 py-3">
+        <p className="mb-6 flex items-start gap-2.5 border-2 border-forest bg-straw/15 rounded-card px-4 py-3">
           <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden />
           <span className="min-w-0">{copy.generateFailed}</span>
         </p>
