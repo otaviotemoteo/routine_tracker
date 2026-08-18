@@ -26,7 +26,7 @@ export default async function NewHabitPage({ searchParams }: NewHabitPageProps) 
   // Added from the review screen: the habit joins the proposed set rather than
   // being tracked immediately, and both Cancel and Save return there.
   const fromReview = params.from === "review";
-  const back = fromReview ? "/habits/review" : "/habits";
+  const back = fromReview ? "/onboarding/habits" : "/habits";
 
   // Adding a habit from inside an area's group prefills that area, so the
   // most common case needs no dropdown at all.
