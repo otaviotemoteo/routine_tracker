@@ -54,7 +54,7 @@ export async function ValuesCard({ userId, lang, copy }: ValuesCardProps) {
             style={{ width: `${(done / TOTAL_DOMAINS) * 100}%` }}
           />
         </div>
-        <Link href="/assessment" className={`${primaryButton} mt-4`}>
+        <Link href="/onboarding" className={`${primaryButton} mt-4`}>
           {copy.card.draftAction}
         </Link>
       </Frame>
@@ -67,7 +67,7 @@ export async function ValuesCard({ userId, lang, copy }: ValuesCardProps) {
     return (
       <Frame eyebrow={copy.card.eyebrow} title={copy.card.emptyTitle}>
         <p className="mt-2 text-sm opacity-75">{copy.card.emptyLead}</p>
-        <Link href="/assessment" className={`${primaryButton} mt-4`}>
+        <Link href="/onboarding" className={`${primaryButton} mt-4`}>
           {copy.card.emptyAction}
         </Link>
       </Frame>
@@ -130,7 +130,7 @@ export async function ValuesCard({ userId, lang, copy }: ValuesCardProps) {
         </>
       )}
 
-      <Link href="/assessment/results" className={`${primaryButton} mt-5`}>
+      <Link href="/onboarding/results" className={`${primaryButton} mt-5`}>
         {copy.card.doneAction}
       </Link>
     </Frame>
