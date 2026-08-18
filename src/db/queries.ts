@@ -334,7 +334,7 @@ export async function getExport(userId: UserId, from: string, to: string) {
   // and `spiritual_practices`/`languages` are identified by `slug` alone,
   // not a numeric id — neither was ever referenced by one.
   return {
-    meta: { from, to, timezone: "America/Sao_Paulo", schema_version: 2 },
+    meta: { from, to, timezone: "America/Sao_Paulo", schema_version: 3 },
     entities: {
       workout_plans: workout
         ? [
