@@ -31,7 +31,7 @@ export function DirectionsIndex({
         return (
           <li key={slug}>
             <Link
-              href={`/assessment/directions?domain=${slug}`}
+              href={`/onboarding/directions?domain=${slug}`}
               className={`min-h-[64px] flex items-center gap-3 px-4 py-3 rounded-card border-2 border-forest shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm ${
                 done ? "bg-mint" : "bg-white"
               }`}
