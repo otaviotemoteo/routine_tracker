@@ -22,6 +22,14 @@ export async function findUserByName(name: string): Promise<AccountRow | null> {
   return row ?? null;
 }
 
+// The session layer's one question: does the account a signed cookie names
+// still exist? A cookie's signature and age say nothing about that — see
+// src/lib/session.ts's resolveSessionUserId, the only caller.
+export async function userExists(id: number): Promise<boolean> {
+  const [row] = await db.select({ id: users.id }).from(users).where(eq(users.id, id));
+  return row !== undefined;
+}
+
 // Claim: set the first password on an account that has none. The `IS NULL`
 // guard is in the WHERE clause, so two people racing to claim the same name
 // can't both win — the second update matches no row.
