@@ -307,6 +307,11 @@ export async function getLatestSealed(
 // ─── Direction narratives ────────────────────────────────────────────────────
 
 export interface NarrativeRow {
+  // Insertion order — the only thing that can tell "written first" from
+  // "written second" apart. See buildingAreas() in src/lib/assessment.ts,
+  // which sorts a newly-added area by this rather than by domain taxonomy
+  // order, so "Incluir outra área" appends where it was actually added.
+  id: number;
   domainSlug: DomainSlug;
   rawReflection: string;
   narrative: string;
@@ -331,6 +336,7 @@ export async function listDirectionNarratives(
     const slug = slugs[row.domainId];
     if (!slug) continue;
     out[slug] = {
+      id: row.id,
       domainSlug: slug,
       rawReflection: row.rawReflection ?? "",
       narrative: row.narrative ?? "",
