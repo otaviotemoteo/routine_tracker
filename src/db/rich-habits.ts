@@ -142,7 +142,11 @@ export async function saveReadingList(
   userId: UserId,
   year: number,
   targetBooksPerYear: number,
-  submitted: (Omit<Book, "id"> & { id?: number })[]
+  // No startedAt/finishedAt — the form has no field for either (see the
+  // "updated" merge below, which is exactly why they're optional here).
+  submitted: (Omit<Book, "id" | "startedAt" | "finishedAt"> & {
+    id?: number;
+  })[]
 ): Promise<void> {
   const habit = await getOrCreateSingletonHabit(userId, "leitura", "Leitura");
   const existing = (habit.config as ReadingConfig | null) ?? {
