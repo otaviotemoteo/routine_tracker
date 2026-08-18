@@ -14,7 +14,7 @@ export function PendingNotice({ copy }: { copy: Copy["habits"] }) {
       <Clock className="w-5 h-5 shrink-0 mt-0.5" aria-hidden />
       <span className="min-w-0">
         {copy.pendingNotice}{" "}
-        <Link href="/habits/review" className="font-semibold underline">
+        <Link href="/onboarding/habits" className="font-semibold underline">
           {copy.pendingAction}
         </Link>
       </span>
