@@ -155,9 +155,13 @@ function optionShellClass(
   suggested: boolean,
   extra = ""
 ): string {
+  // Solid border the instant something is chosen — dashed stays reserved for
+  // "suggested, not yet touched" (UX_PRINCIPLES.md's rule) everywhere in this
+  // component, chosen included. bg-mint (not bg-white) is what makes a chosen
+  // card readable as green at a glance, not just as one dot in its badge.
   const border = suggested && !chosen ? "border-dashed" : "border-solid";
-  const bg = chosen ? "bg-white" : suggested ? "bg-straw/10" : "bg-cream";
-  return `w-full text-left rounded-card border-2 ${border} border-forest ${bg} shadow-hard-sm px-3.5 py-3 flex flex-col gap-2.5 ${extra}`;
+  const bg = chosen ? "bg-mint" : suggested ? "bg-straw/10" : "bg-cream";
+  return `w-full h-full text-left rounded-card border-2 ${border} border-forest ${bg} shadow-hard-sm px-3.5 py-3 flex flex-col gap-2.5 ${extra}`;
 }
 
 function OptionHeader({
@@ -176,7 +180,9 @@ function OptionHeader({
       <span className="flex items-center gap-2 flex-wrap">
         <span className="font-bold text-sm">{copy.names[kind]}</span>
         {chosen && (
-          <span className="inline-flex items-center gap-1 font-mono text-[0.6rem] font-bold uppercase tracking-wider text-clover bg-mint border border-clover rounded-full px-2 py-0.5">
+          // bg-white, not bg-mint: the card itself is mint now, and a badge
+          // the same color as its own background would blend into it.
+          <span className="inline-flex items-center gap-1 font-mono text-[0.6rem] font-bold uppercase tracking-wider text-clover bg-white border border-clover rounded-full px-2 py-0.5">
             <Check className="w-2.5 h-2.5" strokeWidth={3.5} aria-hidden />
             {copy.chosenBadge}
           </span>
