@@ -49,7 +49,7 @@ export function AddAreaPicker({ remaining, copy }: AddAreaPickerProps) {
             return (
               <li key={row.domainSlug}>
                 <Link
-                  href={`/assessment/directions?domain=${row.domainSlug}&from=areas`}
+                  href={`/onboarding/directions?domain=${row.domainSlug}&from=areas`}
                   className="min-h-[48px] flex items-center gap-2.5 px-3 rounded-lg border-2 border-forest bg-cream hover:bg-mint"
                 >
                   <Icon className="w-4 h-4 shrink-0 text-clover" aria-hidden />
