@@ -4,7 +4,7 @@ import { TemplateChooserList } from "@/components/habits/TemplateChooserList";
 import { listHabits } from "@/db/habits";
 import { getLang } from "@/lib/get-lang";
 import { COPY, format } from "@/lib/i18n";
-import { ghostButton } from "@/components/ui/styles";
+import { primaryButton } from "@/components/ui/styles";
 import { isChoosableTemplateKind, isGenericTemplateKind } from "@/lib/templates";
 import { requireUserId } from "@/lib/session";
 import { todayInSaoPaulo } from "@/lib/utils";
@@ -84,7 +84,7 @@ export default async function TemplatesPage({
           />
           <div className="mt-8 flex flex-col gap-3">
             <p className="text-sm opacity-70">{copy.footerNote}</p>
-            <Link href={backHref} className={ghostButton}>
+            <Link href={backHref} className={primaryButton}>
               {copy.done}
             </Link>
           </div>
