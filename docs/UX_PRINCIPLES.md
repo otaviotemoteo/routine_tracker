@@ -51,7 +51,7 @@ settle decisions that were already made, not re-open them.
   yet"; the week grid's cells label themselves per day. Never rely on the fill
   colour alone.
 - **A suggestion looks like a suggestion until it is touched.** On
-  `/habits/review` an untouched proposal wears a straw "Suggested" badge and an
+  `/onboarding/habits` an untouched proposal wears a straw "Suggested" badge and an
   edited one a mint "Edited by you"; a hand-written habit wears neither, because
   a badge on everything says nothing. That marking is what makes
   accept / edit / reject a legible choice rather than an implicit one — without
@@ -131,7 +131,7 @@ settle decisions that were already made, not re-open them.
 - **A genuinely slow route gets a designed wait, not a spinner.** Habit
   generation is a 5–20 second model call, and it is the only route in this app
   that is not a sub-second query — every waiting pattern here was built for
-  something instant. So `/habits/review`'s `loading.tsx` does two things a
+  something instant. So `/onboarding/habits`'s `loading.tsx` does two things a
   spinner cannot: it **says what is happening and roughly how long**, because an
   unexplained wait that long reads as a hang, and it **mirrors the layout it
   replaces** with skeleton habit cards at the real sizes under real area
@@ -157,9 +157,20 @@ settle decisions that were already made, not re-open them.
   the form can never accept what the action rejects).
 - **First access lands in onboarding, not on an empty Today.** A brand-new
   account has nothing to show; drop it where it can say what it tracks.
+- **Don't offer a door that just slams shut.** A first-run account (no active
+  habit yet) sees no NavBar anywhere in `/onboarding`, not because Today and
+  Overview are hidden from it exactly, but because visiting either would just
+  bounce it straight back — and a control that redirects you the instant you
+  press it is worse than no control at all. `AssessmentShell`'s `chrome: "nav"`
+  variant requires a `firstRun` boolean rather than defaulting one in, so a
+  call site that forgets to pass it is a compile error, not a bug someone
+  finds by clicking around. The one exemption — adding or editing a *proposed*
+  habit mid-review, on `/habits/new` and `/habits/[id]`, which are shared with
+  the ordinary habit list and can't move into `/onboarding` — still keeps the
+  NavBar off; only the redirect is skipped, not the rule.
 - **Consent before a machine reads what you wrote.** The first time anything
   someone typed leaves the machine, they are told before it happens rather than
-  after. `/assessment/areas` exists partly for that: one primary button, and the
+  after. `/onboarding/areas` exists partly for that: one primary button, and the
   sentence under it says plainly that the directions go to a language model and
   that every suggestion is reviewed before anything is tracked. Generating
   silently behind the completion dialog would have felt like magic when it
@@ -332,7 +343,7 @@ settle decisions that were already made, not re-open them.
 
 ## Measuring the person, not the habit
 
-The values check-in (`/assessment`) asks about a life rather than about a day,
+The values check-in (`/onboarding`) asks about a life rather than about a day,
 and that inverts several rules above. Each inversion is deliberate.
 
 - **Two quantities compared share one colour, and length carries the
@@ -383,6 +394,17 @@ and that inverts several rules above. Each inversion is deliberate.
   did it stall in", never "you failed", and never infers a mood from a number.
   A screen whose job is to show you a distance becomes a machine for feeling bad
   the moment it starts scoring.
+- **Nothing standing out is a real answer, not a broken one.** Rating every
+  area's general importance low enough that none crosses the priority cut is a
+  legitimate result — and the one this app was least prepared for. Before this
+  was named, the results screen simply omitted its forward button in that
+  state, and every screen past it assumed a non-empty priority list, which
+  chained into a dead end nothing in the app could recover from (not even the
+  ordinary "add a habit by hand" path, itself gated behind having a tracked
+  habit). The fix names the state on screen — "nothing stood out as needing a
+  change right now" — and routes straight to adding habits, the same way an
+  empty grid section anywhere else in this app gets a sentence and a way
+  forward instead of silence.
 
 ## Lessons from the values review
 
