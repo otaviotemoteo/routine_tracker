@@ -135,6 +135,13 @@ export interface AssessmentCopy {
     writeDirections: string;
     reviewDirections: string;
     backHome: string;
+    // Shown instead of the priority list + forward button when every domain's
+    // general importance came in low enough that none crossed the cut — a
+    // real answer, not a lesser one, but with nothing to write a direction
+    // about. Skips straight to adding habits by hand.
+    noPriorityTitle: string;
+    noPriorityLead: string;
+    noPriorityAction: string;
   };
 
   directions: {
@@ -461,6 +468,10 @@ const en: AssessmentCopy = {
     writeDirections: "Write your directions",
     reviewDirections: "Review your directions",
     backHome: "Back to the app",
+    noPriorityTitle: "Nothing stood out as needing a change right now",
+    noPriorityLead:
+      "That's a real answer too — every area's general importance came in low enough that none crossed the cut for a priority. There's nothing to write a direction about, so let's get you tracking habits directly instead.",
+    noPriorityAction: "Add your habits",
   },
 
   directions: {
@@ -794,6 +805,10 @@ const pt: AssessmentCopy = {
     writeDirections: "Escrever suas direções",
     reviewDirections: "Rever suas direções",
     backHome: "Voltar para o app",
+    noPriorityTitle: "Nada se destacou como precisando de mudança agora",
+    noPriorityLead:
+      "Essa também é uma resposta de verdade — a importância geral de cada área veio baixa o suficiente para nenhuma passar do corte de prioridade. Não há direção para escrever, então vamos direto para os hábitos.",
+    noPriorityAction: "Adicionar seus hábitos",
   },
 
   directions: {
