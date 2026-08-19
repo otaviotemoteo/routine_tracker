@@ -309,13 +309,25 @@ export async function createHabit(
 // creates one. Used both by getOrCreateSingletonHabit below and directly by
 // rich-habits.ts, which only ever reads (a Today-page load must not create a
 // workout habit just because it looked).
+//
+// `ORDER BY id LIMIT 1` is deliberate, not incidental, since promoteToRichKind
+// below stopped this being a true singleton in every case: two habits CAN now
+// both carry the same rich kind (an owner's original migrated habit, plus a
+// newer umbrella habit promoted the same way). Rather than leave which one
+// this returns to whatever order Postgres feels like that day, it's pinned to
+// the oldest — for the one account this matters for today, that's always the
+// original, already-`/config`-edited habit, so `/config` keeps reading and
+// writing the row it always has. The newer one stays fully reachable through
+// Today/its own check-in card either way; it just isn't the one `/config`'s
+// six fixed sections show. See docs/ARCHITECTURE.md's "singleton" note.
 export async function getHabitByTemplateKind(
   userId: UserId,
   kind: string
 ): Promise<HabitRow | null> {
-  const [row] = await selectHabits().where(
-    and(eq(habits.userId, userId), eq(habits.templateKind, kind))
-  );
+  const [row] = await selectHabits()
+    .where(and(eq(habits.userId, userId), eq(habits.templateKind, kind)))
+    .orderBy(asc(habits.id))
+    .limit(1);
   return row ? toRow(row) : null;
 }
 
@@ -363,6 +375,47 @@ export async function getOrCreateSingletonHabit(
 
   const [row] = await selectHabits().where(eq(habits.id, created.id));
   return toRow(row);
+}
+
+// Promotes ONE SPECIFIC habit to a rich kind + its config — the write path
+// for the onboarding activities step (src/app/onboarding/activities), and
+// deliberately NOT a call to getOrCreateSingletonHabit above.
+//
+// That distinction is the whole point (HABIT-VS-ACTIVITY-MODEL.md's decision
+// 3): getOrCreateSingletonHabit REUSES whatever habit already has this kind —
+// exactly right for /config, where there is only ever one settings screen per
+// domain, but exactly wrong here. Two umbrella habits that both end up
+// wanting a 'treino' shape (an owner's original migrated workout habit, and a
+// newly-generated "physical activity" umbrella, say) must never be able to
+// silently share one config through this path — that would merge one habit's
+// activities into another's without either habit's activities ever having
+// asked to be combined. Keying on habitId instead of "the" habit of this kind
+// is what makes that impossible: this only ever touches the row it was
+// explicitly given.
+//
+// The WHERE clause still guards against clobbering: a habit that already
+// carries a DIFFERENT rich kind refuses the write (the same shape of guard
+// setHabitTemplate uses for the five simple kinds) — re-running this for the
+// same kind is fine and just overwrites that habit's own config, which is
+// what re-generating its activities should do.
+export async function promoteToRichKind(
+  userId: UserId,
+  habitId: number,
+  kind: RichTemplateKind,
+  config: unknown
+): Promise<boolean> {
+  const rows = await db
+    .update(habits)
+    .set({ templateKind: kind, config })
+    .where(
+      and(
+        eq(habits.id, habitId),
+        eq(habits.userId, userId),
+        or(isNull(habits.templateKind), eq(habits.templateKind, kind))
+      )
+    )
+    .returning({ id: habits.id });
+  return rows.length > 0;
 }
 
 // Update a habit's wording. Never touches active_from, so editing a proposal
