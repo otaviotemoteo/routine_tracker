@@ -63,6 +63,8 @@ async function buildInput(
       // English, and the answer's language is set separately. A Portuguese
       // label inside an English instruction reads as a typo to a model.
       domainName: ASSESSMENT_COPY.en.domains[slug].name,
+      domainDescription: ASSESSMENT_COPY.en.domains[slug].description,
+      domainBoundary: ASSESSMENT_COPY.en.domains[slug].boundary,
       narrative: written[slug].narrative.trim(),
       rawReflection: written[slug].rawReflection.trim(),
       findings: findings.filter((f) => f.domainSlug === slug),
