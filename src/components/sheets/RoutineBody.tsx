@@ -35,7 +35,13 @@ export function RoutineBody({ context, initial, copy, onChange }: SheetBodyProps
   }, [blocks.length, followed, struggled, note, onChange]);
 
   if (blocks.length === 0) {
-    return <p className="opacity-75">{copy.routine.noBlocks}</p>;
+    // blocks is today-filtered; routineBlockCount isn't — a real routine
+    // with nothing today reads differently from one that was never set up.
+    return (
+      <p className="opacity-75">
+        {context.routineBlockCount > 0 ? copy.routine.noBlocks : copy.routine.notConfigured}
+      </p>
+    );
   }
 
   return (
