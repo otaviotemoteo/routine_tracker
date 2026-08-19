@@ -8,8 +8,20 @@ import type { Lang } from "@/lib/i18n";
 // HabitSuggester — the first generator, taken all the way through.
 //
 // Input: the areas someone prioritised, what they wrote about each, and what
-// the diagnostic engine found there. Output: two or three candidate habits per
-// area, which a human then edits, removes or accepts.
+// the diagnostic engine found there. Output: one or two candidate UMBRELLA
+// habits per area, which a human then edits, removes or accepts.
+//
+// "Umbrella" is load-bearing (see HABIT-VS-ACTIVITY-MODEL.md): a habit here is
+// one zoom level below the life area itself ("physical activity" for Health)
+// and one zoom level above a concrete, dated gesture ("Monday's workout") —
+// the latter is an ACTIVITY, generated later, for a specific habit, only on
+// request. This generator never proposes an activity and never proposes the
+// area's own name back. `templateKind` stays 'plain' unconditionally: a rich
+// kind is reached only when a human generates and accepts activities for a
+// specific habit afterward (src/lib/ai/activity-proposer.ts) — never something
+// this generator decides on its own. See SUGGESTABLE_TEMPLATE_KINDS in
+// src/lib/templates.ts for why that stays narrow even though this generator's
+// idea of "a habit" got broader.
 
 // ─── The schema ──────────────────────────────────────────────────────────────
 //
@@ -22,7 +34,13 @@ const suggestion = z
       .string()
       .min(1)
       .max(50)
-      .describe("Short habit name, e.g. 'Call my parents'"),
+      .describe(
+        "A general, ongoing UMBRELLA habit — one zoom level below the life " +
+          "area itself, e.g. 'physical activity' for the Health area. Not the " +
+          "area's own name back, and not a specific dated gesture like " +
+          "'Monday workout at 6pm' — that's an activity, proposed later, for " +
+          "this habit specifically."
+      ),
     minimalAction: z
       .string()
       .min(1)
@@ -38,9 +56,9 @@ const suggestion = z
       .describe("What the number counts ('pages', 'minutes'). Omit for binary."),
 
     // (1) NO TEMPLATE THAT CANNOT RENDER.
-    // One member this phase. The seven rich renderers read per-domain tables
-    // that only the owner has rows in, so any other value would draw a broken
-    // card for a new account. See src/lib/templates.ts.
+    // One member this phase, unchanged by the umbrella/activity split above:
+    // this generator still only ever proposes the generic renderer. See
+    // src/lib/templates.ts.
     templateKind: z
       .enum(SUGGESTABLE_TEMPLATE_KINDS)
       .describe("Always 'plain'."),
@@ -66,7 +84,10 @@ export const habitSuggestions = z
         z
           .object({
             domainSlug: z.enum(DOMAIN_SLUGS),
-            habits: z.array(suggestion).min(2).max(3),
+            // 1–2, not 2–3: an umbrella habit is already one zoom level up
+            // from a concrete action, so most areas need exactly one — three
+            // would start re-enacting the area's own substructure.
+            habits: z.array(suggestion).min(1).max(2),
           })
           .strict()
       )
@@ -84,6 +105,12 @@ export interface SuggesterArea {
   // The English domain name, so the prompt reads naturally regardless of the
   // UI language.
   domainName: string;
+  // The area's own description/boundary (also always English — see above).
+  // Previously unused by this prompt; now load-bearing: the model needs
+  // somewhere to read what the area actually covers, so an umbrella habit can
+  // sit clearly BELOW that scope instead of restating it.
+  domainDescription: string;
+  domainBoundary: string;
   // What the person wrote. The most personal text in the app.
   narrative: string;
   rawReflection: string;
@@ -134,24 +161,37 @@ function describeFindings(findings: Finding[]): string {
     .join("\n");
 }
 
-const SYSTEM = `You help someone turn what they wrote about their own life into small daily habits.
+const SYSTEM = `You help someone turn what they wrote about their own life into a small number of UMBRELLA habits.
 
 Rules, in order of importance:
 
-1. Propose habits that serve what THEY wrote. Their own words are the brief.
+1. Propose UMBRELLA habits — not single actions, and not the area's own name
+   back. An umbrella is the general, ongoing thing a life area translates
+   into: "physical activity" for Health, "reading" for Education, "family
+   time" for Family. It is concrete enough to track and act on, but general
+   enough to hold several different specific activities inside it later (a
+   Monday workout, a Wednesday run — those come later, from this habit, on
+   request, not from you here). Two failure modes, avoid both equally:
+     - naming the area back ("Health" is not a habit — it's the area)
+     - naming one specific gesture ("30-minute run every Monday at 6pm" is
+       already an activity, not an umbrella)
+2. Propose habits that serve what THEY wrote. Their own words are the brief.
    Never propose a generic self-improvement habit that ignores them.
-2. Small enough to do on a bad day. A habit nobody keeps is worth nothing, and
-   this app is judged on whether people are still using it in week three.
-3. Never diagnose, never grade, never praise. The numbers you are shown are
+3. Small enough to matter on a bad day. A habit nobody keeps is worth
+   nothing, and this app is judged on whether people are still using it in
+   week three — "the smallest version that still counts" should make sense
+   even for an umbrella.
+4. Never diagnose, never grade, never praise. The numbers you are shown are
    self-reported answers, not measurements of a person. Do not infer a mood,
    do not call anything a failure, and do not congratulate.
-4. Do not calculate. Never state a frequency, a target, a streak or any
+5. Do not calculate. Never state a frequency, a target, a streak or any
    number. The person sets those themselves.
-5. If an area has no findings, that is normal. Work from what they wrote.
+6. If an area has no findings, that is normal. Work from what they wrote.
 
-For each area give 2 or 3 habits. Fewer, better habits beat a long list.
-'why' is one line saying how the habit serves what they wrote — quote their
-language where you can, so they recognise it as theirs.`;
+For each area give 1 or 2 umbrella habits — most areas need only one; fewer,
+broader habits beat several narrow ones. 'why' is one line saying how the
+habit serves what they wrote — quote their language where you can, so they
+recognise it as theirs.`;
 
 function buildPrompt(input: SuggesterInput): {
   system: string;
@@ -166,6 +206,8 @@ function buildPrompt(input: SuggesterInput): {
     .map(
       (area) => `
 AREA: ${area.domainName} (slug: ${area.domainSlug})
+What this area covers: ${area.domainDescription}
+What does NOT belong here: ${area.domainBoundary}
 What they want to move toward:
   "${area.narrative}"
 ${
@@ -184,15 +226,17 @@ ${describeFindings(area.findings)}`
 
 ${areas}
 
-Propose 2–3 daily habits for each area, using the slug given for each.`,
+Propose 1–2 umbrella habits for each area, using the slug given for each.`,
   };
 }
 
 export const habitSuggester: Generator<SuggesterInput, HabitSuggestions> = {
   name: "habit_suggester",
-  // Bump when the prompt or the schema changes — it invalidates the cache, so
-  // the same input can't return wording produced by a prompt that is gone.
-  promptVersion: 1,
+  // Bumped 1 → 2: the prompt and the schema both changed (concrete actions →
+  // umbrella habits, 2–3 → 1–2 per area) — see the file header. Invalidates
+  // every cached answer, which is exactly right: a cached concrete-action
+  // habit is not a valid answer to the new prompt.
+  promptVersion: 2,
   schema: habitSuggestions,
   buildPrompt,
 };
