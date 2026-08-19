@@ -6,32 +6,36 @@ import {
   type ActivityProposal,
   type ProposableKind,
 } from "./activity-proposer";
-import { getHabit } from "@/db/habits";
+import { getHabit, type HabitRow } from "@/db/habits";
 import type { UserId } from "@/db/scope";
 import type { Lang } from "@/lib/i18n";
 
-// The seam for the one new generator this phase adds — same shape as
-// suggest-habits.ts: read what's needed, run the generator, hand back
+// The seam for activity_proposer — same shape as suggest-habits.ts: read
+// what's needed, run the generator once for the whole batch, hand back
 // something a screen can render. What's different on purpose: this NEVER
-// writes to `config`. A proposal here is a draft that prefills the same
-// /config form a person would fill by hand (WorkoutStep, ReadingStep, ...)
-// — pressing that form's own Save button is still the only way anything
-// persists, so "proposal until touched" falls out of reusing the existing
-// write path rather than needing a second one.
+// writes to `config` itself — the caller (the onboarding activities action,
+// or a future /config "suggest" button) decides what happens with a
+// proposal; this module's job ends at handing back a validated one.
 //
 // Trigger rule, enforced by the caller, not by anything here: this only ever
-// runs when a person asks for it — a "suggest" action on a rich habit, or a
-// natural-language `request` alongside one. Nothing calls this unprompted.
+// runs when a person asks for it — the onboarding activities step's one
+// "Generate" action (covering every umbrella habit shown, in one call), or a
+// future natural-language `request` alongside a single habit's own "suggest"
+// button. Nothing calls this unprompted.
+
+export interface ProposedActivity {
+  habitId: number;
+  proposal: ActivityProposal;
+}
 
 export type ProposeOutcome =
-  | { status: "ok"; data: ActivityProposal; cached: boolean }
+  | { status: "ok"; perHabit: ProposedActivity[]; cached: boolean }
   | { status: "unavailable" }
   | { status: "invalid" }
   | { status: "error" }
-  // The habit doesn't belong to this account, or isn't one of the five kinds
-  // this generator knows how to propose for (sleep and hobby need no list;
-  // the five card-style kinds have no rich shape to propose into).
-  | { status: "not_proposable" };
+  // None of the given habit ids belonged to this account or carried a
+  // proposable kind — nothing to run the generator on at all.
+  | { status: "nothing" };
 
 const PROPOSABLE_KINDS: ProposableKind[] = [
   "treino",
@@ -45,32 +49,52 @@ function isProposableKind(kind: string | null): kind is ProposableKind {
   return kind !== null && (PROPOSABLE_KINDS as string[]).includes(kind);
 }
 
+// Proposes activities for one or more habits in a SINGLE call — see
+// activity-proposer.ts for why batching is load-bearing, not an optimization.
+// Habit ids that don't belong to this account, or aren't a proposable kind,
+// are silently dropped rather than failing the whole batch — the same
+// per-item defensiveness suggestHabits already applies to domainSlug.
 export async function proposeActivities(
   userId: UserId,
-  habitId: number,
+  habitIds: number[],
   lang: Lang,
-  // Present for the natural-language form ("recommend me 5 fiction books");
-  // null for the plain "suggest" action, which works from the habit alone.
+  // Applies to the whole batch; see ActivityProposerInput's own comment.
   request: string | null
 ): Promise<ProposeOutcome> {
-  const habit = await getHabit(userId, habitId);
-  if (!habit || !isProposableKind(habit.templateKind)) {
-    return { status: "not_proposable" };
-  }
+  const rows = await Promise.all(habitIds.map((id) => getHabit(userId, id)));
+  const eligible = rows.filter(
+    (h): h is HabitRow & { templateKind: ProposableKind } =>
+      h !== null && isProposableKind(h.templateKind)
+  );
+  if (eligible.length === 0) return { status: "nothing" };
 
   const outcome = await runGenerator(activityProposer, userId, {
     lang,
-    habitName: habit.name,
-    why: habit.why,
-    kind: habit.templateKind,
+    habits: eligible.map((h) => ({
+      habitName: h.name,
+      why: h.why,
+      kind: h.templateKind,
+    })),
     request,
   });
   if (outcome.status !== "ok") return { status: outcome.status };
 
-  // The schema guarantees a valid kind, not the RIGHT one — this guards
-  // against a model answering for a different domain than it was asked
-  // about, the same shape of check suggestHabits runs on domainSlug.
-  if (outcome.data.kind !== habit.templateKind) return { status: "invalid" };
+  // Zipped by POSITION, not an echoed id — see activity-proposer.ts. A
+  // length mismatch (the model skipped or added one) is handled by simply
+  // not pairing past the shorter list, rather than failing outright: a
+  // partial batch a person can still review beats discarding a real result
+  // over one missing item.
+  const perHabit: ProposedActivity[] = [];
+  for (let i = 0; i < Math.min(eligible.length, outcome.data.perHabit.length); i += 1) {
+    const habit = eligible[i];
+    const proposal = outcome.data.perHabit[i];
+    // The schema guarantees A valid kind, not the RIGHT one for this
+    // position — guards against the model answering out of order, the same
+    // shape of check suggestHabits runs on domainSlug.
+    if (proposal.kind !== habit.templateKind) continue;
+    perHabit.push({ habitId: habit.id, proposal });
+  }
 
-  return { status: "ok", data: outcome.data, cached: outcome.cached };
+  if (perHabit.length === 0) return { status: "invalid" };
+  return { status: "ok", perHabit, cached: outcome.cached };
 }
