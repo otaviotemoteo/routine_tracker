@@ -190,6 +190,81 @@ active one (`listWorkoutPlanVersions` had no caller). `config.days[].active`
 keeps the same "today's plan vs. everything before it" distinction; a fuller
 history is not rebuilt unless something is found to actually need it.
 
+### Habits become umbrellas, their activities become theirs (Habits & Activities phase)
+
+`HABIT-VS-ACTIVITY-MODEL.md` names four layers on one axis of zoom: a life
+domain → an umbrella habit ("physical activity") → its activities (a
+Monday workout, a specific book) → a day's log. This phase is what connects
+habit generation to the rich-kind system above, end to end.
+
+**`habit_suggester` proposes umbrellas, not single actions.** Its prompt and
+schema changed from "small concrete actions, 2–3 per area" (`"Call my
+parents"`) to "general, ongoing umbrella habits, 1–2 per area" (`"physical
+activity"`) — one zoom level below the area, one above a dated gesture. The
+prompt now also receives each area's `description`/`boundary` copy (unused by
+it before), so the model has the area's actual scope to sit below rather than
+guessing from the bare name. `templateKind` is still pinned to `plain` —
+**`SUGGESTABLE_TEMPLATE_KINDS` did NOT widen.** The model never decides a rich
+kind; a human does, explicitly, in the step below.
+
+**The singleton invariant starts being lifted, on ONE path only.**
+`getOrCreateSingletonHabit` (above) is unchanged and still backs `/config`'s
+six forms exactly as before. A second, deliberately different function,
+`promoteToRichKind(userId, habitId, kind, config)` (`src/db/habits.ts`),
+backs the new onboarding activities step: it writes to the *specific*
+`habitId` it's given, never "the one habit of this kind" — so two umbrella
+habits that both end up wanting a `treino` shape can coexist without one
+promotion silently overwriting the other's config. The tradeoff this accepts:
+`getHabitByTemplateKind` can no longer assume at most one row per kind, so it
+was made deterministic (`ORDER BY id LIMIT 1` — the oldest wins) rather than
+leaving a two-row case genuinely undefined. For the one account this matters
+for today, "oldest" is always the original, already-`/config`-edited habit;
+a second same-kind habit stays fully reachable through Today and its own
+check-in card, just not through `/config`'s fixed sections — closing that
+gap for good is the deferred per-habit `/config` rebuild, not this phase.
+
+**`activity_proposer` is now a batched, on-request socket, not a
+single-habit generator.** `ActivityProposerInput` takes a list of habits
+(name, why, the human-picked kind) and one shared optional `request`;
+`activityBatchProposal`'s output is `perHabit`, one entry per input habit, in
+the SAME ORDER — zipped back by position, not by an id the model would have
+to invent or copy correctly. One `runGenerator` call regardless of how many
+habits are in the batch, not one per habit: `DAILY_RUN_QUOTA` (`src/db/ai.ts`)
+is a flat per-account daily count shared across every generator, so N calls
+would cost a first session most of a day's budget before Today is even
+reached. `propose-activities.ts` still never writes `config` itself — the
+onboarding action does, immediately, no separate staged-review layer (unlike
+proposed *habits*, there's no lightweight "not yet real" row shape for a
+nested config the way `active_from` gives a habit one); review is "look at
+what got made and remove anything unwanted" through the same `/config` edit
+path that already existed.
+
+**The onboarding activities step is the one part of onboarding that isn't a
+gate.** `/onboarding/activities` is reached by "Start tracking" redirecting
+there instead of straight to Today — but activation (`active_from`) already
+ran by that point, so `isFirstRun` is already false and the NavBar is already
+showing. Leaving via "Today" always works; not picking a kind for a habit is
+exactly what declining looks like, and (see the empty-state fixes above)
+that's now a truthful "not set up" signal rather than a lie about a schedule.
+
+**Two things only a live model call could surface, found by this phase's own
+tests, not by reading code:**
+- `gemini-2.0-flash` (first in `providers.ts`' rotation) has been retired —
+  a real call 404s and names its replacement. Fixed to `gemini-3.6-flash`,
+  which works but measured 20–120s for a structured call in testing, well
+  past the harness's documented 5–20s estimate for Google specifically.
+- The newer model sometimes emits a whole number as a JSON float literal
+  (`3.0`) even for a field meant to be an integer, which Zod's `.int()`
+  rejects outright. `activity-proposer.ts`'s numeric fields use a
+  round-instead-of-reject schema (`wholeNumber`/`boundedWholeNumber`) to
+  accept that shape without weakening what actually reaches the database.
+- A 2-habit batch did not reliably answer for both habits in testing — one
+  run answered both, another stopped after the first despite the prompt
+  insisting on exact counts. `propose-activities.ts`'s position-zip already
+  treats a short answer as a partial success, not a failure, so nothing
+  breaks — but per-habit splitting (already named as this phase's escape
+  valve) is a live candidate if real use shows this often.
+
 **One generator joins the harness:** `activity_proposer`
 (`src/lib/ai/activity-proposer.ts` + the caller, `propose-activities.ts`),
 covering the five rich kinds with something to propose (`sono` needs none —
