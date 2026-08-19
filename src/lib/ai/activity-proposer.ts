@@ -3,11 +3,20 @@ import type { Generator } from "./harness";
 import type { RichTemplateKind } from "@/lib/templates";
 import type { Lang } from "@/lib/i18n";
 
-// ActivityProposer — the generator behind a rich habit's "suggest" action and
-// its free-text sibling ("recommend me 5 fiction books", "build me a
-// Monday–Friday training plan"). One generator across five kinds (`sono` is
-// excluded — a bedtime/wake pair is a preference someone states directly,
-// not a list a model has anything to propose), on request only: see
+// ActivityProposer — the general on-request AI socket for turning an
+// existing habit into concrete activities. Not a single-purpose "activity
+// generator" so much as the one door any future on-request AI iteration on a
+// habit's setup should go through (see HABIT-VS-ACTIVITY-MODEL.md) — this is
+// its first and, for now, only shape: propose a starter activity set for one
+// or more rich-kind habits at once.
+//
+// BATCHED, deliberately — one call for every umbrella habit the onboarding
+// activity step is showing, not one call per habit. Two reasons, both load-
+// bearing: DAILY_RUN_QUOTA (src/db/ai.ts) is a flat per-account daily count
+// shared across every generator, so N habits × N calls would burn a first
+// session's whole budget before anyone reaches Today; and it's one wait
+// instead of N, which matters when a single call already measures in the
+// tens of seconds (see providers.ts's latency note). On request only — see
 // propose-activities.ts for the "never unprompted" rule this enforces.
 //
 // Output shape mirrors config-schemas.ts's list fields exactly (planName +
@@ -125,31 +134,56 @@ export type ActivityProposal = z.infer<typeof activityProposal>;
 // is a caller bug, not a model failure, and TypeScript is the wall for it.
 export type ProposableKind = Exclude<RichTemplateKind, "sono" | "hobby">;
 
-export interface ActivityProposerInput {
-  lang: Lang;
+export interface ActivityBatchHabit {
   habitName: string;
   why: string | null;
   kind: ProposableKind;
-  // Set only for the free-text form ("recommend me 5 fiction books"); absent
-  // for the plain "suggest" action, which works from habitName/why alone.
+}
+
+export interface ActivityProposerInput {
+  lang: Lang;
+  // One or more habits, all proposed in the same call. Order matters: the
+  // schema has no id field for the model to echo back (models are worse at
+  // exactly copying arbitrary integers than at preserving list order), so
+  // the caller zips `perHabit[i]` back to `habits[i]` by POSITION — see
+  // propose-activities.ts.
+  habits: ActivityBatchHabit[];
+  // Applies to the whole batch — set only for the free-text form
+  // ("recommend me 5 fiction books for my reading habit"); absent for the
+  // plain "suggest" action, which works from each habit's name/why alone.
   request: string | null;
 }
 
-const SYSTEM = `You propose ONE small starter set of concrete activities for a habit someone already has — a workout plan's days, a reading list, a set of routine time blocks, languages to practice, or spiritual practices. You do not invent the habit itself; it already exists.
+// One proposal per input habit, in the SAME ORDER as `habits` above — never
+// keyed by an id the model would have to invent or copy.
+export const activityBatchProposal = z
+  .object({
+    perHabit: z.array(activityProposal).min(1).max(12),
+  })
+  .strict();
+
+export type ActivityBatchProposal = z.infer<typeof activityBatchProposal>;
+
+const SYSTEM = `You propose small starter sets of concrete activities for habits someone already has — a workout plan's days, a reading list, a set of routine time blocks, languages to practice, or spiritual practices. You do not invent the habits themselves; they already exist. You may be given one habit or several at once; treat each independently.
 
 Rules, in order of importance:
-1. Answer only in the ONE kind you were asked for. Never propose a different kind.
-2. Small and concrete. A reading list is real books with real page counts you
+1. Answer for EVERY habit listed, in the exact same order they were given —
+   your first proposal is for the first habit listed, your second for the
+   second, and so on. One proposal per habit, no more, no fewer.
+2. Each proposal's kind must match that specific habit's kind exactly. Never
+   swap kinds between habits.
+3. Small and concrete. A reading list is real books with real page counts you
    know, not placeholders. A workout plan is exercises with real, sane sets/
    reps for a beginner unless told otherwise.
-3. If given an explicit request ("recommend me 5 fiction books", "a Monday to
-   Friday plan"), follow it precisely — the count, the days, the constraint.
-   If given no request, propose a sensible, modest starter set from the
-   habit's name and its 'why' alone: 2–3 books, a 3–4 day workout split, a
-   handful of time blocks, 1–2 languages, 2–3 practices.
-4. Never calculate a target, a frequency or a streak — that is not this
+4. If given an explicit request ("recommend me 5 fiction books", "a Monday to
+   Friday plan"), it applies to whichever habit it's about — follow it
+   precisely for that one. For any habit the request doesn't address, propose
+   a sensible, modest starter set from that habit's own name and 'why' alone:
+   2–3 books, a 3–4 day workout split, a handful of time blocks, 1–2
+   languages, 2–3 practices.
+5. Never calculate a target, a frequency or a streak — that is not this
    proposal's job.
-5. This is a proposal a person will review, edit and accept item by item, not
+6. This is a proposal a person will review, edit and accept item by item, not
    a finished plan. Fewer, well-chosen items beat a long list.`;
 
 function buildPrompt(input: ActivityProposerInput): {
@@ -161,23 +195,39 @@ function buildPrompt(input: ActivityProposerInput): {
       ? "Write every name/title/activity in Brazilian Portuguese."
       : "Write every name/title/activity in English.";
 
-  const context = [
-    `Habit: ${input.habitName}`,
-    input.why ? `Why this habit exists: "${input.why}"` : null,
-    input.request ? `The person's specific request: "${input.request}"` : null,
-  ]
-    .filter(Boolean)
+  const habits = input.habits
+    .map((h, i) => {
+      const lines = [
+        `HABIT ${i + 1} (kind: ${h.kind}): "${h.habitName}"`,
+        h.why ? `  Why this habit exists: "${h.why}"` : null,
+      ].filter(Boolean);
+      return lines.join("\n");
+    })
     .join("\n");
+
+  const request = input.request
+    ? `\nThe person's specific request: "${input.request}"`
+    : "";
 
   return {
     system: `${SYSTEM}\n\n${language}`,
-    prompt: `${context}\n\nPropose a "${input.kind}" activity set for this habit.`,
+    prompt: `Here ${input.habits.length === 1 ? "is the habit" : "are the habits"} to propose activities for, in order:
+
+${habits}
+${request}
+
+Propose one activity set per habit above, in the same order, matching each habit's own kind.`,
   };
 }
 
-export const activityProposer: Generator<ActivityProposerInput, ActivityProposal> = {
+export const activityProposer: Generator<
+  ActivityProposerInput,
+  ActivityBatchProposal
+> = {
   name: "activity_proposer",
-  promptVersion: 1,
-  schema: activityProposal,
+  // Bumped 1 → 2: the input/output shape changed from one habit to a batch —
+  // a cached single-habit answer is not a valid answer to the batched schema.
+  promptVersion: 2,
+  schema: activityBatchProposal,
   buildPrompt,
 };
