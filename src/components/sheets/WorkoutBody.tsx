@@ -45,9 +45,10 @@ export function WorkoutBody({ context, initial, copy, onChange }: SheetBodyProps
     });
   }, [day, doneByName, effort, onChange]);
 
-  // No plan at all, or a rest day with nothing else to pick.
+  // No plan at all — distinct from "a plan exists, just not today", which
+  // is the branch below (line ~59) with its own, today-scoped copy.
   if (!plan || plan.days.length === 0) {
-    return <p className="opacity-75">{copy.workout.noPlan}</p>;
+    return <p className="opacity-75">{copy.workout.notConfigured}</p>;
   }
 
   return (
