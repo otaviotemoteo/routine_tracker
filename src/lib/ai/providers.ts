@@ -41,9 +41,23 @@ export function providers(): Provider[] {
   return [
     {
       id: "google",
-      model: "gemini-2.0-flash",
+      // gemini-2.0-flash was retired — a live call against it now 404s with
+      // "This model ... is no longer available. Please update your code to
+      // use models/gemini-3.6-flash". Found by habit-suggester.test.ts's
+      // live generation test actually calling the real API, not by reading
+      // docs; that 404 would otherwise have silently rotated to Groq for
+      // every account until it too failed some day.
+      //
+      // gemini-3.6-flash works, but measured ~48s for a structured
+      // (generateObject) habit-suggestion call in that same test — well past
+      // the 5-20s this harness's docs assume for Google specifically. Not
+      // fixed here: no second/third provider key was available to compare
+      // against in the environment that found this, and reordering the
+      // rotation on a single latency sample would be a guess. Flagged for a
+      // follow-up with all three providers reachable, not a silent reorder.
+      model: "gemini-3.6-flash",
       resolve: google
-        ? () => createGoogleGenerativeAI({ apiKey: google })("gemini-2.0-flash")
+        ? () => createGoogleGenerativeAI({ apiKey: google })("gemini-3.6-flash")
         : null,
     },
     {
