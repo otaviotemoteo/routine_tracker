@@ -202,6 +202,9 @@ export async function getTodayContext(
         endTime: b.endTime,
         activity: b.activity,
       })),
+    // Unfiltered — see TodayContext's own comment on why this has to travel
+    // separately from the today-filtered list above.
+    routineBlockCount: blocks.length,
     languages: langs.map((l) => ({ slug: l.slug, name: l.name })),
     practices: practices.map((p) => ({
       slug: p.slug,
