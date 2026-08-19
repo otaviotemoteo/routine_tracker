@@ -40,8 +40,10 @@ function plannedToday(
 ): string | null {
   switch (templateKindOf(check.templateKind)) {
     case "treino":
-      if (!ctx.plan) return copy.notConfigured;
-      // A plan exists but today isn't a training day.
+      // ctx.plan is truthy the moment the habit exists (rich-habits.ts's
+      // fallback), so days.length — not plan itself — is what tells "never
+      // configured" apart from "a real plan, just not scheduled today".
+      if (!ctx.plan || ctx.plan.days.length === 0) return copy.notConfigured;
       return ctx.plan.day ? ctx.plan.day.focus : copy.restDay;
     case "leitura":
       if (!ctx.book) return copy.notConfigured;
@@ -57,10 +59,12 @@ function plannedToday(
           })
         : copy.notConfigured;
     case "rotina": {
+      // routineBlocks is today-filtered; routineBlockCount isn't — see
+      // TodayContext's own comment on why n===0 alone can't tell "never
+      // configured" from "configured, nothing scheduled today".
       const n = ctx.routineBlocks.length;
-      return n > 0
-        ? format(plural(n, copy.blockToday, copy.blocksToday), { n })
-        : copy.notConfigured;
+      if (n > 0) return format(plural(n, copy.blockToday, copy.blocksToday), { n });
+      return ctx.routineBlockCount > 0 ? copy.ctxNoBlockToday : copy.notConfigured;
     }
     case "duolingo":
       return ctx.languages.length > 0
