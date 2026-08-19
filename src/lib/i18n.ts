@@ -263,6 +263,9 @@ export interface Copy {
     ctxNoPlan: string;
     ctxNoBook: string;
     ctxNothingSet: string;
+    // Routine specifically: blocks exist (on other weekdays), just none
+    // today — distinct from ctxNothingSet, which means none were ever added.
+    ctxNoBlockToday: string;
     // Checklist with nothing named yet — the habit picked this style but
     // hasn't added items, a setup gap rather than an empty day.
     checklistNoItems: string;
@@ -447,6 +450,10 @@ export interface Copy {
       exercises: string;
       effort: string;
       noPlan: string;
+      // Distinct from noPlan: no plan has ever been added, vs. a real plan
+      // with nothing scheduled today. Carries a CTA, matching reading/
+      // duolingo/spirituality's empty states.
+      notConfigured: string;
       otherTraining: string;
       pickTraining: string;
       restLabel: string;
@@ -470,7 +477,16 @@ export interface Copy {
       wokeShort: string;
       quality: string;
     };
-    routine: { followed: string; struggled: string; struggleNote: string; none: string; noBlocks: string };
+    routine: {
+      followed: string;
+      struggled: string;
+      struggleNote: string;
+      none: string;
+      noBlocks: string;
+      // Distinct from noBlocks: no routine has ever been added, vs. a real
+      // routine with nothing scheduled today.
+      notConfigured: string;
+    };
     duolingo: { lessons: string; noLanguages: string };
     spirituality: { noPractices: string };
     hobby: { activity: string; activityPlaceholder: string; minutes: string };
@@ -872,6 +888,7 @@ export const COPY: Record<Lang, Copy> = {
       ctxNoPlan: "No training planned for today",
       ctxNoBook: "No book being read",
       ctxNothingSet: "Not set up yet",
+      ctxNoBlockToday: "No blocks today",
       checklistNoItems: "No items added yet — add some from the templates page.",
       noteEffort: "Effort: {value} of 5",
       noteQuality: "Quality: {value} of 5",
@@ -1044,6 +1061,7 @@ export const COPY: Record<Lang, Copy> = {
         exercises: "Exercises",
         effort: "Effort",
         noPlan: "No training planned for today.",
+        notConfigured: "No workout plan yet. Add one in settings.",
         otherTraining: "I did a different training today",
         pickTraining: "Which one?",
         restLabel: "Rest",
@@ -1072,6 +1090,7 @@ export const COPY: Record<Lang, Copy> = {
         struggleNote: "What made it hard?",
         none: "None",
         noBlocks: "No routine blocks for today.",
+        notConfigured: "No routine yet. Add one in settings.",
       },
       duolingo: { lessons: "Lessons", noLanguages: "No languages. Add some in settings." },
       spirituality: { noPractices: "No practices. Add some in settings." },
@@ -1489,6 +1508,7 @@ export const COPY: Record<Lang, Copy> = {
       ctxNoPlan: "Nenhum treino planejado para hoje",
       ctxNoBook: "Nenhum livro em leitura",
       ctxNothingSet: "Ainda não configurado",
+      ctxNoBlockToday: "Nenhum bloco hoje",
       checklistNoItems: "Nenhum item adicionado ainda — adicione na página de templates.",
       noteEffort: "Esforço: {value} de 5",
       noteQuality: "Qualidade: {value} de 5",
@@ -1661,6 +1681,7 @@ export const COPY: Record<Lang, Copy> = {
         exercises: "Exercícios",
         effort: "Esforço",
         noPlan: "Nenhum treino planejado para hoje.",
+        notConfigured: "Nenhum plano de treino ainda. Adicione um nas configurações.",
         otherTraining: "Fiz um treino diferente hoje",
         pickTraining: "Qual?",
         restLabel: "Descanso",
@@ -1689,6 +1710,7 @@ export const COPY: Record<Lang, Copy> = {
         struggleNote: "O que dificultou?",
         none: "Nenhum",
         noBlocks: "Nenhum bloco de rotina para hoje.",
+        notConfigured: "Nenhuma rotina ainda. Adicione uma nas configurações.",
       },
       duolingo: { lessons: "Lições", noLanguages: "Nenhum idioma. Adicione nas configurações." },
       spirituality: { noPractices: "Nenhuma prática. Adicione nas configurações." },
