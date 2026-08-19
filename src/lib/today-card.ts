@@ -179,7 +179,15 @@ export function buildTodayCard(
             }
           : {
               label: panelLabel,
-              text: context.plan ? copy.noteNoTraining : copy.ctxNoPlan,
+              // "No plan at all" and "a real plan, just not scheduled today"
+              // are different claims — days.length is the one signal that
+              // tells them apart; context.plan itself is truthy either way
+              // (rich-habits.ts always falls back to an empty-but-real
+              // config once the habit exists, see config-schemas.ts).
+              text:
+                context.plan && context.plan.days.length > 0
+                  ? copy.noteNoTraining
+                  : copy.ctxNoPlan,
             },
         note: check.done
           ? typeof d?.effort === "number"
@@ -356,7 +364,16 @@ export function buildTodayCard(
               // Nothing else in this panel, so a full day of blocks fits.
               maxItems: 6,
             }
-          : { label: panelLabel, text: copy.ctxNothingSet },
+          : // routineBlocks is already filtered to today, so total===0 alone
+            // can't tell "never configured" from "configured, nothing
+            // today" — routineBlockCount (unfiltered) is what can.
+            {
+              label: panelLabel,
+              text:
+                context.routineBlockCount > 0
+                  ? copy.ctxNoBlockToday
+                  : copy.ctxNothingSet,
+            },
         note: check.done
           ? hardest
             ? {
