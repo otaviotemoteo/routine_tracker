@@ -539,6 +539,32 @@ export interface Copy {
     emptyPost: string;
   };
   errorPage: { title: string; text: string; retry: string };
+  // The onboarding activities step — HABIT-VS-ACTIVITY-MODEL.md's last leg:
+  // after habits are active, an optional, one-time offer to generate
+  // concrete activities for any of them. Not a gate — the NavBar is already
+  // showing by the time this renders (habits are active), so leaving via
+  // "Today" is always available; declining is simply not picking a kind for
+  // a habit and pressing Generate anyway (or none at all).
+  activities: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    kindWorkout: string;
+    kindReading: string;
+    kindRoutine: string;
+    kindLanguages: string;
+    kindSpirituality: string;
+    pick: string; // aria-label prefix for a kind button, {kind} appended
+    generate: string;
+    generating: string;
+    generateFailed: string;
+    doneTitle: string; // {n}
+    doneLead: string;
+    skip: string;
+    continueLabel: string;
+    noneLeft: string; // every habit already has activities or none exist
+    editHint: string; // "fine-tune in /config" style note under a done card
+  };
   onboarding: {
     stepOf: string; // {current} / {total}
     skip: string;
@@ -1144,6 +1170,28 @@ export const COPY: Record<Lang, Copy> = {
       title: "Something went wrong",
       text: "Couldn't load the data. Check your connection and try again.",
       retry: "Try again",
+    },
+    activities: {
+      eyebrow: "Activities",
+      title: "Add activities to your habits",
+      lead:
+        "Optional, and you can always add these later in settings. Pick what a habit is made of — a workout plan, a reading list — and generate a starter set for it.",
+      kindWorkout: "Workout",
+      kindReading: "Reading",
+      kindRoutine: "Routine",
+      kindLanguages: "Languages",
+      kindSpirituality: "Spirituality",
+      pick: "Set up as {kind}",
+      generate: "Generate activities",
+      generating: "Generating…",
+      generateFailed:
+        "Couldn't reach the suggestion service. Nothing was lost — try again, or set these up by hand in settings.",
+      doneTitle: "{n} habits set up",
+      doneLead: "Fine-tune anything in settings whenever you like.",
+      skip: "Skip for now",
+      continueLabel: "Continue to Today",
+      noneLeft: "Nothing left to set up here.",
+      editHint: "Edit in settings",
     },
     onboarding: {
       confirmRemove: "Remove {name}?",
@@ -1764,6 +1812,28 @@ export const COPY: Record<Lang, Copy> = {
       title: "Algo deu errado",
       text: "Não deu para carregar os dados. Confira a conexão e tente de novo.",
       retry: "Tentar de novo",
+    },
+    activities: {
+      eyebrow: "Atividades",
+      title: "Adicione atividades aos seus hábitos",
+      lead:
+        "Opcional, e dá pra adicionar depois nas configurações. Escolha do que um hábito é feito — um plano de treino, uma lista de leitura — e gere um conjunto inicial pra ele.",
+      kindWorkout: "Treino",
+      kindReading: "Leitura",
+      kindRoutine: "Rotina",
+      kindLanguages: "Idiomas",
+      kindSpirituality: "Espiritualidade",
+      pick: "Configurar como {kind}",
+      generate: "Gerar atividades",
+      generating: "Gerando…",
+      generateFailed:
+        "Não foi possível alcançar o serviço de sugestões. Nada foi perdido — tente de novo, ou configure à mão nas configurações.",
+      doneTitle: "{n} hábitos configurados",
+      doneLead: "Ajuste qualquer coisa nas configurações quando quiser.",
+      skip: "Pular por agora",
+      continueLabel: "Continuar para o Hoje",
+      noneLeft: "Nada mais para configurar aqui.",
+      editHint: "Editar nas configurações",
     },
     onboarding: {
       confirmRemove: "Remover {name}?",
