@@ -23,6 +23,16 @@ import type { Lang } from "@/lib/i18n";
 // future natural-language `request` alongside a single habit's own "suggest"
 // button. Nothing calls this unprompted.
 
+export interface ActivityPick {
+  habitId: number;
+  // The kind this pick WANTS the habit to become — not necessarily what the
+  // habit's row already carries. A fresh umbrella habit is still 'plain' at
+  // this point; picking a kind here is what the onboarding activities step
+  // IS, not something read off an already-rich habit. See the eligibility
+  // check below for the one case a pick is refused.
+  kind: ProposableKind;
+}
+
 export interface ProposedActivity {
   habitId: number;
   proposal: ActivityProposal;
@@ -33,47 +43,46 @@ export type ProposeOutcome =
   | { status: "unavailable" }
   | { status: "invalid" }
   | { status: "error" }
-  // None of the given habit ids belonged to this account or carried a
-  // proposable kind — nothing to run the generator on at all.
+  // None of the given picks resolved to an eligible habit — nothing to run
+  // the generator on at all.
   | { status: "nothing" };
 
-const PROPOSABLE_KINDS: ProposableKind[] = [
-  "treino",
-  "leitura",
-  "rotina",
-  "duolingo",
-  "espiritualidade",
-];
-
-function isProposableKind(kind: string | null): kind is ProposableKind {
-  return kind !== null && (PROPOSABLE_KINDS as string[]).includes(kind);
+interface Eligible {
+  habit: HabitRow;
+  kind: ProposableKind;
 }
 
 // Proposes activities for one or more habits in a SINGLE call — see
 // activity-proposer.ts for why batching is load-bearing, not an optimization.
-// Habit ids that don't belong to this account, or aren't a proposable kind,
-// are silently dropped rather than failing the whole batch — the same
-// per-item defensiveness suggestHabits already applies to domainSlug.
+// A pick is dropped rather than failing the whole batch — the same per-item
+// defensiveness suggestHabits already applies to domainSlug — when: the habit
+// doesn't belong to this account, or it already carries a DIFFERENT rich kind
+// (the same guard promoteToRichKind enforces at the write; checked here too
+// so a doomed pick doesn't cost a slot in the batch). A 'plain' habit, or one
+// that already carries THIS SAME kind (re-generating), is eligible.
 export async function proposeActivities(
   userId: UserId,
-  habitIds: number[],
+  picks: ActivityPick[],
   lang: Lang,
   // Applies to the whole batch; see ActivityProposerInput's own comment.
   request: string | null
 ): Promise<ProposeOutcome> {
-  const rows = await Promise.all(habitIds.map((id) => getHabit(userId, id)));
-  const eligible = rows.filter(
-    (h): h is HabitRow & { templateKind: ProposableKind } =>
-      h !== null && isProposableKind(h.templateKind)
-  );
+  const rows = await Promise.all(picks.map((p) => getHabit(userId, p.habitId)));
+  const eligible: Eligible[] = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const habit = rows[i];
+    if (!habit) continue;
+    if (habit.templateKind !== null && habit.templateKind !== picks[i].kind) continue;
+    eligible.push({ habit, kind: picks[i].kind });
+  }
   if (eligible.length === 0) return { status: "nothing" };
 
   const outcome = await runGenerator(activityProposer, userId, {
     lang,
-    habits: eligible.map((h) => ({
-      habitName: h.name,
-      why: h.why,
-      kind: h.templateKind,
+    habits: eligible.map(({ habit, kind }) => ({
+      habitName: habit.name,
+      why: habit.why,
+      kind,
     })),
     request,
   });
@@ -86,12 +95,12 @@ export async function proposeActivities(
   // over one missing item.
   const perHabit: ProposedActivity[] = [];
   for (let i = 0; i < Math.min(eligible.length, outcome.data.perHabit.length); i += 1) {
-    const habit = eligible[i];
+    const { habit, kind } = eligible[i];
     const proposal = outcome.data.perHabit[i];
     // The schema guarantees A valid kind, not the RIGHT one for this
     // position — guards against the model answering out of order, the same
     // shape of check suggestHabits runs on domainSlug.
-    if (proposal.kind !== habit.templateKind) continue;
+    if (proposal.kind !== kind) continue;
     perHabit.push({ habitId: habit.id, proposal });
   }
 
