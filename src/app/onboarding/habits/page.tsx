@@ -156,9 +156,12 @@ export default async function HabitsReviewPage({
           </div>
 
           {/* The one primary action, and the only thing on this screen that
-              makes anything real. */}
+              makes anything real. Lands on the activities step next, not
+              Today directly — habits are active by the time it redirects
+              (activateProposedHabits already ran), so that step is never a
+              gate, just where "what's next" points once there's a next. */}
           <form action={startTrackingAction} className="mt-10">
-            <input type="hidden" name="next" value="/" />
+            <input type="hidden" name="next" value="/onboarding/activities" />
             <StartTrackingButton copy={copy} />
           </form>
         </>
