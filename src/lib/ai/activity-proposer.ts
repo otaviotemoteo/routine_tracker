@@ -25,15 +25,28 @@ import type { Lang } from "@/lib/i18n";
 // an accepted proposal into real config rows, the same split habit-suggester
 // keeps between what a model proposes and what the database stores.
 
+// Some structured-output models emit a whole number as a JSON float literal
+// ("3.0") even for a field meant to be an integer — found live, via this
+// file's own test, as gemini-3.6-flash's answer failing `sets`/`reps` with
+// "expected integer, received float" (the JSON-Schema `integer` type Zod's
+// `.int()` compiles to is stricter about the literal's shape than the value
+// itself). Rounding instead of requiring `.int()` accepts that shape without
+// weakening what ends up in the database: config-schemas.ts's own `.int()`
+// still enforces a true integer at the point these values are actually
+// written — this only relaxes the boundary a model's raw JSON has to clear.
+const wholeNumber = z.number().transform((n) => Math.round(n));
+const boundedWholeNumber = (min: number, max: number) =>
+  z.number().min(min).max(max).transform((n) => Math.round(n));
+
 const exerciseKind = z.enum(["reps", "time", "distance"]);
 
 const exercise = z
   .object({
     name: z.string().max(60),
     kind: exerciseKind.optional(),
-    sets: z.number().int().optional(),
-    reps: z.number().int().optional(),
-    seconds: z.number().int().optional(),
+    sets: wholeNumber.optional(),
+    reps: wholeNumber.optional(),
+    seconds: wholeNumber.optional(),
     distance: z.number().optional(),
     minutes: z.number().optional(),
   })
@@ -47,7 +60,7 @@ const workoutProposal = z
       .array(
         z
           .object({
-            weekday: z.number().int().min(1).max(7),
+            weekday: boundedWholeNumber(1, 7),
             focus: z.string().max(80),
             exercises: z.array(exercise).min(1),
           })
@@ -67,7 +80,7 @@ const readingProposal = z
           .object({
             title: z.string().max(200),
             author: z.string().max(120).optional(),
-            totalPages: z.number().int().positive(),
+            totalPages: boundedWholeNumber(1, 20000),
           })
           .strict()
       )
@@ -86,7 +99,7 @@ const routineProposal = z
             startTime: z.string().regex(/^\d{2}:\d{2}$/),
             endTime: z.string().regex(/^\d{2}:\d{2}$/),
             activity: z.string().max(120),
-            weekdays: z.array(z.number().int().min(1).max(7)).min(1),
+            weekdays: z.array(boundedWholeNumber(1, 7)).min(1),
           })
           .strict()
       )
@@ -169,7 +182,9 @@ const SYSTEM = `You propose small starter sets of concrete activities for habits
 Rules, in order of importance:
 1. Answer for EVERY habit listed, in the exact same order they were given —
    your first proposal is for the first habit listed, your second for the
-   second, and so on. One proposal per habit, no more, no fewer.
+   second, and so on. One proposal per habit, no more, no fewer. If N habits
+   are listed, perHabit MUST have exactly N entries — never stop early, even
+   if the first habit's proposal already feels complete.
 2. Each proposal's kind must match that specific habit's kind exactly. Never
    swap kinds between habits.
 3. Small and concrete. A reading list is real books with real page counts you
@@ -216,7 +231,7 @@ function buildPrompt(input: ActivityProposerInput): {
 ${habits}
 ${request}
 
-Propose one activity set per habit above, in the same order, matching each habit's own kind.`,
+Propose one activity set per habit above, in the same order, matching each habit's own kind. There ${input.habits.length === 1 ? "is 1 habit" : `are ${input.habits.length} habits`} listed — perHabit must have exactly ${input.habits.length} ${input.habits.length === 1 ? "entry" : "entries"}.`,
   };
 }
 
