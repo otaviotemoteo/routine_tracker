@@ -41,6 +41,11 @@ export interface TodayContext {
     endTime: string;
     activity: string;
   }[];
+  // Active blocks regardless of weekday — routineBlocks above is already
+  // filtered to today, which loses the one signal that tells "never
+  // configured" apart from "configured, nothing scheduled today". See
+  // today-card.ts / card-status.ts's rotina branches.
+  routineBlockCount: number;
   languages: { slug: string; name: string }[];
   practices: { slug: string; name: string; countable: boolean }[];
 }
