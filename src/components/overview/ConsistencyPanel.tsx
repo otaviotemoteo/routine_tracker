@@ -1,9 +1,9 @@
 import { habitIcon } from "@/lib/icons";
 import { habitName, type Copy, type Lang } from "@/lib/i18n";
-import type { MonthHabitStats } from "@/types/habit";
+import type { MonthActivityStats } from "@/types/habit";
 
 interface ConsistencyPanelProps {
-  habits: MonthHabitStats[];
+  habits: MonthActivityStats[];
   // Done-days per slug last month, for the delta column.
   previous: Record<string, number>;
   // False when last month is entirely before the first record — "+9" against a
@@ -47,7 +47,7 @@ export function ConsistencyPanel({
             habit.countedDays === 0 ? 0 : habit.doneCount / habit.countedDays;
           const delta = habit.doneCount - (previous[habit.slug] ?? 0);
           return (
-            <li key={habit.habitId} className="flex items-center gap-2.5">
+            <li key={habit.activityId} className="flex items-center gap-2.5">
               <Icon aria-hidden className="w-3.5 h-3.5 shrink-0 opacity-60" />
               <span className="w-[5.5rem] shrink-0 text-[0.7rem] font-semibold truncate">
                 {habitName(lang, habit.slug, habit.name)}
