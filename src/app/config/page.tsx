@@ -40,7 +40,7 @@ interface ConfigPageProps {
 // Every tracked habit, each showing its own activities — not six fixed
 // sections. Clicking an activity dispatches to the rich-kind step component
 // that matches its template_kind, or the generic ActivityForm for a plain
-// one. See docs/HABIT-VS-ACTIVITY-MODEL.md. Both Back and Save return
+// one. See docs/ARCHITECTURE.md. Both Back and Save return
 // wherever the edit was entered from — /config by default, or Overview when
 // reached from its Activities section (`?from=overview`).
 export default async function ConfigPage({ searchParams }: ConfigPageProps) {
