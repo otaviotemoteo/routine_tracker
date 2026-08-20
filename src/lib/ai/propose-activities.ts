@@ -25,17 +25,19 @@ import type { Lang } from "@/lib/i18n";
 
 export interface ActivityPick {
   habitId: number;
-  // The kind this pick WANTS the habit to become — not necessarily what the
-  // habit's row already carries. A fresh umbrella habit is still 'plain' at
-  // this point; picking a kind here is what the onboarding activities step
-  // IS, not something read off an already-rich habit. See the eligibility
-  // check below for the one case a pick is refused.
   kind: ProposableKind;
+  // The per-habit briefing typed on /onboarding/activities — see
+  // ActivityBatchHabit's own comment (activity-proposer.ts).
+  briefing: string | null;
 }
 
 export interface ProposedActivity {
   habitId: number;
   proposal: ActivityProposal;
+  // Carried through so the caller can store it as the new activity's own
+  // `why` — the briefing IS the reason this specific activity was proposed,
+  // same idiom `why` already carries at the habit layer.
+  briefing: string | null;
 }
 
 export type ProposeOutcome =
@@ -50,16 +52,18 @@ export type ProposeOutcome =
 interface Eligible {
   habit: HabitRow;
   kind: ProposableKind;
+  briefing: string | null;
 }
 
 // Proposes activities for one or more habits in a SINGLE call — see
 // activity-proposer.ts for why batching is load-bearing, not an optimization.
 // A pick is dropped rather than failing the whole batch — the same per-item
-// defensiveness suggestHabits already applies to domainSlug — when: the habit
-// doesn't belong to this account, or it already carries a DIFFERENT rich kind
-// (the same guard promoteToRichKind enforces at the write; checked here too
-// so a doomed pick doesn't cost a slot in the batch). A 'plain' habit, or one
-// that already carries THIS SAME kind (re-generating), is eligible.
+// defensiveness suggestHabits already applies to domainSlug — when the habit
+// doesn't belong to this account. That's the only guard now: Decision 3
+// (docs/HABIT-VS-ACTIVITY-MODEL.md) means generating always creates a NEW
+// activity, never merges into an existing one, so there is no more "already
+// carries a different kind" conflict to check — a habit can hold as many
+// activities, of as many kinds, as it's given.
 export async function proposeActivities(
   userId: UserId,
   picks: ActivityPick[],
@@ -72,16 +76,16 @@ export async function proposeActivities(
   for (let i = 0; i < rows.length; i += 1) {
     const habit = rows[i];
     if (!habit) continue;
-    if (habit.templateKind !== null && habit.templateKind !== picks[i].kind) continue;
-    eligible.push({ habit, kind: picks[i].kind });
+    eligible.push({ habit, kind: picks[i].kind, briefing: picks[i].briefing });
   }
   if (eligible.length === 0) return { status: "nothing" };
 
   const outcome = await runGenerator(activityProposer, userId, {
     lang,
-    habits: eligible.map(({ habit, kind }) => ({
+    habits: eligible.map(({ habit, kind, briefing }) => ({
       habitName: habit.name,
       why: habit.why,
+      briefing,
       kind,
     })),
     request,
@@ -95,13 +99,13 @@ export async function proposeActivities(
   // over one missing item.
   const perHabit: ProposedActivity[] = [];
   for (let i = 0; i < Math.min(eligible.length, outcome.data.perHabit.length); i += 1) {
-    const { habit, kind } = eligible[i];
+    const { habit, kind, briefing } = eligible[i];
     const proposal = outcome.data.perHabit[i];
     // The schema guarantees A valid kind, not the RIGHT one for this
     // position — guards against the model answering out of order, the same
     // shape of check suggestHabits runs on domainSlug.
     if (proposal.kind !== kind) continue;
-    perHabit.push({ habitId: habit.id, proposal });
+    perHabit.push({ habitId: habit.id, proposal, briefing });
   }
 
   if (perHabit.length === 0) return { status: "invalid" };
