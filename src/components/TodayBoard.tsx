@@ -7,10 +7,10 @@ import type { Copy, Lang } from "@/lib/i18n";
 import type { ReadingPace } from "@/lib/today-card";
 import type { PaceValues } from "@/lib/setup-summary";
 import type { TodayComparisons } from "@/db/queries";
-import type { CheckWithHabit, TodayContext } from "@/types/habit";
+import { EMPTY_ACTIVITY_CONTEXT, type CheckWithActivity, type TodayContext } from "@/types/habit";
 
 interface TodayBoardProps {
-  checks: CheckWithHabit[];
+  checks: CheckWithActivity[];
   context: TodayContext;
   title: string;
   eyebrow: string;
@@ -163,7 +163,7 @@ export function TodayBoard({
             <li key={check.id} className="contents">
               <HabitCard
                 check={check}
-                context={context}
+                context={context.activities[check.activityId] ?? EMPTY_ACTIVITY_CONTEXT}
                 lang={lang}
                 copy={copy}
                 readingCopy={readingCopy}
