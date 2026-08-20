@@ -41,14 +41,14 @@ export function WeekGrid({
   // pointing at — anchoring it to the header would park it above your cursor.
   const [openRow, setOpenRow] = useState(0);
 
-  const required = week.habits.filter((h) => !h.optional);
-  const optional = week.habits.filter((h) => h.optional);
+  const required = week.activities.filter((h) => !h.optional);
+  const optional = week.activities.filter((h) => h.optional);
   const rows = [...required, ...optional];
 
   const summaryHabits =
     openDay === null
       ? []
-      : week.habits.map((h) => ({
+      : week.activities.map((h) => ({
           slug: h.slug,
           name: h.name,
           done: h.cells[openDay].done,
@@ -121,7 +121,7 @@ export function WeekGrid({
               const Icon = habitIcon(habit.templateKind, habit.domainSlug);
               return (
                 <tr
-                  key={habit.habitId}
+                  key={habit.activityId}
                   className="border-t-2 border-dashed border-sand"
                 >
                   <td className="py-1 pr-2">
