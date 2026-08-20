@@ -56,7 +56,7 @@ export type HabitSource = "human" | "ai_suggested" | "ai_edited";
 // globally unique slug, which is the modelling error that stopped anyone else
 // from using the app: it normalised what is *personal* into schema.
 //
-// A habit is the UMBRELLA — see docs/HABIT-VS-ACTIVITY-MODEL.md. It carries no
+// A habit is the UMBRELLA — see docs/ARCHITECTURE.md. It carries no
 // metric and no template of its own; those live on `activities` below, one or
 // more per habit. The one column here that still carries real meaning:
 //
@@ -90,7 +90,7 @@ export const habits = pgTable(
     // ── DEAD, kept for a rollback window — see src/db/migrate-activities.ts ──
     // Moved to `activities` (the metric spine and the template layer both
     // belong to the concrete, checkable thing, not the umbrella — see
-    // docs/HABIT-VS-ACTIVITY-MODEL.md). No application code reads or writes
+    // docs/ARCHITECTURE.md). No application code reads or writes
     // these six columns any more; they stay physically present, untouched,
     // until migrate-activities-cleanup.ts drops them once the new grain has
     // run in production without incident.
@@ -133,7 +133,7 @@ export const habits = pgTable(
 );
 
 // The ACTIVITY — the concrete, independently-checkable, independently-
-// measured thing living inside a habit. See docs/HABIT-VS-ACTIVITY-MODEL.md
+// measured thing living inside a habit. See docs/ARCHITECTURE.md
 // for the full model; the short version:
 //
 //   Every tracked habit has exactly one activity from the moment it becomes
@@ -242,7 +242,7 @@ export const dailyChecks = pgTable(
       .notNull()
       .references(() => users.id),
     // The grain: one check per ACTIVITY per day, not per habit — see
-    // docs/HABIT-VS-ACTIVITY-MODEL.md. A habit with two activities produces
+    // docs/ARCHITECTURE.md. A habit with two activities produces
     // two independent checks, two independent streaks, two Today cards.
     activityId: integer("activity_id")
       .notNull()
@@ -278,7 +278,7 @@ export const dailyChecks = pgTable(
 // one layer down again, onto `activities` above, so more than one activity
 // can carry the same template kind without one promotion overwriting
 // another's setup. Shaped by src/lib/config-schemas.ts, read/written through
-// src/db/rich-habits.ts. See docs/HABIT-VS-ACTIVITY-MODEL.md for the model,
+// src/db/rich-habits.ts. See docs/ARCHITECTURE.md for the model,
 // docs/ARCHITECTURE.md's "Rich habits become per-habit (Phase 3)" for how it
 // got to habits in the first place, and src/db/migrate-activities.ts for how
 // it moved from habits to activities without losing an id or a slug.
