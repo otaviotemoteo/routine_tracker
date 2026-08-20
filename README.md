@@ -112,7 +112,6 @@ deliberately doesn't try to interpret it for you.
 
 | Document | What's in it |
 |---|---|
-| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Run it locally, the stack, the schema, the API, the folder layout |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How it's built and why: layering, accounts, data ownership |
 | [`docs/UX_PRINCIPLES.md`](docs/UX_PRINCIPLES.md) | How it should behave, with the code that implements each rule |
 | [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md) | Every stored field, so the export is readable years from now |
