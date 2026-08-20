@@ -370,6 +370,10 @@ export interface Copy {
     step3: string;
     step2Hint: string;
     areaHint: string;
+    // Editing (not creating) shows only name/area — the metric spine and
+    // minimal action belong to the habit's activity now.
+    editMeasurementLead: string;
+    editMeasurementLink: string;
     minimalLead: string;
     previewLabel: string;
     previewFilled: string; // {action}
@@ -1010,6 +1014,8 @@ export const COPY: Record<Lang, Copy> = {
       step3: "3 · THE SMALLEST VERSION",
       step2Hint: "sets the number on the card",
       areaHint: "The area groups the totals in the week and month views.",
+      editMeasurementLead: "How you measure it now lives with the activity.",
+      editMeasurementLink: "Edit it in settings",
       minimalLead:
         "What still counts on a bad day. This is what the card offers you when the day has gone wrong.",
       previewLabel: "PREVIEW ON TODAY'S CARD",
@@ -1652,6 +1658,8 @@ export const COPY: Record<Lang, Copy> = {
       step3: "3 · A MENOR VERSÃO",
       step2Hint: "define o número do cartão",
       areaHint: "A área agrupa os totais na visão semanal e mensal.",
+      editMeasurementLead: "Como você mede agora fica com a atividade.",
+      editMeasurementLink: "Editar nas configurações",
       minimalLead:
         "O que ainda conta num dia ruim. É isso que o cartão te oferece quando o dia deu errado.",
       previewLabel: "PRÉVIA NO CARTÃO DE HOJE",
