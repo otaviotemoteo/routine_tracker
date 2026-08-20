@@ -60,7 +60,7 @@ function parsePicks(formData: FormData): ActivityPick[] {
 // Shapes a fresh proposal into config-schemas.ts's real shape — ids starting
 // at 1, everything active. This path never has an existing config to merge
 // with (createActivity always inserts a NEW row — Decision 3,
-// docs/HABIT-VS-ACTIVITY-MODEL.md), so there's no retired-entry history to
+// docs/ARCHITECTURE.md), so there's no retired-entry history to
 // preserve the way rich-habits.ts's save* functions have to handle.
 function shapeConfig(proposal: ActivityProposal): unknown {
   switch (proposal.kind) {
@@ -129,7 +129,7 @@ function shapeConfig(proposal: ActivityProposal): unknown {
 // write each result as a PROPOSED activity (active_from NULL) — never
 // straight to tracked. This is what makes the review step real: the old
 // version of this screen wrote straight to config and redirected, with
-// nothing left to actually review. See docs/HABIT-VS-ACTIVITY-MODEL.md.
+// nothing left to actually review. See docs/ARCHITECTURE.md.
 export async function generateActivitiesAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const lang = await getLang();
