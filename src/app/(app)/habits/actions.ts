@@ -7,15 +7,16 @@ import {
   activateProposedHabits,
   createHabit,
   getHabit,
+  removeActivity,
   removeHabit,
   updateHabit,
+  type DefaultActivityInput,
   type HabitEdit,
   type HabitInput,
 } from "@/db/habits";
 import { resolvePendingRequest } from "@/db/ai";
 import { clearFirstRunStep } from "@/db/first-run";
 import { isDomainSlug } from "@/lib/domains";
-import { PLAIN_KIND } from "@/lib/templates";
 import { requireUserId } from "@/lib/session";
 import { todayInSaoPaulo } from "@/lib/utils";
 
@@ -29,11 +30,7 @@ function safeNext(formData: FormData, fallback: string): string {
 // Validated at the write boundary, the way daily details and assessment
 // ratings are. The form can't send anything else, so this catches a
 // hand-built request rather than a user mistake.
-//
-// `templateKind` is absent on purpose: every habit created through this app is
-// plain, and accepting the field would mean trusting a form post to name a
-// renderer. See src/lib/templates.ts.
-const habitSchema = z.object({
+const habitEditSchema = z.object({
   name: z.string().trim().min(1).max(50),
   domainSlug: z
     .string()
@@ -41,6 +38,14 @@ const habitSchema = z.object({
     .transform((v) => (v === "" ? null : v))
     .refine((v) => v === null || isDomainSlug(v), "Unknown area")
     .transform((v) => (v === null ? null : (v as never))),
+});
+
+// The default activity's metric spine — only collected when CREATING, since
+// editing an existing habit no longer touches it (see HabitForm.tsx).
+// `templateKind` is absent on purpose: every activity created through this
+// form is plain, and accepting the field would mean trusting a form post to
+// name a renderer. See src/lib/templates.ts.
+const activityMetricSchema = z.object({
   metricType: z.enum(["binary", "count", "duration"]),
   unit: z
     .string()
@@ -62,8 +67,17 @@ const habitSchema = z.object({
     .transform((v) => (v === "" ? null : v)),
 });
 
-function parseForm(formData: FormData) {
-  return habitSchema.safeParse({
+const habitCreateSchema = habitEditSchema.merge(activityMetricSchema);
+
+function parseEditForm(formData: FormData) {
+  return habitEditSchema.safeParse({
+    name: formData.get("name") ?? "",
+    domainSlug: formData.get("domainSlug") ?? "",
+  });
+}
+
+function parseCreateForm(formData: FormData) {
+  return habitCreateSchema.safeParse({
     name: formData.get("name") ?? "",
     domainSlug: formData.get("domainSlug") ?? "",
     metricType: formData.get("metricType") ?? "binary",
@@ -73,46 +87,52 @@ function parseForm(formData: FormData) {
   });
 }
 
-// The fields the form actually shows — and therefore the only fields an edit
-// is allowed to write. `template_kind` and `why` are deliberately absent: the
-// form has no input for either, and sending a default for a field nobody
-// filled in is how the owner's seven habits lost their Today cards. The type
-// makes including them a compile error; see HabitEdit in src/db/habits.ts.
-function toEdit(data: z.infer<typeof habitSchema>): HabitEdit {
+// The fields the edit form actually shows — and therefore the only fields an
+// edit is allowed to write. `why` is deliberately absent: the form has no
+// input for it, and sending a default for a field nobody filled in is how
+// the owner's seven habits lost their Today cards, back when this also
+// carried the metric spine. The type makes including either a compile
+// error; see HabitEdit in src/db/habits.ts.
+function toEdit(data: z.infer<typeof habitEditSchema>): HabitEdit {
+  return { name: data.name, domainSlug: data.domainSlug };
+}
+
+function toHabitInput(data: z.infer<typeof habitCreateSchema>): HabitInput {
+  return { name: data.name, domainSlug: data.domainSlug, why: null };
+}
+
+function toActivityInput(
+  data: z.infer<typeof habitCreateSchema>
+): DefaultActivityInput {
+  // A binary activity counts nothing, so a unit or a target left over from
+  // switching the metric in the form would render as a figure that means
+  // nothing. Dropped here rather than hidden in the UI.
+  const binary = data.metricType === "binary";
   return {
-    name: data.name,
-    domainSlug: data.domainSlug,
     metricType: data.metricType,
-    // A binary habit counts nothing, so a unit or a target left over from
-    // switching the metric in the form would render as a figure that means
-    // nothing. Dropped here rather than hidden in the UI.
-    unit: data.metricType === "binary" ? null : data.unit,
-    target: data.metricType === "binary" ? null : data.target,
+    unit: binary ? null : data.unit,
+    target: binary ? null : data.target,
     minimalAction: data.minimalAction,
   };
 }
 
-// Creating also fixes the renderer. Every habit this app creates is plain —
-// choosing a richer card is a separate, deliberate step, not a side effect of
-// filling in a name.
-function toInput(data: z.infer<typeof habitSchema>): HabitInput {
-  return { ...toEdit(data), templateKind: PLAIN_KIND, why: null };
-}
-
 export async function createHabitAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
-  const parsed = parseForm(formData);
+  const parsed = parseCreateForm(formData);
   if (!parsed.success) redirect("/habits/new?error=1");
 
   // Where the habit lands depends on where it was added from. On the review
   // screen it joins the proposed set (invisible until "Start tracking"); from
   // the habits list it is tracked straight away, because there is no later
-  // step there to accept it in.
+  // step there to accept it in. Its default activity follows the same
+  // lifecycle — see createHabit, src/db/habits.ts.
   const proposed = formData.get("proposed") === "1";
-  await createHabit(userId, toInput(parsed.data), {
-    source: "human",
-    activeFrom: proposed ? null : todayInSaoPaulo(),
-  });
+  await createHabit(
+    userId,
+    toHabitInput(parsed.data),
+    toActivityInput(parsed.data),
+    { source: "human", activeFrom: proposed ? null : todayInSaoPaulo() }
+  );
 
   revalidatePath("/habits");
   revalidatePath("/");
@@ -124,7 +144,7 @@ export async function updateHabitAction(formData: FormData): Promise<void> {
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id <= 0) redirect("/habits");
 
-  const parsed = parseForm(formData);
+  const parsed = parseEditForm(formData);
   if (!parsed.success) redirect(`/habits/${id}?error=1`);
 
   // Ownership is in the UPDATE's WHERE clause, so a foreign id matches no row.
@@ -146,6 +166,22 @@ export async function removeHabitAction(formData: FormData): Promise<void> {
   // Deletes a proposal, archives a tracked habit — see src/db/habits.ts. Never
   // destroys a row that daily checks point at.
   await removeHabit(userId, id, todayInSaoPaulo());
+
+  revalidatePath("/habits");
+  revalidatePath("/");
+  redirect(safeNext(formData, "/habits"));
+}
+
+// The habits LIST's own remove button, one row per activity now — this
+// removes just that activity (and, in the common one-activity-per-habit
+// case, is what makes the habit disappear from the list too, since a habit
+// with zero live activities has nothing left to show a row for).
+export async function removeActivityAction(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) redirect("/habits");
+
+  await removeActivity(userId, id, todayInSaoPaulo());
 
   revalidatePath("/habits");
   revalidatePath("/");
