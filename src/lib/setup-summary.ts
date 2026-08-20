@@ -1,25 +1,21 @@
 import type { UserId } from "@/db/scope";
-// Server-only: one summary of everything the user configured, shared by the
-// onboarding Review step, the /config index and the Overview "Activities"
-// section — so those three never drift.
-import {
-  getReadingConfig,
-  getSleepConfig,
-  getWorkoutConfig,
-  listLanguages,
-  listRoutineBlocks,
-  listSpiritualPractices,
-} from "@/db/rich-habits";
+// Server-only: one summary of every configured rich-kind ACTIVITY, shared by
+// /config's index and Overview's "Activities" section — so those two never
+// drift. One row per activity that exists now, not six fixed account-wide
+// slots — see docs/HABIT-VS-ACTIVITY-MODEL.md. An account with no workout
+// activity simply has no workout row, rather than a permanent "not set"
+// nudge for something nobody asked to track.
+import { listTrackedActivities } from "@/db/habits";
+import type {
+  DuolingoConfig,
+  ReadingConfig,
+  RoutineConfig,
+  SleepConfig,
+  SpiritualityConfig,
+  WorkoutConfig,
+} from "@/lib/config-schemas";
 import { format, plural, type Copy } from "@/lib/i18n";
 import { daysLeftInYear, readingPace, todayInSaoPaulo } from "@/lib/utils";
-
-export type SetupSection =
-  | "workout"
-  | "reading"
-  | "sleep"
-  | "routine"
-  | "duolingo"
-  | "spirituality";
 
 // The three numbers behind the reading pace, so the dialog can show its own
 // arithmetic instead of just describing it.
@@ -30,16 +26,33 @@ export interface PaceValues {
   perDay: number;
 }
 
+const RICH_LABEL_KEY = {
+  treino: "workout",
+  leitura: "reading",
+  sono: "sleep",
+  rotina: "routine",
+  duolingo: "duolingo",
+  espiritualidade: "spirituality",
+} as const;
+
+type RichKind = keyof typeof RICH_LABEL_KEY;
+
+function isRichKind(kind: string | null): kind is RichKind {
+  return kind !== null && kind in RICH_LABEL_KEY;
+}
+
 export interface SetupRow {
-  section: SetupSection;
+  activityId: number;
+  habitId: number;
+  habitName: string;
+  templateKind: RichKind;
   label: string;
-  // Whether this area has been set up at all (drives the badge + tint).
+  // Whether this activity has real setup behind it yet (drives the badge +
+  // tint) — an activity can carry a rich kind with nothing filled in yet.
   configured: boolean;
   value: string | null; // null → "not set"
-  // The third line of the row: what this area is set up to do, as a count.
-  // Every section has one, and that is the point — a three-line stack where
-  // five of six rows only fill two lines reads as unfinished rather than as
-  // sparse. Counts only, straight off the rows that exist, so there is never
+  // The third line of the row: what this activity is set up to do, as a
+  // count. Counts only, straight off the rows that exist, so there is never
   // a figure here the data can't support.
   meta?: string;
   hint?: string; // e.g. the reading pace, or what's still missing
@@ -67,118 +80,151 @@ export async function getSetupSummary(
 ): Promise<SetupRow[]> {
   const today = todayInSaoPaulo();
   const year = Number(today.slice(0, 4));
-  const [workout, reading, sleep, routine, langs, practices] = await Promise.all([
-    getWorkoutConfig(userId),
-    getReadingConfig(userId),
-    getSleepConfig(userId),
-    listRoutineBlocks(userId),
-    listLanguages(userId),
-    listSpiritualPractices(userId),
-  ]);
+  const richActivities = (await listTrackedActivities(userId)).filter((a) =>
+    isRichKind(a.templateKind)
+  );
 
-  const plan = workout ? { name: workout.planName, days: workout.days.filter((d) => d.active) } : null;
-  // The goal is per-year — see onboarding-prefill.ts's readingInitial for the
-  // same rule: a target saved in an earlier year reads as unset here too.
-  const goal = reading && reading.year === year ? reading.targetBooksPerYear : null;
-  const books = reading?.books ?? [];
+  return richActivities.map((activity): SetupRow => {
+    const kind = activity.templateKind as RichKind;
+    const base = {
+      activityId: activity.id,
+      habitId: activity.habitId,
+      habitName: activity.habitName,
+      templateKind: kind,
+      label: copy.review.sections[RICH_LABEL_KEY[kind]],
+    };
 
-  // Reading hint. The list must be complete before a pace means anything —
-  // otherwise it quotes a target computed from books the user hasn't added yet.
-  let readingHint: string | undefined;
-  let readingTone: "info" | "warn" | undefined;
-  let paceValues: PaceValues | undefined;
-  const missingBooks = goal ? goal - books.length : 0;
-  if (todayCopy && missingBooks > 0) {
-    readingHint = format(
-      plural(missingBooks, todayCopy.bookMissing, todayCopy.booksMissing),
-      { n: missingBooks }
-    );
-    readingTone = "warn";
-  } else if (todayCopy) {
-    const unread = books.filter(
-      (b) => b.status === "reading" || b.status === "queued"
-    );
-    // Split the two halves of the formula: what's left in the book being read,
-    // and everything waiting after it.
-    const currentBookLeft = unread
-      .filter((b) => b.status === "reading")
-      .reduce((sum, b) => sum + Math.max(0, b.totalPages - b.currentPage), 0);
-    const nextBooksPages = unread
-      .filter((b) => b.status !== "reading")
-      .reduce((sum, b) => sum + Math.max(0, b.totalPages - b.currentPage), 0);
-    const remainingPages = currentBookLeft + nextBooksPages;
-    if (remainingPages > 0) {
-      const daysLeft = daysLeftInYear(today);
-      const perDay = readingPace(remainingPages, daysLeft);
-      readingHint = format(todayCopy.pace, { n: perDay });
-      readingTone = "info";
-      paceValues = { currentBookLeft, nextBooksPages, daysLeft, perDay };
+    switch (kind) {
+      case "treino": {
+        const cfg = (activity.config as WorkoutConfig | null) ?? {
+          planName: "",
+          days: [],
+        };
+        const activeDays = cfg.days.filter((d) => d.active);
+        return {
+          ...base,
+          configured: activeDays.length > 0 || cfg.planName.length > 0,
+          value: cfg.planName || null,
+          meta: activeDays.length
+            ? format(copy.review.meta.workoutDays, { n: activeDays.length })
+            : undefined,
+        };
+      }
+
+      case "leitura": {
+        const cfg = (activity.config as ReadingConfig | null) ?? {
+          year: 0,
+          targetBooksPerYear: 0,
+          books: [],
+        };
+        // The goal is per-year — a target saved in an earlier year reads as
+        // unset, same rule onboarding-prefill.ts's readingInitial uses.
+        const goal = cfg.year === year ? cfg.targetBooksPerYear : null;
+        const books = cfg.books;
+
+        // The list must be complete before a pace means anything — otherwise
+        // it quotes a target computed from books the user hasn't added yet.
+        let hint: string | undefined;
+        let hintTone: "info" | "warn" | undefined;
+        let paceValues: PaceValues | undefined;
+        const missingBooks = goal ? goal - books.length : 0;
+        if (todayCopy && missingBooks > 0) {
+          hint = format(
+            plural(missingBooks, todayCopy.bookMissing, todayCopy.booksMissing),
+            { n: missingBooks }
+          );
+          hintTone = "warn";
+        } else if (todayCopy) {
+          const unread = books.filter(
+            (b) => b.status === "reading" || b.status === "queued"
+          );
+          const currentBookLeft = unread
+            .filter((b) => b.status === "reading")
+            .reduce((sum, b) => sum + Math.max(0, b.totalPages - b.currentPage), 0);
+          const nextBooksPages = unread
+            .filter((b) => b.status !== "reading")
+            .reduce((sum, b) => sum + Math.max(0, b.totalPages - b.currentPage), 0);
+          const remainingPages = currentBookLeft + nextBooksPages;
+          if (remainingPages > 0) {
+            const daysLeft = daysLeftInYear(today);
+            const perDay = readingPace(remainingPages, daysLeft);
+            hint = format(todayCopy.pace, { n: perDay });
+            hintTone = "info";
+            paceValues = { currentBookLeft, nextBooksPages, daysLeft, perDay };
+          }
+        }
+
+        return {
+          ...base,
+          configured: goal !== null || books.length > 0,
+          value: goal ? `${goal} ${copy.reading.goalUnit}` : null,
+          meta: books.length
+            ? format(copy.review.meta.books, { n: books.length })
+            : undefined,
+          hint,
+          hintTone,
+          paceValues,
+        };
+      }
+
+      case "sono": {
+        const cfg = activity.config as SleepConfig | null;
+        return {
+          ...base,
+          configured: cfg !== null,
+          value: cfg ? `${cfg.bedtime} – ${cfg.wakeTime}` : null,
+          // Wall-clock hours between the two times, wrapping past midnight —
+          // a 23:00–06:00 window is 7 hours, not −17.
+          meta: cfg
+            ? format(copy.review.meta.sleepWindow, {
+                n: sleepWindowHours(cfg.bedtime, cfg.wakeTime),
+              })
+            : undefined,
+        };
+      }
+
+      case "rotina": {
+        const cfg = (activity.config as RoutineConfig | null) ?? { blocks: [] };
+        const active = cfg.blocks.filter((b) => b.active);
+        return {
+          ...base,
+          configured: active.length > 0,
+          value: active.length
+            ? active.map((b) => b.activity).slice(0, 3).join(", ")
+            : null,
+          meta: active.length
+            ? format(copy.review.meta.routineBlocks, { n: active.length })
+            : undefined,
+        };
+      }
+
+      case "duolingo": {
+        const cfg = (activity.config as DuolingoConfig | null) ?? { languages: [] };
+        const active = cfg.languages.filter((l) => l.active);
+        return {
+          ...base,
+          configured: active.length > 0,
+          value: active.length ? active.map((l) => l.name).join(", ") : null,
+          meta: active.length
+            ? format(copy.review.meta.languages, { n: active.length })
+            : undefined,
+        };
+      }
+
+      case "espiritualidade": {
+        const cfg = (activity.config as SpiritualityConfig | null) ?? {
+          practices: [],
+        };
+        const active = cfg.practices.filter((p) => p.active);
+        return {
+          ...base,
+          configured: active.length > 0,
+          value: active.length ? active.map((p) => p.name).join(", ") : null,
+          meta: active.length
+            ? format(copy.review.meta.practices, { n: active.length })
+            : undefined,
+        };
+      }
     }
-  }
-
-  return [
-    {
-      section: "workout",
-      label: copy.review.sections.workout,
-      configured: plan !== null,
-      value: plan ? plan.name : null,
-      meta: plan
-        ? format(copy.review.meta.workoutDays, { n: plan.days.length })
-        : undefined,
-    },
-    {
-      section: "reading",
-      label: copy.review.sections.reading,
-      configured: goal !== null || books.length > 0,
-      value: goal ? `${goal} ${copy.reading.goalUnit}` : null,
-      meta: books.length
-        ? format(copy.review.meta.books, { n: books.length })
-        : undefined,
-      hint: readingHint,
-      hintTone: readingTone,
-      paceValues,
-    },
-    {
-      section: "sleep",
-      label: copy.review.sections.sleep,
-      configured: sleep !== null,
-      value: sleep ? `${sleep.bedtime} – ${sleep.wakeTime}` : null,
-      // Wall-clock hours between the two times, wrapping past midnight — a
-      // 23:00–06:00 window is 7 hours, not −17.
-      meta: sleep
-        ? format(copy.review.meta.sleepWindow, {
-            n: sleepWindowHours(sleep.bedtime, sleep.wakeTime),
-          })
-        : undefined,
-    },
-    {
-      section: "routine",
-      label: copy.review.sections.routine,
-      configured: routine.length > 0,
-      value: routine.length
-        ? routine.map((b) => b.activity).slice(0, 3).join(", ")
-        : null,
-      meta: routine.length
-        ? format(copy.review.meta.routineBlocks, { n: routine.length })
-        : undefined,
-    },
-    {
-      section: "duolingo",
-      label: copy.review.sections.duolingo,
-      configured: langs.length > 0,
-      value: langs.length ? langs.map((l) => l.name).join(", ") : null,
-      meta: langs.length
-        ? format(copy.review.meta.languages, { n: langs.length })
-        : undefined,
-    },
-    {
-      section: "spirituality",
-      label: copy.review.sections.spirituality,
-      configured: practices.length > 0,
-      value: practices.length ? practices.map((p) => p.name).join(", ") : null,
-      meta: practices.length
-        ? format(copy.review.meta.practices, { n: practices.length })
-        : undefined,
-    },
-  ];
+  });
 }
