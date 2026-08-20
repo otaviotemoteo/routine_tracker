@@ -4,10 +4,10 @@ import { cardStatus } from "@/lib/card-status";
 import { dailyStepHref, type DailyStepSlug } from "@/lib/daily";
 import { habitName, type Copy, type Lang } from "@/lib/i18n";
 import { habitIcon } from "@/lib/icons";
-import type { CheckWithHabit, TodayContext } from "@/types/habit";
+import { EMPTY_ACTIVITY_CONTEXT, type CheckWithActivity, type TodayContext } from "@/types/habit";
 
 interface DailyIndexProps {
-  checks: CheckWithHabit[];
+  checks: CheckWithActivity[];
   context: TodayContext;
   lang: Lang;
   copy: Copy["daily"];
@@ -29,7 +29,11 @@ export function DailyIndex({
     <ul className="flex flex-col gap-3 list-none">
       {checks.map((check) => {
         const Icon = habitIcon(check.templateKind, check.domainSlug);
-        const status = cardStatus(check, context, todayCopy);
+        const status = cardStatus(
+          check,
+          context.activities[check.activityId] ?? EMPTY_ACTIVITY_CONTEXT,
+          todayCopy
+        );
         const name = habitName(lang, check.slug, check.name);
         return (
           <li key={check.id}>
