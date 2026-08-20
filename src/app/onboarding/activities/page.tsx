@@ -28,7 +28,7 @@ interface ActivitiesPageProps {
 // NavBar is already showing, and Today already works. This screen is a
 // one-time OFFER, not a step anyone can get stuck behind: leaving via the nav
 // is always available, and not picking a kind for a habit is exactly what
-// "declining" looks like (HABIT-VS-ACTIVITY-MODEL.md's "empty is a signal,
+// "declining" looks like (ARCHITECTURE.md's "empty is a signal,
 // not a failure").
 //
 // Three states, not two: still-plain habits to pick a kind + briefing for;
