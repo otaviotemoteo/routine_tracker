@@ -20,6 +20,13 @@ drizzle/
 # Vercel
 .vercel
 
+# Neon CLI link state (project/branch ids) and agent-skill tooling — local,
+# not part of the app
+.neon
+.agents/
+.claude/
+skills-lock.json
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
