@@ -76,7 +76,7 @@ export const EMPTY_ACTIVITY_CONTEXT: ActivityContext = {
 // One activity's check for one day, flattened with the fields the UI needs —
 // its own AND its parent habit's (for grouping/display). The grain is the
 // ACTIVITY: a habit with two activities produces two of these per day. See
-// docs/HABIT-VS-ACTIVITY-MODEL.md.
+// docs/ARCHITECTURE.md.
 export interface CheckWithActivity {
   id: number;
   activityId: number;
