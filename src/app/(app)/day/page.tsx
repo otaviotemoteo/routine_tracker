@@ -7,6 +7,7 @@ import { DailyIndex } from "@/components/daily/DailyIndex";
 import { getDayChecks, getTodayContext } from "@/db/queries";
 import { getLang } from "@/lib/get-lang";
 import { COPY, format } from "@/lib/i18n";
+import { EMPTY_ACTIVITY_CONTEXT } from "@/types/habit";
 import {
   dailyStepNumber,
   nextDailyHref,
@@ -92,7 +93,7 @@ export default async function DayPage({ searchParams }: DayPageProps) {
       <DailyStep
         key={check.id}
         check={check}
-        context={context}
+        context={context.activities[check.activityId] ?? EMPTY_ACTIVITY_CONTEXT}
         lang={lang}
         copy={copy.daily}
         sheetCopy={copy.sheets}
