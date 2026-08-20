@@ -254,12 +254,15 @@ async function main(): Promise<void> {
     `);
 
     // ── Guard-count logging — visibility, not a gate ─────────────────────────
-    const [{ rows: habitCount }, { rows: activityCount }, { rows: checkCount }] =
-      await Promise.all([
-        client.query(`SELECT count(*)::int AS n FROM habits`),
-        client.query(`SELECT count(*)::int AS n FROM activities`),
-        client.query(`SELECT count(*)::int AS n FROM daily_checks`),
-      ]);
+    // Sequential, not Promise.all: a single pg.Client serializes queries over
+    // one connection, so firing several concurrently just races them.
+    const { rows: habitCount } = await client.query(`SELECT count(*)::int AS n FROM habits`);
+    const { rows: activityCount } = await client.query(
+      `SELECT count(*)::int AS n FROM activities`,
+    );
+    const { rows: checkCount } = await client.query(
+      `SELECT count(*)::int AS n FROM daily_checks`,
+    );
     console.log(`  habits: ${habitCount[0].n} row(s).`);
     console.log(`  activities: ${activityCount[0].n} row(s).`);
     console.log(`  daily_checks: ${checkCount[0].n} row(s), all with an activity_id.`);
