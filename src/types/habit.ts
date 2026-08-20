@@ -8,8 +8,9 @@ export interface Habit {
   optional: boolean;
 }
 
-// Everything the per-habit detail sheets need to render their forms with the
-// user's configured entities. Plain serializable data (crosses to the client).
+// Everything the per-activity detail sheets need to render their forms with
+// the user's configured entities. Plain serializable data (crosses to the
+// client).
 export interface PlanDay {
   id: number;
   weekday: number;
@@ -17,8 +18,11 @@ export interface PlanDay {
   exercises: PlannedExercise[];
 }
 
-export interface TodayContext {
-  weekday: number; // ISO 1..7
+// One rich-kind ACTIVITY's own resolved context for a given day — what used
+// to be the whole of TodayContext, back when there was exactly one workout
+// habit, one reading habit, etc. per account. Now there can be more than
+// one activity of a kind, so this lives per-activity, not per-account.
+export interface ActivityContext {
   plan: {
     name: string;
     // Today's planned day (null on a rest day), plus every day of the plan so
@@ -50,37 +54,60 @@ export interface TodayContext {
   practices: { slug: string; name: string; countable: boolean }[];
 }
 
-// One habit's check for one day, flattened with the habit fields the UI needs.
-export interface CheckWithHabit {
+export interface TodayContext {
+  weekday: number; // ISO 1..7 — shared; the same date for every activity
+  // Keyed by activityId. Only rich-kind activities live today have an entry;
+  // a plain activity's card needs none of this.
+  activities: Record<number, ActivityContext>;
+}
+
+// A shared empty slice for a plain activity, or a rich one with no entry for
+// this date — safe to share since nothing mutates it after construction.
+export const EMPTY_ACTIVITY_CONTEXT: ActivityContext = {
+  plan: null,
+  book: null,
+  sleepTarget: null,
+  routineBlocks: [],
+  routineBlockCount: 0,
+  languages: [],
+  practices: [],
+};
+
+// One activity's check for one day, flattened with the fields the UI needs —
+// its own AND its parent habit's (for grouping/display). The grain is the
+// ACTIVITY: a habit with two activities produces two of these per day. See
+// docs/HABIT-VS-ACTIVITY-MODEL.md.
+export interface CheckWithActivity {
   id: number;
-  habitId: number;
+  activityId: number;
   checkedAt: string; // YYYY-MM-DD (São Paulo calendar day)
   done: boolean;
   // Tier 2 (v2): granular answers validated by details-schemas.ts; null when
   // the day was quick-toggled or predates v2. `note` is always-optional text.
   details: unknown;
   note: string | null;
+  // The activity's own card label ("Treino", "Corrida") and per-account slug.
   name: string;
   slug: string;
+  // The umbrella habit this activity belongs to — additive, for grouping
+  // activities visually under their habit's name.
+  habitId: number;
+  habitName: string;
+  // Inherited from the habit: an optional habit's activities never penalize.
   optional: boolean;
-  // Which renderer this habit uses. Null is the generic one — the normal case
-  // for anything created after the remodel. The seven migrated habits carry
-  // their old slug here and keep their original cards.
+  // Which renderer this activity uses. Null is the generic one.
   templateKind: string | null;
-  // The metric spine, which is what the generic renderer draws instead of the
-  // per-area knowledge the seven templates have.
+  // The metric spine, which is what the generic renderer draws instead of
+  // the per-area knowledge the seven templates have.
   metricType: MetricType;
   unit: string | null;
   target: number | null;
   minimalAction: string | null;
-  // Template-kind-specific setup, filled in by the kind's own step in the
-  // chooser rather than the habit form — see src/lib/templates.ts. Only the
-  // `checklist` kind reads it today (`{ items: string[] }`); every other kind
-  // ignores it, so it stays `unknown` rather than a kind-specific type here.
+  // Template-kind-specific setup — see src/lib/config-schemas.ts.
   config: unknown;
-  // The life area this habit descends from — the icon a plain habit falls
-  // back to. Null for a habit written before any values check-in, which is
-  // rendered as not yet anchored to a value rather than as an error.
+  // The life area this activity's habit descends from — the icon a plain
+  // activity falls back to. Null for a habit written before any values
+  // check-in, rendered as not yet anchored to a value rather than an error.
   domainSlug: string | null;
 }
 
@@ -93,10 +120,12 @@ export interface WeekCell {
   partial: boolean;
 }
 
-export interface WeekHabitRow {
-  habitId: number;
+export interface WeekActivityRow {
+  activityId: number;
   name: string;
   slug: string;
+  habitId: number;
+  habitName: string;
   optional: boolean;
   templateKind: string | null;
   domainSlug: string | null;
@@ -104,28 +133,31 @@ export interface WeekHabitRow {
   // database counts as not done.
   done: boolean[];
   cells: WeekCell[];
-  // Share of the week's days this habit was done, 0–100.
+  // Share of the week's days this activity was done, 0–100.
   percent: number;
 }
 
 export interface WeekData {
   start: string; // always a Monday
   days: string[]; // 7 dates, Monday through Sunday
-  habits: WeekHabitRow[];
+  activities: WeekActivityRow[];
   // Days of this week that have happened AND are on or after the first ever
   // record — the denominator, and the days worth opening a summary for.
   countedDays: number;
   tracked: boolean[];
-  // Slugs of the best/worst required habit of the week (optional habits are
-  // excluded per README Decision 6); null when the week has no checks at all.
+  // Slugs of the best/worst required activity of the week (optional
+  // activities are excluded per README Decision 6); null when the week has
+  // no checks at all.
   bestSlug: string | null;
   worstSlug: string | null;
 }
 
-export interface MonthHabitStats {
-  habitId: number;
+export interface MonthActivityStats {
+  activityId: number;
   name: string;
   slug: string;
+  habitId: number;
+  habitName: string;
   optional: boolean;
   templateKind: string | null;
   domainSlug: string | null;
@@ -137,5 +169,5 @@ export interface MonthHabitStats {
 
 export interface MonthData {
   month: string; // YYYY-MM
-  habits: MonthHabitStats[];
+  activities: MonthActivityStats[];
 }
