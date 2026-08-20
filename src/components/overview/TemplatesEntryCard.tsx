@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LayoutTemplate, ChevronRight } from "lucide-react";
-import { listHabits } from "@/db/habits";
+import { listTrackedActivities } from "@/db/habits";
 import { format, type Copy } from "@/lib/i18n";
 import { isChoosableTemplateKind, isGenericTemplateKind } from "@/lib/templates";
 import type { UserId } from "@/db/scope";
@@ -13,15 +13,13 @@ import type { UserId } from "@/db/scope";
 // links somewhere else entirely and only ever appears here.
 export async function TemplatesEntryCard({
   userId,
-  today,
   copy,
 }: {
   userId: UserId;
-  today: string;
   copy: Copy["today"];
 }) {
-  const habits = await listHabits(userId, today);
-  const eligible = habits.filter((h) => isChoosableTemplateKind(h.templateKind));
+  const activities = await listTrackedActivities(userId);
+  const eligible = activities.filter((h) => isChoosableTemplateKind(h.templateKind));
   if (eligible.length === 0) return null;
   const chosen = eligible.filter((h) => isGenericTemplateKind(h.templateKind)).length;
 
