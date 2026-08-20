@@ -63,11 +63,11 @@ settle decisions that were already made, not re-open them.
   but need decoding. Say "All exercises done", "9 pages read", "7h slept",
   "4 of 6 blocks followed" (`src/lib/summaries.ts`).
 - **Empty is a signal, not a failure — and it has to actually mean what it
-  says.** A habit with nothing configured yet is a real, legible state
-  (`HABIT-VS-ACTIVITY-MODEL.md`: an umbrella habit with no activities is
-  information for the next check-in, not something to hide or apologize
-  for) — which only holds if the copy for "never set up" and "set up, just
-  nothing today" are two different sentences. They weren't, for two of the
+  says.** A habit with nothing configured yet is a real, legible state (its
+  default activity carrying no rich config is information for the next
+  check-in, not something to hide or apologize for — see `docs/ARCHITECTURE.md`,
+  "Activities become real") — which only holds if the copy for "never set up"
+  and "set up, just nothing today" are two different sentences. They weren't, for two of the
   five rich kinds, until this was found live: a workout card said "Rest day
   — nothing scheduled" whether a plan existed or not, and a routine card said
   "Not set up yet" even when blocks existed on other weekdays (`today-card.ts`
