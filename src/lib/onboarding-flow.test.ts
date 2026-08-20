@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sql } from "drizzle-orm";
 import { DOMAIN_SLUGS } from "./domains";
-import { PLAIN_KIND } from "./templates";
 import type { UserId } from "@/db/scope";
 
 // Covers the two regressions this resolver exists to prevent — see
@@ -114,16 +113,8 @@ describe.skipIf(!LIVE)("resolveOnboardingStep", () => {
       }
       await Habits.createHabit(
         userId,
-        {
-          name: "Proposed habit",
-          domainSlug: null,
-          metricType: "binary",
-          unit: null,
-          target: null,
-          minimalAction: "one step",
-          templateKind: PLAIN_KIND,
-          why: "generated",
-        },
+        { name: "Proposed habit", domainSlug: null, why: "generated" },
+        { metricType: "binary", unit: null, target: null, minimalAction: "one step" },
         { source: "ai_suggested", activeFrom: null }
       );
 
