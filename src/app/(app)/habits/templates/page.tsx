@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { StepTitle } from "@/components/onboarding/OnboardingChrome";
 import { TemplateChooserList } from "@/components/habits/TemplateChooserList";
-import { listHabits } from "@/db/habits";
+import { listTrackedActivities } from "@/db/habits";
 import { getLang } from "@/lib/get-lang";
 import { COPY, format } from "@/lib/i18n";
 import { primaryButton } from "@/components/ui/styles";
 import { isChoosableTemplateKind, isGenericTemplateKind } from "@/lib/templates";
 import { requireUserId } from "@/lib/session";
-import { todayInSaoPaulo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +26,7 @@ export default async function TemplatesPage({
   const copy = COPY[lang].templates;
   const todayCopy = COPY[lang].today;
 
-  const allHabits = await listHabits(userId, todayInSaoPaulo());
+  const allHabits = await listTrackedActivities(userId);
   // The seven legacy kinds aren't offered here — see src/lib/templates.ts for
   // why a chooser can't safely touch them. Showing a control for something it
   // can't act on is exactly what UX_PRINCIPLES.md rules out.
