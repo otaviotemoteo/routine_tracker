@@ -11,7 +11,7 @@ import type { Lang } from "@/lib/i18n";
 // the diagnostic engine found there. Output: one or two candidate UMBRELLA
 // habits per area, which a human then edits, removes or accepts.
 //
-// "Umbrella" is load-bearing (see HABIT-VS-ACTIVITY-MODEL.md): a habit here is
+// "Umbrella" is load-bearing (see ARCHITECTURE.md): a habit here is
 // one zoom level below the life area itself ("physical activity" for Health)
 // and one zoom level above a concrete, dated gesture ("Monday's workout") —
 // the latter is an ACTIVITY, generated later, for a specific habit, only on
