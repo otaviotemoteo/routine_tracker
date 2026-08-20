@@ -1,6 +1,6 @@
 // Moves the metric spine and the template layer from `habits` onto a new
 // `activities` table, and re-grains `daily_checks` from per-habit to
-// per-activity — see docs/HABIT-VS-ACTIVITY-MODEL.md.
+// per-activity — see docs/ARCHITECTURE.md.
 //
 //   bun run db:migrate:activities
 //
@@ -104,7 +104,7 @@ async function main(): Promise<void> {
     // for config's own contents — this step doesn't touch config at all, it
     // only relocates the column. `why` is left NULL: it's reserved for a
     // per-activity briefing, not a copy of the habit's own `why` — see
-    // docs/HABIT-VS-ACTIVITY-MODEL.md.
+    // docs/ARCHITECTURE.md.
     const seeded = await client.query(`
       INSERT INTO activities
         (user_id, habit_id, name, slug, metric_type, unit, target,
