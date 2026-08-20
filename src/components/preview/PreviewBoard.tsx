@@ -7,7 +7,7 @@ import { ListCard } from "@/components/onboarding/ListCard";
 import { SetupPanel } from "@/components/onboarding/SetupPanel";
 import { inputClass } from "@/components/ui/styles";
 import { COPY, format, type Copy, type Lang } from "@/lib/i18n";
-import type { HabitRow } from "@/db/habits";
+import type { ActivityWithHabit } from "@/db/habits";
 
 // The half of the preview that has to be pressed to be judged.
 //
@@ -32,7 +32,7 @@ export function PreviewBoard({
   habits,
 }: {
   lang: Lang;
-  habits: HabitRow[];
+  habits: ActivityWithHabit[];
 }) {
   const copy = COPY[lang];
   const [bedtime, setBedtime] = useState("23:00");
