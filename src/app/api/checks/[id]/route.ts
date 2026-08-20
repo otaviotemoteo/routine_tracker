@@ -66,15 +66,17 @@ export async function PATCH(
     // another user's habit could be slugged "leitura" without being one.
     let validated: unknown = null;
     let templateKind: string | null = null;
+    let activityId: number | null = null;
     if (details !== undefined && details !== null) {
-      const habit = await getCheckTemplateKind(userId, checkId);
-      if (!habit) {
+      const activity = await getCheckTemplateKind(userId, checkId);
+      if (!activity) {
         return NextResponse.json(
           { error: "Check não encontrado" },
           { status: 404 }
         );
       }
-      templateKind = habit.templateKind;
+      templateKind = activity.templateKind;
+      activityId = activity.activityId;
       try {
         validated = parseDetails(templateKind, details);
       } catch (err) {
@@ -100,12 +102,18 @@ export async function PATCH(
       );
     }
 
-    // Reading side-effect: advance the book's page / finish it. Only the
-    // owner's migrated reading habit carries this kind, so a friend's habit
-    // that happens to share the slug never reaches it.
-    if (templateKind === "leitura" && validated) {
+    // Reading side-effect: advance the book's page / finish it. Scoped to
+    // the specific activity the check belongs to, not just the account —
+    // more than one reading-kind activity can exist now.
+    if (templateKind === "leitura" && validated && activityId !== null) {
       const d = validated as { book_id: number; ended_on_page: number };
-      await applyReadingProgress(userId, d.book_id, d.ended_on_page, check.checkedAt);
+      await applyReadingProgress(
+        userId,
+        activityId,
+        d.book_id,
+        d.ended_on_page,
+        check.checkedAt
+      );
     }
 
     return NextResponse.json(check);
