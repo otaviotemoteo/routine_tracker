@@ -53,10 +53,12 @@ export default async function EditHabitPage({
           id: habit.id,
           name: habit.name,
           domainSlug,
-          metricType: habit.metricType,
-          unit: habit.unit ?? "",
-          target: habit.target === null ? "" : String(habit.target),
-          minimalAction: habit.minimalAction ?? "",
+          // Unused when editing (HabitForm shows name/area only past this
+          // point) — the habit no longer carries a metric spine at all.
+          metricType: "binary",
+          unit: "",
+          target: "",
+          minimalAction: "",
         }}
         lang={lang}
         copy={copy}
