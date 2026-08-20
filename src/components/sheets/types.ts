@@ -1,22 +1,26 @@
 import type { Copy, Lang } from "@/lib/i18n";
-import type { CheckWithHabit, TodayContext } from "@/types/habit";
+import type { ActivityContext, CheckWithActivity } from "@/types/habit";
 
-// Each per-habit sheet body reads the day's context + any existing details,
-// and emits the `details` object (or null when nothing meaningful to save)
-// through onChange. The HabitSheet shell owns the note, save button and PATCH.
+// Each per-activity sheet body reads the day's context + any existing
+// details, and emits the `details` object (or null when nothing meaningful
+// to save) through onChange. The HabitSheet shell owns the note, save button
+// and PATCH.
 export interface SheetBodyProps {
-  context: TodayContext;
+  // Already resolved to THIS activity's own slice — see
+  // docs/HABIT-VS-ACTIVITY-MODEL.md. The shell picks context.activities[id]
+  // once so no body has to know the map shape.
+  context: ActivityContext;
   initial: unknown;
   copy: Copy["sheets"];
   lang: Lang;
   onChange: (details: unknown) => void;
-  // The habit itself. The seven original bodies ignore this — everything they
-  // need is in `context`, which is built from the per-area tables. The generic
-  // bodies have no such tables to read, so their whole form (a number, a unit,
-  // a target to compare against, or — for Checklist — the habit's own named
-  // items) comes from here.
+  // The activity itself. The seven original bodies ignore this — everything
+  // they need is in `context`, which is built from config-schemas.ts. The
+  // generic bodies have no such config to read, so their whole form (a
+  // number, a unit, a target to compare against, or — for Checklist — the
+  // activity's own named items) comes from here.
   habit: Pick<
-    CheckWithHabit,
+    CheckWithActivity,
     "name" | "metricType" | "unit" | "target" | "minimalAction" | "config"
   >;
 }
