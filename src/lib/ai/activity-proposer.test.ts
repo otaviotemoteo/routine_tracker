@@ -14,8 +14,13 @@ describe("buildPrompt — deterministic", () => {
   const input: ActivityProposerInput = {
     lang: "en",
     habits: [
-      { habitName: "physical activity", why: "Move more.", kind: "treino" },
-      { habitName: "reading", why: null, kind: "leitura" },
+      {
+        habitName: "physical activity",
+        why: "Move more.",
+        briefing: "a beginner strength split, 3 days a week",
+        kind: "treino",
+      },
+      { habitName: "reading", why: null, briefing: null, kind: "leitura" },
     ],
     request: null,
   };
@@ -29,6 +34,24 @@ describe("buildPrompt — deterministic", () => {
   test("instructs answering every habit, in order, matching kind", () => {
     expect(system).toContain("Answer for EVERY habit listed, in the exact same order");
     expect(system).toContain("Each proposal's kind must match");
+  });
+
+  test("carries a habit's own briefing, omits it when absent", () => {
+    expect(prompt).toContain(
+      '  What they specifically want here: "a beginner strength split, 3 days a week"'
+    );
+    // Habit 2 has no briefing — its block must not carry the line at all.
+    const habit2Block = prompt.slice(prompt.indexOf('HABIT 2'));
+    expect(habit2Block).not.toContain("What they specifically want here");
+  });
+
+  test("tells the model a habit's own briefing wins over the batch request", () => {
+    // Whitespace-normalized: the source wraps this sentence across lines, and
+    // a template literal keeps that literal newline+indent in the string.
+    const normalized = system.replace(/\s+/g, " ");
+    expect(normalized).toContain(
+      "a habit's own briefing is the more specific instruction and wins"
+    );
   });
 });
 
@@ -48,11 +71,13 @@ describe.skipIf(!LIVE)("activity_proposer — real batched generation", () => {
         {
           habitName: "physical activity",
           why: "Move my body most days without it feeling like a chore.",
+          briefing: null,
           kind: "treino",
         },
         {
           habitName: "reading",
           why: "Read more fiction to unwind in the evenings.",
+          briefing: null,
           kind: "leitura",
         },
       ],
