@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertTriangle, Plus } from "lucide-react";
 import { AssessmentShell } from "@/components/assessment/AssessmentShell";
 import { StepTitle } from "@/components/onboarding/OnboardingChrome";
-import { HabitGroups } from "@/components/habits/HabitGroups";
+import { ProposedHabitGroups } from "@/components/habits/ProposedHabitGroups";
 import { StartTrackingButton } from "@/components/habits/StartTrackingButton";
 import { removeHabitAction, startTrackingAction } from "@/app/(app)/habits/actions";
 import { findPendingRequest } from "@/db/ai";
@@ -138,7 +138,7 @@ export default async function HabitsReviewPage({
           {/* showSource marks a suggestion as a suggestion until it is touched
               — which is what makes accept / edit / reject legible rather than
               implicit. */}
-          <HabitGroups
+          <ProposedHabitGroups
             habits={proposed}
             lang={lang}
             copy={copy}
