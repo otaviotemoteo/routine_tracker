@@ -15,6 +15,8 @@
     "db:migrate:habits": "bun src/db/migrate-habits.ts",
     "db:migrate:ai": "bun src/db/migrate-ai.ts",
     "db:migrate:rich-configs": "bun src/db/migrate-rich-configs.ts",
+    "db:migrate:activities": "bun src/db/migrate-activities.ts",
+    "db:migrate:activities:cleanup": "bun src/db/migrate-activities-cleanup.ts",
     "user:create": "bun src/db/create-user.ts",
     "user:password": "bun src/db/set-password.ts",
     "assessment:seed": "bun src/db/seed-assessment.ts",
