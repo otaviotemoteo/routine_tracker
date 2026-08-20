@@ -3,8 +3,12 @@ import { Plus } from "lucide-react";
 import { StepTitle } from "@/components/onboarding/OnboardingChrome";
 import { HabitGroups } from "@/components/habits/HabitGroups";
 import { PendingNotice } from "@/components/habits/PendingNotice";
-import { removeHabitAction } from "./actions";
-import { getHabitStreaks, listHabits, listProposedHabits } from "@/db/habits";
+import { removeActivityAction } from "./actions";
+import {
+  getActivityStreaks,
+  listProposedHabits,
+  listTrackedActivities,
+} from "@/db/habits";
 import { findPendingRequest } from "@/db/ai";
 import { getLang } from "@/lib/get-lang";
 import { COPY, format } from "@/lib/i18n";
@@ -23,10 +27,10 @@ export default async function HabitsPage() {
 
   const today = todayInSaoPaulo();
   const [habits, proposed, pending, streaks] = await Promise.all([
-    listHabits(userId, today),
+    listTrackedActivities(userId),
     listProposedHabits(userId),
     findPendingRequest(userId, "habit_suggester"),
-    getHabitStreaks(userId, today),
+    getActivityStreaks(userId, today),
   ]);
 
   // Habits with no life area still count on Today, but they sit outside the
@@ -96,8 +100,8 @@ export default async function HabitsPage() {
             habits={habits}
             lang={lang}
             copy={copy}
-            removeAction={removeHabitAction}
-            editHrefFor={(id) => `/habits/${id}`}
+            removeAction={removeActivityAction}
+            editHrefFor={(id) => `/config?activity=${id}`}
             next="/habits"
             streaks={streaks}
           />
