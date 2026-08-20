@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ChevronRight, ArrowLeft } from "lucide-react";
 import { WorkoutStep } from "@/components/onboarding/WorkoutStep";
 import { ReadingStep } from "@/components/onboarding/ReadingStep";
@@ -6,8 +7,9 @@ import { SleepStep } from "@/components/onboarding/SleepStep";
 import { RoutineStep } from "@/components/onboarding/RoutineStep";
 import { DuolingoStep } from "@/components/onboarding/DuolingoStep";
 import { SpiritualityStep } from "@/components/onboarding/SpiritualityStep";
+import { ActivityForm } from "@/components/habits/ActivityForm";
 import { LanguageSelect } from "@/components/landing/LanguageSelect";
-import { getSetupSummary } from "@/lib/setup-summary";
+import { listTrackedActivities, getActivity } from "@/db/habits";
 import {
   saveDuolingoStep,
   saveReadingStep,
@@ -15,6 +17,7 @@ import {
   saveSleepStep,
   saveSpiritualityStep,
   saveWorkoutStep,
+  updateActivityAction,
 } from "@/app/config/actions";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
@@ -30,156 +33,199 @@ import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-const SECTIONS = [
-  "workout",
-  "reading",
-  "sleep",
-  "routine",
-  "duolingo",
-  "spirituality",
-] as const;
-type Section = (typeof SECTIONS)[number];
-
 interface ConfigPageProps {
-  searchParams: Promise<{ section?: string; from?: string }>;
+  searchParams: Promise<{ activity?: string; from?: string }>;
 }
 
-// Reuses the onboarding step components. Both Back and Save return wherever
-// the edit was entered from — the Config list by default, or Overview when
-// reached from its Activities section (`?from=overview`) — since that's the
-// screen the change is meant to be seen on. The same server actions write.
+// Every tracked habit, each showing its own activities — not six fixed
+// sections. Clicking an activity dispatches to the rich-kind step component
+// that matches its template_kind, or the generic ActivityForm for a plain
+// one. See docs/HABIT-VS-ACTIVITY-MODEL.md. Both Back and Save return
+// wherever the edit was entered from — /config by default, or Overview when
+// reached from its Activities section (`?from=overview`).
 export default async function ConfigPage({ searchParams }: ConfigPageProps) {
   const userId = await requireUserId();
   const lang = await getLang();
   const copy = COPY[lang].onboarding;
-  const { section: raw, from } = await searchParams;
-  const section = SECTIONS.includes(raw as Section) ? (raw as Section) : null;
+  const habitsCopy = COPY[lang].habits;
+  const { activity: activityParam, from } = await searchParams;
+  const activityId = activityParam ? Number(activityParam) : null;
 
   const origin = from === "overview" ? "/overview" : "/config";
   const back = origin;
   const next = origin;
   const submit = copy.save;
 
+  if (activityId === null) {
+    const activities = await listTrackedActivities(userId);
+    const byHabit = new Map<
+      number,
+      { habitName: string; activities: typeof activities }
+    >();
+    for (const a of activities) {
+      const group = byHabit.get(a.habitId) ?? { habitName: a.habitName, activities: [] };
+      group.activities.push(a);
+      byHabit.set(a.habitId, group);
+    }
+
+    return (
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-24">
+        <div className="flex justify-end mb-4">
+          <LanguageSelect current={lang} />
+        </div>
+        <p className="eyebrow">{copy.config.eyebrow}</p>
+        <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-5">
+          {copy.config.title}
+        </h1>
+        <p className="opacity-75 mb-6">{copy.config.lead}</p>
+
+        {byHabit.size === 0 ? (
+          <p className="opacity-75">{habitsCopy.emptyLead}</p>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {[...byHabit.entries()].map(([habitId, group]) => (
+              <section key={habitId}>
+                <h2 className="eyebrow mb-2.5">{group.habitName}</h2>
+                <ul className="flex flex-col gap-3 list-none">
+                  {group.activities.map((a) => (
+                    <li key={a.id}>
+                      <Link
+                        href={`/config?activity=${a.id}${from ? `&from=${from}` : ""}`}
+                        className="min-h-[64px] flex items-center justify-between gap-3 px-5 py-3 rounded-card border-2 border-forest bg-white shadow-hard hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg transition-[transform,box-shadow] duration-150"
+                      >
+                        <span className="min-w-0">
+                          <span className="block font-semibold">{a.name}</span>
+                        </span>
+                        <ChevronRight className="w-5 h-5 shrink-0" aria-hidden />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )}
+
+        <Link
+          href="/"
+          className="mt-8 inline-flex items-center gap-1.5 font-semibold text-sm underline min-h-[44px]"
+        >
+          <ArrowLeft className="w-4 h-4" aria-hidden />
+          {copy.back}
+        </Link>
+      </main>
+    );
+  }
+
+  if (!Number.isInteger(activityId) || activityId <= 0) notFound();
+  const activity = await getActivity(userId, activityId);
+  if (!activity) notFound();
+
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-24">
-      {/* No NavBar on this route, so the language toggle lives here. */}
       <div className="flex justify-end mb-4">
         <LanguageSelect current={lang} />
       </div>
-      {section === null ? (
-        <>
-          <p className="eyebrow">{copy.config.eyebrow}</p>
-          <h1 className="display-title text-4xl sm:text-5xl mt-2 mb-5">
-            {copy.config.title}
-          </h1>
-          <p className="opacity-75 mb-6">{copy.config.lead}</p>
-          <ul className="flex flex-col gap-3 list-none">
-            {(await getSetupSummary(userId, copy)).map((row) => (
-              <li key={row.section}>
-                <Link
-                  href={`/config?section=${row.section}`}
-                  className="min-h-[64px] flex items-center justify-between gap-3 px-5 py-3 rounded-card border-2 border-forest bg-white shadow-hard hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg transition-[transform,box-shadow] duration-150"
-                >
-                  <span className="min-w-0">
-                    <span className="block font-semibold">{row.label}</span>
-                    <span
-                      className={`block text-sm truncate ${
-                        row.value ? "opacity-75" : "opacity-50"
-                      }`}
-                    >
-                      {row.value ?? copy.review.notSet}
-                    </span>
-                  </span>
-                  <ChevronRight className="w-5 h-5 shrink-0" aria-hidden />
-                </Link>
-              </li>
-            ))}
-          </ul>
-
-          <Link
-            href="/"
-            className="mt-8 inline-flex items-center gap-1.5 font-semibold text-sm underline min-h-[44px]"
-          >
-            <ArrowLeft className="w-4 h-4" aria-hidden />
-            {copy.back}
-          </Link>
-        </>
-      ) : (
-        <>
-          {section === "workout" && (
-            <WorkoutStep
-              action={saveWorkoutStep}
-              next={next}
-              backHref={back}
-              submitLabel={submit}
-              copy={copy}
-              requireDirtyToSave
-              titleBackHref={origin}
-              {...(await workoutInitial(userId))}
-            />
-          )}
-          {section === "reading" && (
-            <ReadingStep
-              action={saveReadingStep}
-              next={next}
-              backHref={back}
-              submitLabel={submit}
-              copy={copy}
-              requireDirtyToSave
-              titleBackHref={origin}
-              {...(await readingInitial(userId))}
-            />
-          )}
-          {section === "sleep" && (
-            <SleepStep
-              action={saveSleepStep}
-              next={next}
-              backHref={back}
-              submitLabel={submit}
-              copy={copy}
-              requireDirtyToSave
-              titleBackHref={origin}
-              {...(await sleepInitial(userId))}
-            />
-          )}
-          {section === "routine" && (
-            <RoutineStep
-              action={saveRoutineStep}
-              next={next}
-              backHref={back}
-              submitLabel={submit}
-              copy={copy}
-              requireDirtyToSave
-              titleBackHref={origin}
-              initialBlocks={await routineInitial(userId)}
-            />
-          )}
-          {section === "duolingo" && (
-            <DuolingoStep
-              action={saveDuolingoStep}
-              next={next}
-              backHref={back}
-              submitLabel={submit}
-              copy={copy}
-              requireDirtyToSave
-              titleBackHref={origin}
-              initialLanguages={await duolingoInitial(userId)}
-            />
-          )}
-          {section === "spirituality" && (
-            <SpiritualityStep
-              action={saveSpiritualityStep}
-              next={next}
-              backHref={back}
-              submitLabel={submit}
-              copy={copy}
-              requireDirtyToSave
-              titleBackHref={origin}
-              initialPractices={await spiritualityInitial(userId)}
-            />
-          )}
-        </>
+      {activity.templateKind === "treino" && (
+        <WorkoutStep
+          action={saveWorkoutStep.bind(null, activityId)}
+          next={next}
+          backHref={back}
+          submitLabel={submit}
+          copy={copy}
+          requireDirtyToSave
+          titleBackHref={origin}
+          {...(await workoutInitial(userId, activityId))}
+        />
       )}
+      {activity.templateKind === "leitura" && (
+        <ReadingStep
+          action={saveReadingStep.bind(null, activityId)}
+          next={next}
+          backHref={back}
+          submitLabel={submit}
+          copy={copy}
+          requireDirtyToSave
+          titleBackHref={origin}
+          {...(await readingInitial(userId, activityId))}
+        />
+      )}
+      {activity.templateKind === "sono" && (
+        <SleepStep
+          action={saveSleepStep.bind(null, activityId)}
+          next={next}
+          backHref={back}
+          submitLabel={submit}
+          copy={copy}
+          requireDirtyToSave
+          titleBackHref={origin}
+          {...(await sleepInitial(userId, activityId))}
+        />
+      )}
+      {activity.templateKind === "rotina" && (
+        <RoutineStep
+          action={saveRoutineStep.bind(null, activityId)}
+          next={next}
+          backHref={back}
+          submitLabel={submit}
+          copy={copy}
+          requireDirtyToSave
+          titleBackHref={origin}
+          initialBlocks={await routineInitial(userId, activityId)}
+        />
+      )}
+      {activity.templateKind === "duolingo" && (
+        <DuolingoStep
+          action={saveDuolingoStep.bind(null, activityId)}
+          next={next}
+          backHref={back}
+          submitLabel={submit}
+          copy={copy}
+          requireDirtyToSave
+          titleBackHref={origin}
+          initialLanguages={await duolingoInitial(userId, activityId)}
+        />
+      )}
+      {activity.templateKind === "espiritualidade" && (
+        <SpiritualityStep
+          action={saveSpiritualityStep.bind(null, activityId)}
+          next={next}
+          backHref={back}
+          submitLabel={submit}
+          copy={copy}
+          requireDirtyToSave
+          titleBackHref={origin}
+          initialPractices={await spiritualityInitial(userId, activityId)}
+        />
+      )}
+      {/* Hobby has no setup at all — see src/lib/templates.ts — so there is
+          nothing for this screen to edit. Anything else (null, or one of the
+          five card-style-chooser kinds) is a plain activity. */}
+      {activity.templateKind === "hobby" && (
+        <p className="opacity-75 mt-6">{habitsCopy.emptyLead}</p>
+      )}
+      {activity.templateKind !== "treino" &&
+        activity.templateKind !== "leitura" &&
+        activity.templateKind !== "sono" &&
+        activity.templateKind !== "rotina" &&
+        activity.templateKind !== "duolingo" &&
+        activity.templateKind !== "espiritualidade" &&
+        activity.templateKind !== "hobby" && (
+          <ActivityForm
+            action={updateActivityAction}
+            initial={{
+              id: activity.id,
+              name: activity.name,
+              metricType: activity.metricType,
+              unit: activity.unit ?? "",
+              target: activity.target === null ? "" : String(activity.target),
+              minimalAction: activity.minimalAction ?? "",
+            }}
+            copy={habitsCopy}
+            next={next}
+            cancelHref={back}
+          />
+        )}
     </main>
   );
 }
