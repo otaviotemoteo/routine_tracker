@@ -42,10 +42,10 @@ export function ActivitiesSection({
 
       <ul className="flex flex-col gap-2.5 list-none">
         {rows.map((row) => {
-          const showPace = row.section === "reading" && row.hintTone === "info";
+          const showPace = row.templateKind === "leitura" && row.hintTone === "info";
           return (
             <li
-              key={row.section}
+              key={row.activityId}
               className={`min-h-[74px] flex items-center gap-3 flex-wrap px-4 py-3 rounded-card border-2 border-forest shadow-hard ${
                 row.configured ? "bg-white" : "bg-cream"
               }`}
@@ -94,7 +94,7 @@ export function ActivitiesSection({
                   <PaceInfo copy={readingCopy} values={row.paceValues} />
                 )}
                 <Link
-                  href={`/config?section=${row.section}&from=overview`}
+                  href={`/config?activity=${row.activityId}&from=overview`}
                   className={ghostButton}
                 >
                   <Pencil className="w-4 h-4 mr-1.5" aria-hidden />
