@@ -150,6 +150,14 @@ export type ProposableKind = Exclude<RichTemplateKind, "sono" | "hobby">;
 export interface ActivityBatchHabit {
   habitName: string;
   why: string | null;
+  // The per-habit briefing typed on /onboarding/activities ("escreva
+  // brevemente uma ação que você gostaria de fazer aqui") — the context that
+  // gives generation something real to be assertive about, answering the
+  // "onboarding-time calls have no why" gap `why` alone doesn't close (a
+  // habit's `why` explains the AREA; this explains what THIS ACTIVITY should
+  // actually be). Parallel to `why`, not a replacement for it — both travel
+  // to the model when present. See docs/HABIT-VS-ACTIVITY-MODEL.md.
+  briefing: string | null;
   kind: ProposableKind;
 }
 
@@ -190,12 +198,14 @@ Rules, in order of importance:
 3. Small and concrete. A reading list is real books with real page counts you
    know, not placeholders. A workout plan is exercises with real, sane sets/
    reps for a beginner unless told otherwise.
-4. If given an explicit request ("recommend me 5 fiction books", "a Monday to
-   Friday plan"), it applies to whichever habit it's about — follow it
-   precisely for that one. For any habit the request doesn't address, propose
-   a sensible, modest starter set from that habit's own name and 'why' alone:
-   2–3 books, a 3–4 day workout split, a handful of time blocks, 1–2
-   languages, 2–3 practices.
+4. Each habit may carry its OWN briefing — what that person specifically
+   wants for THIS habit, in their own words. Follow it precisely for that
+   habit. If given an explicit whole-batch request as well ("recommend me 5
+   fiction books"), that applies too, but a habit's own briefing is the more
+   specific instruction and wins if the two ever pull in different
+   directions. For any habit with neither, propose a sensible, modest
+   starter set from its name and 'why' alone: 2–3 books, a 3–4 day workout
+   split, a handful of time blocks, 1–2 languages, 2–3 practices.
 5. Never calculate a target, a frequency or a streak — that is not this
    proposal's job.
 6. This is a proposal a person will review, edit and accept item by item, not
@@ -215,6 +225,7 @@ function buildPrompt(input: ActivityProposerInput): {
       const lines = [
         `HABIT ${i + 1} (kind: ${h.kind}): "${h.habitName}"`,
         h.why ? `  Why this habit exists: "${h.why}"` : null,
+        h.briefing ? `  What they specifically want here: "${h.briefing}"` : null,
       ].filter(Boolean);
       return lines.join("\n");
     })
@@ -242,7 +253,10 @@ export const activityProposer: Generator<
   name: "activity_proposer",
   // Bumped 1 → 2: the input/output shape changed from one habit to a batch —
   // a cached single-habit answer is not a valid answer to the batched schema.
-  promptVersion: 2,
+  // Bumped 2 → 3: each habit now carries its own optional briefing, which
+  // changes what the prompt says even for a request whose other fields are
+  // identical to a cached one.
+  promptVersion: 3,
   schema: activityBatchProposal,
   buildPrompt,
 };
