@@ -15,7 +15,7 @@ export interface HabitFormValues {
   name: string;
   domainSlug: DomainSlug | null;
   // Only meaningful when creating: a new habit's default activity is
-  // created in the same submission (see docs/HABIT-VS-ACTIVITY-MODEL.md).
+  // created in the same submission (see docs/ARCHITECTURE.md).
   // Editing an existing habit shows name/area only — its metric spine
   // belongs to its activity now, edited from /config.
   metricType: MetricType;
@@ -68,7 +68,7 @@ function Section({
 // CREATING shows all three sections: name/area, metric (+ unit and target
 // when the metric has a number), and the minimal action — one submission
 // creates the habit AND its one default activity together (the
-// default-activity invariant, docs/HABIT-VS-ACTIVITY-MODEL.md).
+// default-activity invariant, docs/ARCHITECTURE.md).
 //
 // EDITING shows only the first section. The metric spine and minimal action
 // belong to the habit's activity now, not the umbrella — editing those
