@@ -91,7 +91,7 @@ export function proposedHabitsFor(userId: UserId) {
 }
 
 // Every user-facing read of `activities` goes through this — the same rule
-// habitsFor() enforces one layer up, see docs/HABIT-VS-ACTIVITY-MODEL.md.
+// habitsFor() enforces one layer up, see docs/ARCHITECTURE.md.
 // One extra guard beyond mirroring habitsFor(): an activity's own
 // active_from IS NOT NULL is necessary but not sufficient — its PARENT
 // HABIT must also be live on the date, so a bug in removeHabit's archive
