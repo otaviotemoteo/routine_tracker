@@ -54,7 +54,7 @@ export function describeDetails(
   details: unknown,
   // Nested by activityId: an id like plan_day_id or book_id is only unique
   // WITHIN one activity's own config now that two activities of the same
-  // kind can coexist (see docs/HABIT-VS-ACTIVITY-MODEL.md) — the flat,
+  // kind can coexist (see docs/ARCHITECTURE.md) — the flat,
   // account-wide maps this used to read from could collide across them.
   lookups: AuditLookups,
   activityId: number,
