@@ -2,10 +2,10 @@ import { habitIcon } from "@/lib/icons";
 import { isDomainSlug } from "@/lib/domains";
 import { ASSESSMENT_COPY } from "@/lib/i18n-assessment";
 import { format, type Copy, type Lang } from "@/lib/i18n";
-import type { HabitRow } from "@/db/habits";
+import type { ActivityWithHabit } from "@/db/habits";
 
 interface HabitSummaryRowProps {
-  habit: HabitRow;
+  habit: ActivityWithHabit;
   lang: Lang;
   copy: Copy["habits"];
   streak?: number;
