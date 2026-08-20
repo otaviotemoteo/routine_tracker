@@ -6,10 +6,10 @@ import { Pencil, Trash2 } from "lucide-react";
 import { habitIcon } from "@/lib/icons";
 import { format, type Copy } from "@/lib/i18n";
 import { ghostButton, iconButton } from "@/components/ui/styles";
-import type { HabitRow as HabitRowData } from "@/db/habits";
+import type { ActivityWithHabit } from "@/db/habits";
 
 interface HabitRowProps {
-  habit: HabitRowData;
+  habit: ActivityWithHabit;
   copy: Copy["habits"];
   editHref: string;
   removeAction: (formData: FormData) => void;
