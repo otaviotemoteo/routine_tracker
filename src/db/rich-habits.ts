@@ -1,6 +1,6 @@
 // Read/write access for the six rich template kinds' `config` — scoped to a
 // specific ACTIVITY, not "the account's one habit of a kind". See
-// docs/HABIT-VS-ACTIVITY-MODEL.md: two activities of the same kind, under
+// docs/ARCHITECTURE.md: two activities of the same kind, under
 // the same habit or different ones, now coexist by construction — there is
 // no more singleton to resolve, only the specific activity a caller already
 // knows the id of.
