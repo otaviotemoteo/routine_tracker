@@ -40,10 +40,24 @@ export type AuditBlock =
   // A 1–5 score, drawn as dots.
   | { kind: "rating"; label: string; value: number; max: number };
 
+const EMPTY_LOOKUP = {
+  books: {},
+  planDays: {},
+  planExercises: {},
+  blocks: {},
+  languages: {},
+  practices: {},
+};
+
 export function describeDetails(
   kind: string | null,
   details: unknown,
+  // Nested by activityId: an id like plan_day_id or book_id is only unique
+  // WITHIN one activity's own config now that two activities of the same
+  // kind can coexist (see docs/HABIT-VS-ACTIVITY-MODEL.md) — the flat,
+  // account-wide maps this used to read from could collide across them.
   lookups: AuditLookups,
+  activityId: number,
   copy: Copy["sheets"],
   todayCopy: Copy["today"],
   // A generic habit's own unit and target, which have no per-area table to
@@ -56,16 +70,17 @@ export function describeDetails(
   const d = rec(details);
   if (!d) return [];
   const blocks: AuditBlock[] = [];
+  const lookup = lookups[activityId] ?? EMPTY_LOOKUP;
 
   switch (templateKindOf(kind)) {
     case "treino": {
-      const focus = lookups.planDays[Number(d.plan_day_id)];
+      const focus = lookup.planDays[Number(d.plan_day_id)];
       if (focus) {
         blocks.push({ kind: "row", label: copy.workout.plan, value: focus });
       }
       if (Array.isArray(d.completed) && d.completed.length > 0) {
         const schemes: Record<string, string> =
-          lookups.planExercises[Number(d.plan_day_id)] ?? {};
+          lookup.planExercises[Number(d.plan_day_id)] ?? {};
         blocks.push({
           kind: "checklist",
           label: copy.workout.exercises,
@@ -92,7 +107,7 @@ export function describeDetails(
     }
 
     case "leitura": {
-      const title = lookups.books[Number(d.book_id)];
+      const title = lookup.books[Number(d.book_id)];
       if (title) {
         blocks.push({ kind: "stack", label: copy.reading.book, value: title });
       }
@@ -146,7 +161,7 @@ export function describeDetails(
           kind: "chips",
           label: copy.routine.followed,
           items: d.followed_block_ids.map(
-            (id) => lookups.blocks[Number(id)] ?? `#${id}`
+            (id) => lookup.blocks[Number(id)] ?? `#${id}`
           ),
         });
       }
@@ -154,7 +169,7 @@ export function describeDetails(
         blocks.push({
           kind: "row",
           label: copy.routine.struggled,
-          value: lookups.blocks[Number(d.struggled_block_id)] ?? "",
+          value: lookup.blocks[Number(d.struggled_block_id)] ?? "",
         });
       }
       if (typeof d.struggle_note === "string" && d.struggle_note) {
@@ -176,7 +191,7 @@ export function describeDetails(
           if (lessons === 0) continue;
           items.push({
             label: String(
-              lookups.languages[String(sr?.language_slug)] ?? sr?.language_slug
+              lookup.languages[String(sr?.language_slug)] ?? sr?.language_slug
             ),
             value: format(
               plural(lessons, todayCopy.sumLesson, todayCopy.sumLessons),
@@ -196,7 +211,7 @@ export function describeDetails(
           const pr = rec(p);
           blocks.push({
             kind: "row",
-            label: String(lookups.practices[String(pr?.slug)] ?? pr?.slug),
+            label: String(lookup.practices[String(pr?.slug)] ?? pr?.slug),
             value: typeof pr?.count === "number" ? `×${pr.count}` : "✓",
           });
         }
