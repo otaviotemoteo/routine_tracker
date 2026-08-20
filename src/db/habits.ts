@@ -3,7 +3,7 @@
 // (branded) user id first, and every id-addressed write filters on the user
 // too, so a foreign id matches no row rather than being mutated.
 //
-// See docs/HABIT-VS-ACTIVITY-MODEL.md for the model this module implements.
+// See docs/ARCHITECTURE.md for the model this module implements.
 // A habit is the umbrella (name, domain, lifecycle, no metric). An activity
 // is the concrete, independently-checkable, independently-measured thing
 // inside it (the metric spine, the template kind, its own lifecycle) — one
@@ -248,7 +248,7 @@ export interface ActivityWithHabit extends ActivityRow {
 // Every tracked activity, across every habit, in habit-then-activity order —
 // the /habits list and the card-style chooser both read this rather than
 // listHabits(), since the grain either screen actually shows is the
-// activity now (see docs/HABIT-VS-ACTIVITY-MODEL.md).
+// activity now (see docs/ARCHITECTURE.md).
 export async function listTrackedActivities(
   userId: UserId
 ): Promise<ActivityWithHabit[]> {
@@ -393,7 +393,7 @@ export interface ActivityCreateInput {
 
 // Insert ONE NEW activity under a specific habit — never an update, never a
 // "find or reuse the account's one of this kind". Decision 3
-// (docs/HABIT-VS-ACTIVITY-MODEL.md): generation always creates, so two
+// (docs/ARCHITECTURE.md): generation always creates, so two
 // activities that want the same kind can never silently merge.
 export async function createActivity(
   userId: UserId,
@@ -435,7 +435,7 @@ export async function createActivity(
 }
 
 // The metric spine for a habit's DEFAULT activity — see the default-activity
-// invariant in docs/HABIT-VS-ACTIVITY-MODEL.md: every tracked habit gets
+// invariant in docs/ARCHITECTURE.md: every tracked habit gets
 // exactly one of these the moment it becomes tracked.
 export interface DefaultActivityInput {
   metricType: MetricType;
@@ -713,7 +713,7 @@ export async function activateProposedHabits(
 
 // Accept every still-proposed ACTIVITY for this account in one statement —
 // the onboarding activities review screen's one write. Runs the
-// placeholder-retirement guard (docs/HABIT-VS-ACTIVITY-MODEL.md) for every
+// placeholder-retirement guard (docs/ARCHITECTURE.md) for every
 // habit touched: a still-untouched plain default activity is retired, never
 // deleted, the first time a real activity is accepted for its habit — but
 // only if it has no logged history of its own.
