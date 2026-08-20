@@ -1,6 +1,7 @@
 import type { UserId } from "@/db/scope";
-// Server-only prefill loaders for the onboarding/config step forms — shared so
-// the wizard and the settings page show the same current values.
+// Server-only prefill loaders for the /config step forms — one specific
+// ACTIVITY's own current values now, not "the account's one of a kind". See
+// docs/HABIT-VS-ACTIVITY-MODEL.md.
 import {
   getReadingConfig,
   getSleepConfig,
@@ -11,8 +12,8 @@ import {
 } from "@/db/rich-habits";
 import { daysLeftInYear, todayInSaoPaulo } from "@/lib/utils";
 
-export async function workoutInitial(userId: UserId) {
-  const workout = await getWorkoutConfig(userId);
+export async function workoutInitial(userId: UserId, activityId: number) {
+  const workout = await getWorkoutConfig(userId, activityId);
   return {
     initialName: workout?.planName ?? "",
     initialDays:
@@ -26,10 +27,10 @@ export async function workoutInitial(userId: UserId) {
   };
 }
 
-export async function readingInitial(userId: UserId) {
+export async function readingInitial(userId: UserId, activityId: number) {
   const today = todayInSaoPaulo();
   const year = Number(today.slice(0, 4));
-  const reading = await getReadingConfig(userId);
+  const reading = await getReadingConfig(userId, activityId);
   return {
     daysLeft: daysLeftInYear(today),
     year,
@@ -52,16 +53,16 @@ export async function readingInitial(userId: UserId) {
   };
 }
 
-export async function sleepInitial(userId: UserId) {
-  const target = await getSleepConfig(userId);
+export async function sleepInitial(userId: UserId, activityId: number) {
+  const target = await getSleepConfig(userId, activityId);
   return {
     initialBedtime: target?.bedtime ?? "23:00",
     initialWake: target?.wakeTime ?? "06:30",
   };
 }
 
-export async function routineInitial(userId: UserId) {
-  const blocks = await listRoutineBlocks(userId);
+export async function routineInitial(userId: UserId, activityId: number) {
+  const blocks = await listRoutineBlocks(userId, activityId);
   return blocks.map((b) => ({
     startTime: b.startTime,
     endTime: b.endTime,
@@ -70,12 +71,12 @@ export async function routineInitial(userId: UserId) {
   }));
 }
 
-export async function duolingoInitial(userId: UserId) {
-  return (await listLanguages(userId)).map((l) => l.name);
+export async function duolingoInitial(userId: UserId, activityId: number) {
+  return (await listLanguages(userId, activityId)).map((l) => l.name);
 }
 
-export async function spiritualityInitial(userId: UserId) {
-  return (await listSpiritualPractices(userId)).map((p) => ({
+export async function spiritualityInitial(userId: UserId, activityId: number) {
+  return (await listSpiritualPractices(userId, activityId)).map((p) => ({
     name: p.name,
     slug: p.slug,
     countable: p.countable,
