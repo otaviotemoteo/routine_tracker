@@ -7,6 +7,7 @@ import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import {
   clearProposedHabits,
   writeProposedHabits,
+  type DefaultActivityInput,
   type HabitInput,
 } from "@/db/habits";
 import type { UserId } from "@/db/scope";
@@ -100,7 +101,7 @@ export async function suggestHabits(
   const outcome = await runGenerator(habitSuggester, userId, built.input);
   if (outcome.status !== "ok") return { status: outcome.status };
 
-  const inputs: HabitInput[] = [];
+  const inputs: (HabitInput & DefaultActivityInput)[] = [];
   for (const area of outcome.data.perArea) {
     // The schema guarantees a valid domain slug; this guards against a model
     // answering for an area nobody asked about. A habit anchored to an area
@@ -111,6 +112,7 @@ export async function suggestHabits(
       inputs.push({
         name: habit.name,
         domainSlug: area.domainSlug,
+        why: habit.why,
         metricType: habit.metricType,
         // A binary habit counts nothing, so a stray unit would render as a
         // label on a figure that does not exist.
@@ -119,9 +121,10 @@ export async function suggestHabits(
         // human fills, and the schema has no numeric field to carry one.
         target: null,
         minimalAction: habit.minimalAction,
-        // Enum-constrained to 'plain' this phase; see src/lib/templates.ts.
-        templateKind: habit.templateKind,
-        why: habit.why,
+        // habit.templateKind (enum-constrained to 'plain' this phase) is not
+        // carried forward — the habit itself no longer has a template layer
+        // at all; its default activity, created by writeProposedHabits, is
+        // always plain regardless. See docs/HABIT-VS-ACTIVITY-MODEL.md.
       });
     }
   }
