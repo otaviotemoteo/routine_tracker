@@ -9,7 +9,7 @@
 // the page (`saveWorkoutStep.bind(null, activityId)`) rather than carried as
 // a hidden field — a bound Server Action is still a valid `<form action>`,
 // and the six step components below need no change to their own action prop
-// type to pass it through. See docs/HABIT-VS-ACTIVITY-MODEL.md.
+// type to pass it through. See docs/ARCHITECTURE.md.
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
