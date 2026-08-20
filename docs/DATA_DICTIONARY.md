@@ -67,60 +67,94 @@ so two concurrent attempts cannot both read 4 and both write 5.
 Per-account since the remodel; a new account starts with **none**. Previously
 seven globally shared rows, which is the modelling error that stopped anyone
 else from using the app. `UNIQUE(user_id, slug)`.
+
+The habit is the **umbrella** — see `docs/HABIT-VS-ACTIVITY-MODEL.md`. It
+carries no metric and no template of its own; those moved to `activities`
+below, one or more per habit, so an umbrella can hold more than one concrete
+thing without them fighting over one shared config.
 | Column | Type | Meaning |
 |--------|------|---------|
 | id | serial PK | |
 | user_id | int FK→users | Whose habit |
 | name | varchar(50) | Display name, in the user's own words. Never translated |
 | slug | varchar(50) | Stable id, unique **per account** — two people can both have `leitura`. Derived from the name on create |
-| icon | varchar(10) NULL | Legacy emoji from the original seed; **not rendered**. A plain habit falls back to its domain's lucide icon |
-| optional | boolean | Excluded from progress/adherence/best-worst when true |
+| icon | varchar(10) NULL | Legacy emoji from the original seed; **not rendered** |
+| optional | boolean | Excluded from progress/adherence/best-worst when true — inherited by every one of the habit's activities |
 | domain_id | int FK→life_domains NULL | The area of life this habit descends from. NULL = added by hand before any assessment; renders under "not tied to an area yet" |
 | goal_id | int NULL | **No FK yet** — there is no `goals` table. The column exists so goals can slot in later without touching a row |
-| metric_type | varchar(10) | `binary` \| `count` \| `duration`. The universal spine: every habit reduces to one of these three, which is what lets the grid, streak and adherence maths be written once |
-| unit | varchar(20) NULL | What the number counts: "pages", "minutes", "lessons". NULL for `binary` |
-| target | int NULL | Optional, shown for comparison and **never enforced**. Always human-entered: no generator can produce one |
-| minimal_action | varchar(200) NULL | The bad-day version — what still counts when the day has gone wrong |
-| template_kind | varchar(30) NULL | How it renders. **NULL = plain** (the generic renderer). Every other kind — the five card-style kinds and the six richer ones (`treino`/`leitura`/`sono`/`rotina`/`duolingo`/`espiritualidade`) — reads only this habit's own columns and `config`, never another table, so any kind may be given to any habit |
-| config | jsonb NULL | Template setup: the Checklist kind's `{items}`, or — for the six rich kinds — that habit's own plan/list/schedule, shaped by `src/lib/config-schemas.ts` (below). **Never written by a model directly**; `activity_proposer` (Tier 5) only ever returns a draft for a human to accept through the same form that writes this column by hand |
 | source | varchar(12) | `human` \| `ai_suggested` \| `ai_edited`. Mirrors `direction_narratives.source`; moves `ai_suggested → ai_edited` on the first edit and then stops |
 | why | text NULL | The one line a suggestion gave for why this habit serves the direction. Kept after an edit — it is why the habit is on the list at all |
 | active_from | date NULL | **NULL = PROPOSED, not yet tracked.** A generated habit is a real row that no user-facing read can see until "Start tracking" fills this in. Load-bearing: it is what lets a 5–20s call survive a refresh without anything reaching Today |
-| active_to | date NULL | NULL = still tracked. Removing a *tracked* habit sets this rather than deleting, because `daily_checks` reference the row. Removing a *proposal* deletes it |
-| position | int | Today's order. Assigned explicitly, never derived from `id` |
+| active_to | date NULL | NULL = still tracked. Removing a *tracked* habit sets this (and fans out to every still-active activity under it) rather than deleting, because `daily_checks` reference them. Removing a *proposal* deletes it (and its still-proposed activities) |
+| position | int | Order. Assigned explicitly, never derived from `id` |
 | created_at | timestamptz | |
+| ~~metric_type / unit / target / minimal_action / template_kind / config~~ | — | **Dead.** Moved to `activities`. Kept, physically, unread by any application code, for a rollback window after the migration that moved them — see `src/db/migrate-activities.ts` and `migrate-activities-cleanup.ts` |
 
 Every user-facing read goes through `habitsFor()` in `src/db/scope.ts`, which
 carries `active_from IS NOT NULL` plus the date window, so a proposal and a
 removed habit are invisible by construction rather than by each caller
 remembering.
 
+### `activities`
+The **concrete, independently-checkable, independently-measured** thing
+living inside a habit — one or more per habit. `UNIQUE(user_id, slug)`,
+shared with `habits.slug` (the two must never collide within one account).
+| Column | Type | Meaning |
+|--------|------|---------|
+| id | serial PK | |
+| user_id | int FK→users | Denormalized, matching every other per-user table — scope predicates work without an extra join |
+| habit_id | int FK→habits | The umbrella this activity belongs to |
+| name | varchar(50) | The card's own label ("Treino", "Corrida") — distinct from the habit's own name the moment a habit has more than one activity |
+| slug | varchar(50) | Per-account, drives `/day?step=<slug>` routing, `habitName()`, and the export's per-entity key |
+| metric_type | varchar(10) | `binary` \| `count` \| `duration` — the metric spine, moved here from `habits` |
+| unit | varchar(20) NULL | What the number counts. NULL for `binary` |
+| target | int NULL | Optional, shown for comparison and **never enforced**. Always human-entered |
+| minimal_action | varchar(200) NULL | The bad-day version |
+| template_kind | varchar(30) NULL | How it renders. **NULL = plain** (the generic renderer). Every other kind — the five card-style kinds and the six richer ones (`treino`/`leitura`/`sono`/`rotina`/`duolingo`/`espiritualidade`) — reads only this activity's own columns and `config`, never another row, so any kind may be given to any activity |
+| config | jsonb NULL | Template setup: the Checklist kind's `{items}`, or — for the six rich kinds — this activity's own plan/list/schedule, shaped by `src/lib/config-schemas.ts` (below). **Never written by a model directly**; `activity_proposer` (Tier 5) only ever returns a draft a human accepts |
+| source | varchar(12) | `human` \| `ai_suggested` \| `ai_edited` — same vocabulary as `habits.source`, one layer down |
+| why | text NULL | The per-activity briefing typed on `/onboarding/activities` or `/config`'s "add an activity" — **not** a copy of the parent habit's own `why` |
+| active_from | date NULL | **NULL = PROPOSED.** `activity_proposer` calls run tens of seconds to minutes, so a proposal a person hasn't reviewed yet must survive a refresh exactly as a proposed habit already does |
+| active_to | date NULL | NULL = still tracked. Never deleted once tracked — `daily_checks` reference it |
+| position | int | Order within a habit |
+| created_at | timestamptz | |
+
+**The default-activity invariant:** every tracked habit gets exactly one
+activity (`template_kind: null`) the instant it becomes tracked, so "no rich
+activity yet" is always a harmless, ordinary state — a habit never has zero
+activities. A still-untouched default activity is retired (never deleted)
+the first time a real activity is accepted for its habit, but only if it has
+no logged history of its own. **Decision 3:** generating an activity always
+INSERTS a new row, never updates an existing one — two activities that want
+the same kind, under the same habit or different ones, can never silently
+merge. See `docs/HABIT-VS-ACTIVITY-MODEL.md`.
+
 ### `daily_checks`
-One row per habit per day **per account**. `UNIQUE(user_id, habit_id, checked_at)`.
+One row per **activity** per day **per account** — the grain that changed
+when `activities` became real; it used to be one row per habit. `UNIQUE(user_id, activity_id, checked_at)`.
 | Column | Type | Meaning |
 |--------|------|---------|
 | id | serial PK | |
 | user_id | int FK→users | Whose day this is |
-| habit_id | int FK→habits | |
+| activity_id | int FK→activities | |
 | checked_at | date | São Paulo calendar day; **no DB default** (timezone rule) |
 | done | boolean | The binary spine. All v1 views read only this |
-| details | jsonb NULL | Tier-2 granular answers, shape per habit slug (below). NULL = "done without details" (v1 rows and quick-toggles) |
+| details | jsonb NULL | Tier-2 granular answers, shape per template kind (below). NULL = "done without details" (v1 rows and quick-toggles) |
 | note | text NULL | Free text, always optional |
 | created_at / updated_at | timestamptz | |
+| ~~habit_id~~ | — | **Dead.** Every existing row's old value is kept, unread, for the same rollback window as `habits`' dead columns above |
 
-## Tier 3 — a rich habit's own setup (`habits.config`)
+## Tier 3 — an activity's own setup (`activities.config`)
 
 Through schema v2 this tier was six tables — `workout_plans`+`workout_plan_days`,
 `reading_goals`+`books`, `routine_blocks`, `spiritual_practices`, `languages`,
-`sleep_targets` — each account-wide and singleton (one active plan, one sleep
-window), which is why only the one account this app was built for could ever
-carry one of these six kinds. Phase 3 moved every one of them into the owning
-habit's own `config` column instead: the tables are gone, the shapes below are
-what replaces them, validated by `src/lib/config-schemas.ts` on every write —
-the same "one JSONB column, one Zod schema per kind" idiom `details` already
-uses one tier down. A rich kind is now exactly as safe as any generic one:
-`config` belongs to the habit, not the account, so any habit — old or new —
-may carry it.
+`sleep_targets` — each account-wide and singleton. Phase 3 folded them into
+the owning HABIT's own `config` column instead. This phase moved `config`
+(and the metric spine beside it) one layer further, onto `activities` above,
+so more than one activity can carry the same template kind without one
+promotion overwriting another's setup — validated by `src/lib/config-schemas.ts`
+on every write, the same "one JSONB column, one Zod schema per kind" idiom
+`details` already uses one tier down.
 
 **The one invariant carried forward from every one of the six old tables:**
 nothing in a list is ever hard-removed on save, only flagged `active: false`
@@ -310,20 +344,23 @@ Validated on every write against `src/lib/details-schemas.ts`. Keyed on
 
 ```jsonc
 {
-  "meta": { "from", "to", "timezone": "America/Sao_Paulo", "schema_version": 3 },
-  "entities": { "workout_plans": [ /* one entry: {name, days[] — active + retired} */ ],
-                "books", "reading_goals": [ /* one entry, or [] */ ],
-                "routine_blocks", "spiritual_practices", "languages",
-                "sleep_targets": [ /* one entry, or [] */ ] },
+  "meta": { "from", "to", "timezone": "America/Sao_Paulo", "schema_version": 4 },
+  "entities": { "workout_plans": [ /* one per treino ACTIVITY: {activity_slug, name, days[]} */ ],
+                "books", "reading_goals", "routine_blocks",
+                "spiritual_practices", "languages", "sleep_targets": [ /* one per activity of that kind */ ] },
   "days": [ { "date": "YYYY-MM-DD",
-              "habits": { "<slug>": { "done", "details", "note" }, ... } } ]
+              "activities": { "<activity slug>": { "done", "details", "note" }, ... } } ]
 }
 ```
 
-Since v2: these six entities are read from `habits.config` (Tier 3), not a
-dedicated table — `workout_plans`/`reading_goals` no longer carry a separate
-id or `created_at` (no history beyond `workout_plans[0].days[].active`), and
-`spiritual_practices`/`languages` are identified by `slug` alone, never a
-numeric id — neither was ever referenced by one.
+Since this phase (`schema_version` 3 → 4): entities are read from
+`activities.config` (Tier 3), not `habits.config` — and each entity now
+carries its own `activity_slug`, because more than one activity of a kind can
+exist per account (there's no more "the one workout plan" to assume). `days[]`
+is keyed `"activities"`, not `"habits"`, by **activity** slug — the grain
+`daily_checks` itself now uses. `workout_plans`/`reading_goals` still carry no
+separate id or `created_at` (no history beyond `days[].active`), and
+`spiritual_practices`/`languages` are still identified by `slug` alone, never
+a numeric id.
 
 The `/overview/[date]` Day Audit screen is the visual twin of one `days[]` object.
