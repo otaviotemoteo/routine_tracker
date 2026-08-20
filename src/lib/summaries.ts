@@ -1,6 +1,6 @@
 import { format, plural, type Copy } from "@/lib/i18n";
 import { templateKindOf } from "@/lib/templates";
-import type { TodayContext } from "@/types/habit";
+import type { ActivityContext } from "@/types/habit";
 
 // What a logged habit actually amounted to, as a sentence. Shorthand like
 // "5/5" or "+9p" is compact but needs decoding — these read at a glance.
@@ -12,7 +12,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 export function summarizeDetails(
   kind: string | null,
   details: unknown,
-  context: TodayContext,
+  context: ActivityContext,
   copy: Copy["today"],
   // A generic habit's own unit, so its sentence can say "23 pages" rather
   // than a bare "23". Null for the seven, which name their own units.
