@@ -56,13 +56,9 @@ export type HabitSource = "human" | "ai_suggested" | "ai_edited";
 // globally unique slug, which is the modelling error that stopped anyone else
 // from using the app: it normalised what is *personal* into schema.
 //
-// Two columns carry most of the meaning:
-//
-//   template_kind  null = a plain habit, rendered by the generic renderer.
-//                  The seven legacy kinds equal their old slug ('leitura',
-//                  'treino', …) and keep their original renderers, which read
-//                  the owner-shaped per-domain tables. Only the owner's
-//                  migrated rows may carry one — see src/lib/templates.ts.
+// A habit is the UMBRELLA — see docs/HABIT-VS-ACTIVITY-MODEL.md. It carries no
+// metric and no template of its own; those live on `activities` below, one or
+// more per habit. The one column here that still carries real meaning:
 //
 //   active_from    NULL means PROPOSED, not yet tracked. A generated habit is
 //                  written immediately (so a 5–20s call survives a refresh)
@@ -91,19 +87,22 @@ export const habits = pgTable(
     // slot in later without touching a single habit row.
     goalId: integer("goal_id"),
 
-    // ── The metric spine ──
+    // ── DEAD, kept for a rollback window — see src/db/migrate-activities.ts ──
+    // Moved to `activities` (the metric spine and the template layer both
+    // belong to the concrete, checkable thing, not the umbrella — see
+    // docs/HABIT-VS-ACTIVITY-MODEL.md). No application code reads or writes
+    // these six columns any more; they stay physically present, untouched,
+    // until migrate-activities-cleanup.ts drops them once the new grain has
+    // run in production without incident.
     metricType: varchar("metric_type", { length: 10 })
       .$type<MetricType>()
       .notNull()
       .default("binary"),
-    unit: varchar("unit", { length: 20 }), // "pages", "minutes", "lessons"
+    unit: varchar("unit", { length: 20 }),
     target: integer("target"),
-    // The version of this habit that still counts on a bad day.
     minimalAction: varchar("minimal_action", { length: 200 }),
-
-    // ── Template layer ──
     templateKind: varchar("template_kind", { length: 30 }),
-    config: jsonb("config"), // never written by a model — see src/lib/ai/
+    config: jsonb("config"),
 
     // ── Provenance ──
     source: varchar("source", { length: 12 })
@@ -128,6 +127,90 @@ export const habits = pgTable(
     ),
     check(
       "habits_source",
+      sql`${t.source} IN ('human', 'ai_suggested', 'ai_edited')`
+    ),
+  ]
+);
+
+// The ACTIVITY — the concrete, independently-checkable, independently-
+// measured thing living inside a habit. See docs/HABIT-VS-ACTIVITY-MODEL.md
+// for the full model; the short version:
+//
+//   Every tracked habit has exactly one activity from the moment it becomes
+//   tracked (the default-activity invariant) — `template_kind: null`,
+//   carrying whatever metric fields the habit form or the generator gave it.
+//   A habit MAY have more than one ("Cuidado com o corpo" with both a
+//   "Treino" and a "Corrida" activity), each independently checkable, never
+//   merged — see "Decision 3" in the model doc.
+//
+// `source`, `why`, `active_from`/`active_to` mirror `habits`' own columns,
+// one layer down, for the identical reason: `activity_proposer` calls run
+// tens of seconds to minutes (docs/BLOCKED.md), so a proposal a person
+// hasn't reviewed yet must survive a refresh exactly as a proposed habit
+// already does.
+export const activities = pgTable(
+  "activities",
+  {
+    id: serial("id").primaryKey(),
+    // Denormalized, deliberately, matching every other per-user table here
+    // (habits, daily_checks): scope predicates and the branded UserId
+    // discipline in src/db/scope.ts work without an extra join.
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    habitId: integer("habit_id")
+      .notNull()
+      .references(() => habits.id),
+
+    // The card's own label ("Treino", "Corrida") — distinct from the
+    // umbrella habit's name the moment a habit has more than one activity.
+    name: varchar("name", { length: 50 }).notNull(),
+    // Unique per account, not globally, mirroring habits.slug. Drives
+    // /day?step=<slug> routing, i18n's habitName() lookup, and the export's
+    // per-entity key.
+    slug: varchar("slug", { length: 50 }).notNull(),
+
+    // ── The metric spine (moved from habits) ──
+    metricType: varchar("metric_type", { length: 10 })
+      .$type<MetricType>()
+      .notNull()
+      .default("binary"),
+    unit: varchar("unit", { length: 20 }), // "pages", "minutes", "lessons"
+    target: integer("target"),
+    minimalAction: varchar("minimal_action", { length: 200 }),
+
+    // ── Template layer (moved from habits) ──
+    templateKind: varchar("template_kind", { length: 30 }),
+    config: jsonb("config"), // never written by a model — see src/lib/ai/
+
+    // ── Provenance ──
+    // Reuses HabitSource — same three values, same meaning, one layer down.
+    source: varchar("source", { length: 12 })
+      .$type<HabitSource>()
+      .notNull()
+      .default("human"),
+    // The one-line reason a suggestion gave, OR the per-activity "briefing" a
+    // person types on /onboarding/activities or /config's "add an activity" —
+    // never a copy of the parent habit's own `why`.
+    why: text("why"),
+
+    // ── Lifecycle ──
+    activeFrom: date("active_from"), // NULL = proposed, not yet accepted
+    activeTo: date("active_to"), // set on remove; the row is never deleted
+    position: integer("position").notNull().default(0), // order within a habit
+
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    unique().on(t.userId, t.slug),
+    index("idx_activities_user_position").on(t.userId, t.position),
+    index("idx_activities_habit").on(t.habitId, t.position),
+    check(
+      "activities_metric_type",
+      sql`${t.metricType} IN ('binary', 'count', 'duration')`
+    ),
+    check(
+      "activities_source",
       sql`${t.source} IN ('human', 'ai_suggested', 'ai_edited')`
     ),
   ]
@@ -158,37 +241,47 @@ export const dailyChecks = pgTable(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id),
-    habitId: integer("habit_id")
+    // The grain: one check per ACTIVITY per day, not per habit — see
+    // docs/HABIT-VS-ACTIVITY-MODEL.md. A habit with two activities produces
+    // two independent checks, two independent streaks, two Today cards.
+    activityId: integer("activity_id")
       .notNull()
-      .references(() => habits.id),
+      .references(() => activities.id),
+    // DEAD, kept nullable for a rollback window — see
+    // src/db/migrate-activities.ts. Historical rows keep their old value for
+    // inspection; no application code writes this on a new row any more, so
+    // it is NOT NULL no longer. Dropped by migrate-activities-cleanup.ts.
+    habitId: integer("habit_id").references(() => habits.id),
     // NO database default on purpose (timezone rule) — see src/lib/utils.ts.
     checkedAt: date("checked_at").notNull(),
     done: boolean("done").notNull().default(false),
-    // Tier 2: habit-specific granular answers, validated by a Zod schema in
-    // src/lib/details-schemas.ts on every write. NULL = "done without details"
-    // (v1 rows and quick-toggle days), valid forever.
+    // Tier 2: activity-specific granular answers, validated by a Zod schema
+    // in src/lib/details-schemas.ts on every write. NULL = "done without
+    // details" (v1 rows and quick-toggle days), valid forever.
     details: jsonb("details"),
     note: text("note"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (t) => [
-    unique().on(t.userId, t.habitId, t.checkedAt),
+    unique().on(t.userId, t.activityId, t.checkedAt),
     index("idx_checks_user_date").on(t.userId, t.checkedAt.desc()),
   ]
 );
 
-// ─── Tier 3: a rich habit's own setup ─────────────────────────────────────────
+// ─── Tier 3: an activity's own setup ───────────────────────────────────────────
 //
-// Through Phase 3 this was six tables here — workout_plans(+_days),
-// reading_goals, books, routine_blocks, spiritual_practices, languages,
-// sleep_targets — each an account-wide singleton, which is exactly what made
-// their template kinds owner-shaped (see templates.ts). They're gone: each
-// domain's setup now lives in the owning habit's own `config` column above,
-// shaped by src/lib/config-schemas.ts and read/written through
-// src/db/rich-habits.ts. See docs/ARCHITECTURE.md, "Rich habits become
-// per-habit (Phase 3)", and src/db/migrate-rich-configs.ts for how the six
-// tables' data got there without losing an id or a slug.
+// Through Phase 3 this was six account-wide singleton tables — workout_plans
+// (+_days), reading_goals, books, routine_blocks, spiritual_practices,
+// languages, sleep_targets. Phase 3 folded them into the owning HABIT's own
+// `config` column; this phase moved `config` (and the metric spine beside it)
+// one layer down again, onto `activities` above, so more than one activity
+// can carry the same template kind without one promotion overwriting
+// another's setup. Shaped by src/lib/config-schemas.ts, read/written through
+// src/db/rich-habits.ts. See docs/HABIT-VS-ACTIVITY-MODEL.md for the model,
+// docs/ARCHITECTURE.md's "Rich habits become per-habit (Phase 3)" for how it
+// got to habits in the first place, and src/db/migrate-activities.ts for how
+// it moved from habits to activities without losing an id or a slug.
 
 // ─── Tier 4: the values layer ────────────────────────────────────────────────
 //
