@@ -8,7 +8,7 @@
 // has been exercised in production for a few days without incident — that
 // window is the entire reason migrate-activities.ts left these in place
 // instead of dropping them in the same transaction. See
-// docs/HABIT-VS-ACTIVITY-MODEL.md and migrate-activities.ts's own header.
+// docs/ARCHITECTURE.md and migrate-activities.ts's own header.
 //
 // Same discipline as every other migration here: pg over plain TCP, one
 // transaction, guarded so a second run finds everything already gone and
