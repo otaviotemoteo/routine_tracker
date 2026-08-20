@@ -1,16 +1,20 @@
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import { AssessmentShell } from "@/components/assessment/AssessmentShell";
 import { StepTitle } from "@/components/onboarding/OnboardingChrome";
 import { ActivityKindPicker } from "@/components/onboarding/ActivityKindPicker";
-import { generateActivitiesAction } from "./actions";
-import { listHabits } from "@/db/habits";
+import {
+  acceptActivitiesAction,
+  generateActivitiesAction,
+  rejectActivityAction,
+} from "./actions";
+import { listHabits, listProposedActivities, listTrackedActivities } from "@/db/habits";
 import { isChoosableTemplateKind } from "@/lib/templates";
 import { format } from "@/lib/i18n";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { isFirstRun } from "@/lib/onboarding-flow";
-import { primaryButton, ghostButton } from "@/components/ui/styles";
+import { primaryButton, ghostButton, iconButton } from "@/components/ui/styles";
 import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -19,27 +23,17 @@ interface ActivitiesPageProps {
   searchParams: Promise<{ failed?: string }>;
 }
 
-// /config's six sections are keyed by this vocabulary, not by template kind
-// — see src/app/config/page.tsx's SECTIONS. sono has no path here (it's
-// never one of the five proposable kinds) but is included for completeness
-// against a pre-existing habit that already carries it.
-const CONFIG_SECTION: Record<string, string> = {
-  treino: "workout",
-  leitura: "reading",
-  sono: "sleep",
-  rotina: "routine",
-  duolingo: "duolingo",
-  espiritualidade: "spirituality",
-};
-
 // The last leg of onboarding, and the only one that isn't a gate. By the time
 // this renders, "Start tracking" has already run — habits are active, the
-// NavBar is already showing (isFirstRun is false the instant activation
-// happened), and Today already works. This screen is a one-time OFFER, not a
-// step anyone can get stuck behind: leaving via the nav is always available,
-// and not picking a kind for a habit is exactly what "declining" looks like
-// (HABIT-VS-ACTIVITY-MODEL.md's "empty is a signal, not a failure" — now true
-// for real, see the empty-state fixes elsewhere in this phase).
+// NavBar is already showing, and Today already works. This screen is a
+// one-time OFFER, not a step anyone can get stuck behind: leaving via the nav
+// is always available, and not picking a kind for a habit is exactly what
+// "declining" looks like (HABIT-VS-ACTIVITY-MODEL.md's "empty is a signal,
+// not a failure").
+//
+// Three states, not two: still-plain habits to pick a kind + briefing for;
+// generated activities waiting to be reviewed and accepted; and habits that
+// already have a real activity, linking out to /config.
 export default async function ActivitiesPage({
   searchParams,
 }: ActivitiesPageProps) {
@@ -49,15 +43,24 @@ export default async function ActivitiesPage({
   const params = await searchParams;
   const firstRun = await isFirstRun(userId);
 
-  const all = await listHabits(userId);
-  // "Plain" here means genuinely untouched by any kind — isChoosableTemplateKind
-  // is the wrong predicate (it also passes the five simple card-style kinds,
-  // which someone may have already picked from /habits/templates and which
-  // have nothing to do with rich activities); a bare null check is the right
-  // one, matching how getOrCreateSingletonHabit/promoteToRichKind think about
-  // "unclaimed".
-  const candidates = all.filter((h) => h.templateKind === null);
-  const done = all.filter((h) => !isChoosableTemplateKind(h.templateKind));
+  const [allHabits, tracked, proposed] = await Promise.all([
+    listHabits(userId),
+    listTrackedActivities(userId),
+    listProposedActivities(userId),
+  ]);
+  const habitNameById = new Map(allHabits.map((h) => [h.id, h.name]));
+
+  const richHabitIds = new Set(
+    tracked.filter((a) => !isChoosableTemplateKind(a.templateKind)).map((a) => a.habitId)
+  );
+  const proposedHabitIds = new Set(proposed.map((a) => a.habitId));
+  // A habit with a rich activity already tracked, OR one still pending
+  // review, isn't a candidate any more — picking a second kind for it is
+  // /config's "add an activity" job now, not this one-time offer's.
+  const candidates = allHabits.filter(
+    (h) => !richHabitIds.has(h.id) && !proposedHabitIds.has(h.id)
+  );
+  const done = tracked.filter((a) => !isChoosableTemplateKind(a.templateKind));
 
   return (
     <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="nav" firstRun={firstRun}>
@@ -72,32 +75,71 @@ export default async function ActivitiesPage({
         </p>
       )}
 
+      {proposed.length > 0 && (
+        <div className="mb-8 flex flex-col gap-3">
+          <p className="font-semibold">
+            {format(copy.reviewTitle, { n: proposed.length })}
+          </p>
+          <p className="text-sm opacity-75">{copy.reviewLead}</p>
+          <ul className="flex flex-col gap-2 list-none">
+            {proposed.map((activity) => (
+              <li
+                key={activity.id}
+                className="flex items-center justify-between gap-3 border-2 border-forest bg-straw/15 rounded-card px-4 py-3"
+              >
+                <span className="min-w-0">
+                  <span className="block font-semibold">
+                    {habitNameById.get(activity.habitId) ?? activity.name}
+                  </span>
+                  <span className="block text-xs opacity-70">{activity.name}</span>
+                </span>
+                <span className="shrink-0 flex items-center gap-2">
+                  <Link
+                    href={`/config?activity=${activity.id}`}
+                    className="text-xs font-bold underline"
+                  >
+                    {copy.reviewEdit}
+                  </Link>
+                  <form action={rejectActivityAction}>
+                    <input type="hidden" name="id" value={activity.id} />
+                    <button
+                      type="submit"
+                      aria-label={`${copy.reject} ${activity.name}`}
+                      className={iconButton}
+                    >
+                      <X className="w-4 h-4 text-[#a8452f]" aria-hidden />
+                    </button>
+                  </form>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <form action={acceptActivitiesAction} className="mt-1">
+            <button type="submit" className={primaryButton}>
+              {copy.acceptAll}
+            </button>
+          </form>
+        </div>
+      )}
+
       {done.length > 0 && (
         <div className="mb-6 flex flex-col gap-2">
           <p className="text-sm font-semibold opacity-70">
             {format(copy.doneTitle, { n: done.length })}
           </p>
           <ul className="flex flex-col gap-2 list-none">
-            {done.map((habit) => (
+            {done.map((activity) => (
               <li
-                key={habit.id}
+                key={activity.id}
                 className="flex items-center justify-between gap-3 border-2 border-forest bg-mint rounded-card px-4 py-3"
               >
-                <span className="font-semibold">{habit.name}</span>
-                {/* Correct for the common case; if this account already has
-                    an OLDER habit of the same kind, /config's six sections
-                    still edit that older one (getHabitByTemplateKind's
-                    documented "oldest wins" rule, src/db/habits.ts) — the
-                    per-habit /config rebuild this defers to is what closes
-                    that gap for good. */}
-                {habit.templateKind && CONFIG_SECTION[habit.templateKind] && (
-                  <Link
-                    href={`/config?section=${CONFIG_SECTION[habit.templateKind]}`}
-                    className="text-xs font-bold underline shrink-0"
-                  >
-                    {copy.editHint}
-                  </Link>
-                )}
+                <span className="font-semibold">{activity.name}</span>
+                <Link
+                  href={`/config?activity=${activity.id}`}
+                  className="text-xs font-bold underline shrink-0"
+                >
+                  {copy.editHint}
+                </Link>
               </li>
             ))}
           </ul>
@@ -112,6 +154,7 @@ export default async function ActivitiesPage({
           action={generateActivitiesAction}
         />
       ) : (
+        proposed.length === 0 &&
         done.length === 0 && <p className="opacity-75">{copy.noneLeft}</p>
       )}
 
