@@ -68,10 +68,10 @@ Per-account since the remodel; a new account starts with **none**. Previously
 seven globally shared rows, which is the modelling error that stopped anyone
 else from using the app. `UNIQUE(user_id, slug)`.
 
-The habit is the **umbrella** — see `docs/HABIT-VS-ACTIVITY-MODEL.md`. It
-carries no metric and no template of its own; those moved to `activities`
-below, one or more per habit, so an umbrella can hold more than one concrete
-thing without them fighting over one shared config.
+The habit is the **umbrella** — see `docs/ARCHITECTURE.md`, "Activities
+become real." It carries no metric and no template of its own; those moved
+to `activities` below, one or more per habit, so an umbrella can hold more
+than one concrete thing without them fighting over one shared config.
 | Column | Type | Meaning |
 |--------|------|---------|
 | id | serial PK | |
@@ -127,7 +127,7 @@ the first time a real activity is accepted for its habit, but only if it has
 no logged history of its own. **Decision 3:** generating an activity always
 INSERTS a new row, never updates an existing one — two activities that want
 the same kind, under the same habit or different ones, can never silently
-merge. See `docs/HABIT-VS-ACTIVITY-MODEL.md`.
+merge.
 
 ### `daily_checks`
 One row per **activity** per day **per account** — the grain that changed
