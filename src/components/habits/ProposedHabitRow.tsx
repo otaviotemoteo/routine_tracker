@@ -23,7 +23,7 @@ interface ProposedHabitRowProps {
 // show (that all lives on the activity now, and a proposed habit's default
 // activity is itself still proposed, invisible everywhere but this screen's
 // own review), so the row is just identity + why + edit/remove. See
-// docs/HABIT-VS-ACTIVITY-MODEL.md.
+// docs/ARCHITECTURE.md.
 export function ProposedHabitRow({
   habit,
   copy,
