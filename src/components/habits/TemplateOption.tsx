@@ -6,10 +6,10 @@ import { setHabitTemplateAction } from "@/app/(app)/habits/templates/actions";
 import { templatePreviewFor } from "@/lib/template-previews";
 import { type Copy } from "@/lib/i18n";
 import type { GenericTemplateKind } from "@/lib/templates";
-import type { HabitRow } from "@/db/habits";
+import type { ActivityWithHabit } from "@/db/habits";
 
 interface TemplateOptionProps {
-  habit: HabitRow;
+  habit: ActivityWithHabit;
   kind: GenericTemplateKind;
   chosen: boolean;
   suggested: boolean;
@@ -47,7 +47,7 @@ export function TemplateOption({
 
   return (
     <form action={setHabitTemplateAction}>
-      <input type="hidden" name="habitId" value={habit.id} />
+      <input type="hidden" name="activityId" value={habit.id} />
       <input type="hidden" name="kind" value={kind} />
       <button type="submit" className={optionShellClass(chosen, suggested)}>
         <OptionHeader kind={kind} chosen={chosen} suggested={suggested} copy={copy} />
@@ -88,7 +88,7 @@ function ChecklistOption({
         <OptionHeader kind="checklist" chosen={chosen} suggested={suggested} copy={copy} />
         {existingItems.length === 0 && <PreviewBlock preview={preview} example />}
         <form action={setHabitTemplateAction} className="flex flex-col gap-2">
-          <input type="hidden" name="habitId" value={habit.id} />
+          <input type="hidden" name="activityId" value={habit.id} />
           <input type="hidden" name="kind" value="checklist" />
           <label className="text-xs font-bold uppercase tracking-wide opacity-60">
             {copy.checklistItemsLabel}
