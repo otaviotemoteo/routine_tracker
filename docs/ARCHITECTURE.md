@@ -64,25 +64,29 @@ Everything belongs to one account through `user_id`, `habits` included (see
 "Data ownership"). `life_domains` is the only shared table left.
 
 ```
-users                    habits                    daily_checks
-─────                    ──────                    ────────────
-id      SERIAL PK        id      SERIAL PK         id          SERIAL PK
-name    VARCHAR(40)      user_id FK → users.id     user_id     FK → users.id
-handle  VARCHAR(40)      name    VARCHAR(50)       habit_id    FK → habits.id
-        UNIQUE           slug    VARCHAR(50)       checked_at  DATE (no default!)
-password_hash TEXT               UNIQUE(user,slug) done        BOOLEAN default false
-        NULL = unclaimed domain_id FK → life_domains
-first_run_step VARCHAR(30)  metric_type/unit/target details    JSONB (Tier 2)
-        NULL = no run open  minimal_action         note        TEXT
-created_at TIMESTAMPTZ   template_kind / config
-                         source / why
-                         active_from  NULL = PROPOSED
-                         active_to    NULL = still tracked
-                         position
+users                    habits (umbrella)         activities                daily_checks
+─────                    ─────────────────         ──────────                ────────────
+id      SERIAL PK        id      SERIAL PK          id           SERIAL PK   id          SERIAL PK
+name    VARCHAR(40)      user_id FK → users.id      user_id      FK→users    user_id     FK → users.id
+handle  VARCHAR(40)      name    VARCHAR(50)         habit_id    FK→habits   activity_id FK → activities.id
+        UNIQUE           slug    VARCHAR(50)          name       VARCHAR(50) checked_at  DATE (no default!)
+password_hash TEXT               UNIQUE(user,slug)   slug        VARCHAR(50) done        BOOLEAN default false
+        NULL = unclaimed domain_id FK → life_domains  UNIQUE(user,slug)      details     JSONB (Tier 2)
+first_run_step VARCHAR(30)  source / why              metric_type/unit/target note        TEXT
+        NULL = no run open  active_from  = PROPOSED   minimal_action
+created_at TIMESTAMPTZ      active_to    = tracked    template_kind / config
+                            position                  source / why
+                                                       active_from  = PROPOSED
+                                                       active_to    = tracked
+                                                       position
 
-                             UNIQUE(user_id, habit_id, checked_at)
-                             INDEX on (user_id, checked_at DESC)
+                                                       UNIQUE(user_id, slug)  UNIQUE(user_id, activity_id, checked_at)
+                                                                              INDEX on (user_id, checked_at DESC)
 ```
+
+A habit carries no metric and no template of its own — see "Activities
+become real" below. `daily_checks` is grained by activity, not habit: one
+check per activity per day.
 
 - **`habits` used to be seven globally shared rows with no owner.** That was the
   modelling error that stopped anyone else from using the app: it normalised
@@ -275,6 +279,87 @@ with a natural-language `request` attached ("recommend me 5 fiction books")
 its output is a draft that prefills the same `/config` form a person would
 fill by hand, so accepting a proposal goes through the one write path that
 already existed rather than a second one.
+
+### Activities become real — a table, not two columns
+
+The previous section's "singleton invariant starts being lifted, on ONE
+path only" was the seam this phase pulled on. `promoteToRichKind` writing to
+a *specific* `habitId` proved that a habit could hold more than one rich
+config; it didn't yet give that config a real identity of its own. It was
+still two columns — `template_kind`, `config` — sitting on `habits`, which
+meant the account-wide "oldest wins" resolution (`getHabitByTemplateKind`)
+had nothing better to fall back on the moment two habits shared a kind. This
+phase gives the concrete, checkable thing a real row: `activities`, one or
+more per habit, carrying the metric spine and the template layer that used
+to live on `habits` directly. See `docs/HABIT-VS-ACTIVITY-MODEL.md` for the
+model in full; this section is what changed under it.
+
+**The daily-tracking grain moved from the habit to the activity.**
+`daily_checks` now carries `activity_id`, not `habit_id` — one check per
+activity per day. This was the harder of two options on the table (the
+easier one would have left `daily_checks` on `habit_id`, untouched, with
+activities as a pure setup layer underneath) and was chosen deliberately: it
+is what actually retires "oldest wins" rather than papering over it, and it
+matches the shape the product already wanted — a habit with two activities
+shows two Today cards, two streaks, two check-in steps, not one card
+awkwardly carrying both. `getHabitByTemplateKind` and
+`getOrCreateSingletonHabit` are gone outright: once every activity is
+addressed by its own id or by the specific habit it belongs to, there is no
+more "the account's one X" left to resolve ambiguously.
+
+**The default-activity invariant is what keeps the common case
+unchanged.** Every tracked habit gets exactly one activity
+(`template_kind: null`) the instant it becomes tracked — `createHabit`
+writes both rows together now. A habit that never gets enriched still shows
+one plain card, exactly as before; "declining" the activities step costs
+nothing. Promoting to a rich kind never mutates that placeholder in place —
+Decision 3 (`docs/HABIT-VS-ACTIVITY-MODEL.md`) says generation always
+INSERTS a new activity, never updates an existing one, so two activities
+that want the same kind — under the same habit or different ones — can
+never silently merge. The placeholder is retired (never deleted) the first
+time a real activity is accepted for its habit, but only if it was never
+actually checked off; one with real logged history survives regardless.
+
+**The onboarding activities step gained the review it never had.**
+Generating used to write straight to `config` and redirect, which is a
+one-way door dressed up as an offer. Now `generateActivitiesAction` writes
+each result as a PROPOSED activity (`active_from NULL`, same reasoning as a
+proposed habit — a slow model call must survive a refresh), and a real
+accept/reject step sits between generating and Today: `acceptActivitiesAction`
+(batch-accepts everything pending, running the placeholder-retirement guard
+per habit touched) and `rejectActivityAction` (discards one). The picker
+also gained a **per-habit briefing** — free text answering "what would you
+like to do here?" — which closes the gap the original `activity_proposer`
+design flagged and left open: an onboarding-time call has a habit's `why`
+(why the *area* matters) but nothing about what the *activity* should
+actually be. `ActivityBatchHabit.briefing` carries it into the prompt,
+parallel to `why`, and wins over the whole-batch `request` field if the two
+ever disagree (`promptVersion` 2 → 3).
+
+**`/config` stopped being six fixed, account-wide sections.** It used to be
+`SECTIONS = [workout, reading, sleep, routine, duolingo, spirituality]`,
+each backed by `getOrCreateSingletonHabit` — structurally disconnected from
+whichever habits a given account actually generated, and the exact
+mechanism behind the one deferred gap the prior phase's own manual-QA notes
+named: on the one account with pre-migration legacy habits, a second
+same-kind habit's "Editar nas configurações" link kept opening the
+*original* migrated one. Rebuilding `/config` per-habit — every tracked
+habit, each showing its own activities, `/config?activity=<id>` dispatching
+on that activity's own `template_kind` — is what closes that gap for good;
+it was never really a `/config` bug so much as `/config` still speaking the
+account-wide model activities had already moved past.
+
+**The migration (`src/db/migrate-activities.ts`) follows
+`migrate-rich-configs.ts`'s exact discipline** — pg over plain TCP, one
+transaction, every id/slug carried forward unchanged, a hard-abort
+verification pass over every `daily_checks.details` entity reference before
+any constraint tightens. What's new: it also has to re-grain
+`daily_checks` itself, not just relocate where config lives, so it seeds
+one default activity per existing habit first (config copied verbatim),
+backfills `activity_id`, verifies, *then* tightens. The old `habit_id`
+column and `habits`' six moved columns are left in place, dead and
+unenforced, for a deliberate rollback window — `migrate-activities-cleanup.ts`
+drops them only once the new grain has run in production without incident.
 
 ## Route groups & persistent shell (v2)
 
@@ -679,10 +764,11 @@ and `ai.ts`:
    inferred from the id alone.
 
 Uniqueness that used to be global is per-account:
-`habits(user_id, slug)`, `daily_checks(user_id, habit_id, checked_at)`. The
-six rich domains' own uniqueness (a reading goal's year, a language's or
-practice's slug) is scoped the same way, one level down — each lives inside
-one habit's `config`, itself already scoped to its account by `habits.user_id`.
+`habits(user_id, slug)`, `activities(user_id, slug)`,
+`daily_checks(user_id, activity_id, checked_at)`. The six rich domains' own
+uniqueness (a reading goal's year, a language's or practice's slug) is
+scoped the same way, one level down — each lives inside one activity's
+`config`, itself already scoped to its account by `activities.user_id`.
 
 ### Scope by construction, and the honest limit of it
 
