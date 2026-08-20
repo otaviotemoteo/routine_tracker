@@ -11,7 +11,7 @@ import { TemplatesEntryCard } from "@/components/overview/TemplatesEntryCard";
 import { ValuesCard } from "@/components/assessment/ValuesCard";
 import { HabitSummaryRow } from "@/components/habits/HabitSummaryRow";
 import { ghostButton } from "@/components/ui/styles";
-import { getHabitStreaks, listHabits } from "@/db/habits";
+import { getActivityStreaks, listTrackedActivities } from "@/db/habits";
 import { getSetupSummary } from "@/lib/setup-summary";
 import {
   getMonthData,
@@ -58,7 +58,7 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
     getSetupSummary(userId, copy.onboarding, copy.today),
     getTrackingStart(userId),
   ]);
-  const paceGoal = setup.find((row) => row.section === "reading")?.paceValues
+  const paceGoal = setup.find((row) => row.templateKind === "leitura")?.paceValues
     ?.perDay;
 
   return (
@@ -102,7 +102,7 @@ export default async function OverviewPage({ searchParams }: OverviewPageProps) 
         copy={copy.today}
         readingCopy={copy.onboarding.reading}
       />
-      <TemplatesEntryCard userId={userId} today={today} copy={copy.today} />
+      <TemplatesEntryCard userId={userId} copy={copy.today} />
 
       <HabitsSection userId={userId} lang={lang} today={today} copy={copy} />
 
@@ -128,8 +128,8 @@ async function HabitsSection({
   copy: Copy;
 }) {
   const [habits, streaks] = await Promise.all([
-    listHabits(userId, today),
-    getHabitStreaks(userId, today),
+    listTrackedActivities(userId),
+    getActivityStreaks(userId, today),
   ]);
 
   return (
@@ -175,7 +175,7 @@ function weekCards(
   paceGoal?: number
 ): StatCard[] {
   const cards: StatCard[] = [];
-  const required = week.habits.filter((h) => !h.optional);
+  const required = week.activities.filter((h) => !h.optional);
   const elapsed = week.days.filter((d) => d <= today).length;
 
   if (elapsed > 0 && required.length > 0) {
@@ -206,7 +206,11 @@ function weekCards(
     });
   }
 
-  const reading = week.habits.find((h) => h.slug === "leitura");
+  // templateKind, not slug — a slug is per-account free text, and matching
+  // on it would silently mix up whose reading card this is the moment an
+  // activity's slug diverges from its kind. Same fix getMonthDetailStats
+  // already needed one layer down (src/db/queries.ts).
+  const reading = week.activities.find((h) => h.templateKind === "leitura");
   if (reading) {
     const pages = reading.cells.reduce(
       (sum, cell) => sum + (Number.parseInt(cell.value ?? "", 10) || 0),
@@ -255,14 +259,14 @@ async function WeekView({
   // Adherence counts only the days inside the record — a Tuesday shouldn't
   // read as 28% because Wednesday hasn't arrived, and the days before the very
   // first check were never missed.
-  const required = week.habits.filter((h) => !h.optional);
+  const required = week.activities.filter((h) => !h.optional);
   const slots = required.length * week.countedDays;
   const done = required.reduce(
     (sum, h) => sum + h.cells.filter((c, i) => c.done && week.tracked[i]).length,
     0
   );
   const adherence = slots === 0 ? 0 : Math.round((done / slots) * 100);
-  const empty = week.habits.every((h) => h.done.every((d) => !d));
+  const empty = week.activities.every((h) => h.done.every((d) => !d));
   // Nothing to walk into: the week after this one hasn't started, and there
   // are no records before the first.
   const nextStart = addDays(start, 7);
@@ -352,7 +356,7 @@ async function MonthView({
     getMonthDoneCounts(userId, addMonths(month, -1)),
   ]);
 
-  const required = data.habits.filter((h) => !h.optional);
+  const required = data.activities.filter((h) => !h.optional);
   const elapsed = matrix.countedDays;
   const slots = required.length * elapsed;
   const done = required.reduce((sum, h) => sum + h.doneCount, 0);
@@ -363,7 +367,7 @@ async function MonthView({
   const goodDays = matrix.days.filter(
     (d) => d.tracked && d.doneCount >= goodDayFloor
   ).length;
-  const empty = data.habits.every((h) => h.doneCount === 0);
+  const empty = data.activities.every((h) => h.doneCount === 0);
 
   const weakest = [...required].sort((a, b) => a.percent - b.percent)[0];
   const cards: StatCard[] = [
@@ -452,7 +456,7 @@ async function MonthView({
         dayNames={copy.overview.weekdaysLong}
       />
       <ConsistencyPanel
-        habits={data.habits}
+        habits={data.activities}
         previous={previous}
         comparable={
           !trackingStart || addMonths(month, -1) >= trackingStart.slice(0, 7)
