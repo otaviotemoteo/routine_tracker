@@ -3,7 +3,7 @@
 // delegated to the pure helpers in src/lib/utils.ts.
 //
 // The grain is the ACTIVITY, not the habit — see
-// docs/HABIT-VS-ACTIVITY-MODEL.md. daily_checks.activity_id is the spine;
+// docs/ARCHITECTURE.md. daily_checks.activity_id is the spine;
 // habits are read only for the umbrella fields (name, optional, domainSlug)
 // a card or row needs to group and label itself by.
 import { and, asc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
@@ -179,7 +179,7 @@ function emptyActivityContext(): ActivityContext {
 }
 
 // Everything the Today detail sheets need, resolved for the given day, per
-// ACTIVITY — see docs/HABIT-VS-ACTIVITY-MODEL.md. More than one activity can
+// ACTIVITY — see docs/ARCHITECTURE.md. More than one activity can
 // share a kind now, so this can no longer be "the account's one workout
 // plan"; it's every live rich-kind activity's own resolved context, keyed by
 // its own id. Reuses rich-habits.ts's typed per-kind getters rather than
@@ -422,7 +422,7 @@ export async function getExport(userId: UserId, from: string, to: string) {
   // the `details` fields and docs/DATA_DICTIONARY.md. schema_version bumped
   // 3 → 4: entities moved from "one per account" to "one per activity",
   // each now carrying its own `activity_slug`, and `days[].habits` renamed
-  // `days[].activities` — see docs/HABIT-VS-ACTIVITY-MODEL.md.
+  // `days[].activities` — see docs/ARCHITECTURE.md.
   return {
     meta: { from, to, timezone: "America/Sao_Paulo", schema_version: 4 },
     entities: {
@@ -514,7 +514,7 @@ export async function getExport(userId: UserId, from: string, to: string) {
 
 // Nested by activityId: an id like plan_day_id or book_id is only unique
 // WITHIN one activity's own config now that two activities of a kind can
-// coexist (see docs/HABIT-VS-ACTIVITY-MODEL.md) — a flat, account-wide map
+// coexist (see docs/ARCHITECTURE.md) — a flat, account-wide map
 // would collide across them the moment an account has two.
 export interface AuditLookup {
   books: Record<number, string>;
