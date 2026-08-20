@@ -6,7 +6,7 @@ import type { Lang } from "@/lib/i18n";
 // ActivityProposer — the general on-request AI socket for turning an
 // existing habit into concrete activities. Not a single-purpose "activity
 // generator" so much as the one door any future on-request AI iteration on a
-// habit's setup should go through (see HABIT-VS-ACTIVITY-MODEL.md) — this is
+// habit's setup should go through (see ARCHITECTURE.md) — this is
 // its first and, for now, only shape: propose a starter activity set for one
 // or more rich-kind habits at once.
 //
@@ -156,7 +156,7 @@ export interface ActivityBatchHabit {
   // "onboarding-time calls have no why" gap `why` alone doesn't close (a
   // habit's `why` explains the AREA; this explains what THIS ACTIVITY should
   // actually be). Parallel to `why`, not a replacement for it — both travel
-  // to the model when present. See docs/HABIT-VS-ACTIVITY-MODEL.md.
+  // to the model when present. See docs/ARCHITECTURE.md.
   briefing: string | null;
   kind: ProposableKind;
 }
