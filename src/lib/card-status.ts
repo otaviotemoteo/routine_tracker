@@ -1,7 +1,7 @@
 import { format, plural, type Copy } from "@/lib/i18n";
 import { summarizeDetails } from "@/lib/summaries";
 import { templateKindOf } from "@/lib/templates";
-import type { CheckWithHabit, TodayContext } from "@/types/habit";
+import type { ActivityContext, CheckWithActivity } from "@/types/habit";
 
 // The one-line status a Today card reports: what was logged when the habit is
 // done, or what today expects of it when it isn't.
@@ -11,8 +11,8 @@ export interface CardStatus {
 }
 
 export function cardStatus(
-  check: CheckWithHabit,
-  context: TodayContext,
+  check: CheckWithActivity,
+  context: ActivityContext,
   copy: Copy["today"]
 ): CardStatus {
   if (check.done) {
@@ -34,8 +34,8 @@ export function cardStatus(
 // What the user's configuration says about today for this habit. `null` means
 // "nothing worth showing" — the card just reads as pending.
 function plannedToday(
-  check: CheckWithHabit,
-  ctx: TodayContext,
+  check: CheckWithActivity,
+  ctx: ActivityContext,
   copy: Copy["today"]
 ): string | null {
   switch (templateKindOf(check.templateKind)) {
@@ -60,7 +60,7 @@ function plannedToday(
         : copy.notConfigured;
     case "rotina": {
       // routineBlocks is today-filtered; routineBlockCount isn't — see
-      // TodayContext's own comment on why n===0 alone can't tell "never
+      // ActivityContext's own comment on why n===0 alone can't tell "never
       // configured" from "configured, nothing scheduled today".
       const n = ctx.routineBlocks.length;
       if (n > 0) return format(plural(n, copy.blockToday, copy.blocksToday), { n });
