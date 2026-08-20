@@ -1,7 +1,7 @@
 import type { UserId } from "@/db/scope";
 // Server-only prefill loaders for the /config step forms — one specific
 // ACTIVITY's own current values now, not "the account's one of a kind". See
-// docs/HABIT-VS-ACTIVITY-MODEL.md.
+// docs/ARCHITECTURE.md.
 import {
   getReadingConfig,
   getSleepConfig,
