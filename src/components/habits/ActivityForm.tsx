@@ -54,7 +54,7 @@ function Section({
 // from its habit's umbrella name the moment a habit has more than one
 // activity), its metric spine, and its minimal action. The sibling of
 // HabitForm's Sections 2–3, moved here wholesale once the habit stopped
-// carrying either — see docs/HABIT-VS-ACTIVITY-MODEL.md.
+// carrying either — see docs/ARCHITECTURE.md.
 //
 // Reached from /config?activity=<id> for any activity with no rich
 // template_kind. A rich-kind activity (treino/leitura/...) is edited by its
