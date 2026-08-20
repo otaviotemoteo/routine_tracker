@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-// Decision 3 (docs/HABIT-VS-ACTIVITY-MODEL.md): generating an activity
+// Decision 3 (docs/ARCHITECTURE.md): generating an activity
 // always INSERTS a new row, never updates an existing one. Two activities
 // that both end up wanting the same rich kind must never be able to
 // silently share — let alone overwrite — one another's config. This used to
