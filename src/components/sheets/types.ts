@@ -7,7 +7,7 @@ import type { ActivityContext, CheckWithActivity } from "@/types/habit";
 // and PATCH.
 export interface SheetBodyProps {
   // Already resolved to THIS activity's own slice — see
-  // docs/HABIT-VS-ACTIVITY-MODEL.md. The shell picks context.activities[id]
+  // docs/ARCHITECTURE.md. The shell picks context.activities[id]
   // once so no body has to know the map shape.
   context: ActivityContext;
   initial: unknown;
