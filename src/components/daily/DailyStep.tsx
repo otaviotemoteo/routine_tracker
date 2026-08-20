@@ -6,11 +6,13 @@ import Link from "next/link";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { sheetBodyFor } from "@/components/sheets";
 import { format, habitName, type Copy, type Lang } from "@/lib/i18n";
-import type { CheckWithHabit, TodayContext } from "@/types/habit";
+import type { ActivityContext, CheckWithActivity } from "@/types/habit";
 
 interface DailyStepProps {
-  check: CheckWithHabit;
-  context: TodayContext;
+  check: CheckWithActivity;
+  // Already resolved to this activity's own slice — see the /day page,
+  // which reads context.activities[check.activityId].
+  context: ActivityContext;
   lang: Lang;
   copy: Copy["daily"];
   sheetCopy: Copy["sheets"];
