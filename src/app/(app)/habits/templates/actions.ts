@@ -3,26 +3,27 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { setHabitTemplate } from "@/db/habits";
+import { setActivityTemplate } from "@/db/habits";
 import { parseChecklistItems } from "@/lib/checklist";
 import { GENERIC_TEMPLATE_KINDS } from "@/lib/templates";
 import { requireUserId } from "@/lib/session";
 
 const setTemplateSchema = z.object({
-  habitId: z.coerce.number().int().positive(),
+  activityId: z.coerce.number().int().positive(),
   kind: z.enum(GENERIC_TEMPLATE_KINDS),
   // Checklist only: the raw textarea, one item per line.
   items: z.string().optional(),
 });
 
-// The chooser's one write: pick a card style for a habit, saved the instant
-// it's tapped. Deliberately its own action rather than a case inside
-// habits/actions.ts's updateHabitAction — see setHabitTemplate() in
-// src/db/habits.ts for why template_kind gets a dedicated, narrow write path.
+// The chooser's one write: pick a card style for an activity, saved the
+// instant it's tapped. Deliberately its own action rather than a case
+// inside habits/actions.ts's updateHabitAction — see setActivityTemplate()
+// in src/db/habits.ts for why template_kind gets a dedicated, narrow write
+// path.
 export async function setHabitTemplateAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const parsed = setTemplateSchema.safeParse({
-    habitId: formData.get("habitId"),
+    activityId: formData.get("activityId"),
     kind: formData.get("kind"),
     items: formData.get("items") ?? undefined,
   });
@@ -42,7 +43,7 @@ export async function setHabitTemplateAction(formData: FormData): Promise<void> 
     config = { items };
   }
 
-  await setHabitTemplate(userId, parsed.data.habitId, parsed.data.kind, config);
+  await setActivityTemplate(userId, parsed.data.activityId, parsed.data.kind, config);
 
   // No redirect on success: this form posts from inside the chooser's own
   // accordion, and revalidating in place (rather than navigating) is what
