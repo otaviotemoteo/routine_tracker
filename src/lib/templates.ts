@@ -1,7 +1,7 @@
 // The template vocabulary — how an ACTIVITY renders: its Today card, its grid
 // cell, its check-in sheet, its summary sentence. `null`/'plain' is the
 // generic one that works for any activity anywhere with no setup at all. See
-// docs/HABIT-VS-ACTIVITY-MODEL.md — this kind lives on `activities`, not on
+// docs/ARCHITECTURE.md — this kind lives on `activities`, not on
 // the umbrella habit above it.
 //
 // Every other kind reads only the activity's own columns (metricType, unit,
