@@ -196,10 +196,10 @@ history is not rebuilt unless something is found to actually need it.
 
 ### Habits become umbrellas, their activities become theirs (Habits & Activities phase)
 
-`HABIT-VS-ACTIVITY-MODEL.md` names four layers on one axis of zoom: a life
-domain → an umbrella habit ("physical activity") → its activities (a
-Monday workout, a specific book) → a day's log. This phase is what connects
-habit generation to the rich-kind system above, end to end.
+Four layers on one axis of zoom: a life domain → an umbrella habit
+("physical activity") → its activities (a Monday workout, a specific book)
+→ a day's log. This phase is what connects habit generation to the
+rich-kind system above, end to end.
 
 **`habit_suggester` proposes umbrellas, not single actions.** Its prompt and
 schema changed from "small concrete actions, 2–3 per area" (`"Call my
@@ -291,8 +291,8 @@ meant the account-wide "oldest wins" resolution (`getHabitByTemplateKind`)
 had nothing better to fall back on the moment two habits shared a kind. This
 phase gives the concrete, checkable thing a real row: `activities`, one or
 more per habit, carrying the metric spine and the template layer that used
-to live on `habits` directly. See `docs/HABIT-VS-ACTIVITY-MODEL.md` for the
-model in full; this section is what changed under it.
+to live on `habits` directly — the four-layer model named under "Habits
+become umbrellas" above; this section is what changed under it.
 
 **The daily-tracking grain moved from the habit to the activity.**
 `daily_checks` now carries `activity_id`, not `habit_id` — one check per
@@ -313,8 +313,8 @@ unchanged.** Every tracked habit gets exactly one activity
 writes both rows together now. A habit that never gets enriched still shows
 one plain card, exactly as before; "declining" the activities step costs
 nothing. Promoting to a rich kind never mutates that placeholder in place —
-Decision 3 (`docs/HABIT-VS-ACTIVITY-MODEL.md`) says generation always
-INSERTS a new activity, never updates an existing one, so two activities
+**Decision 3**: generation always INSERTS a new activity, never updates an
+existing one, so two activities
 that want the same kind — under the same habit or different ones — can
 never silently merge. The placeholder is retired (never deleted) the first
 time a real activity is accepted for its habit, but only if it was never
@@ -542,10 +542,9 @@ second surprise after they thought they were done.
 
 The direction narrative is user-written free text that reaches a model — the
 first place in this app where somebody's typing becomes part of an instruction.
-The mitigations are honest rather than absolute, and are written out in
-`docs/SECURITY_REVIEW.md` §6: schema-constrained output, `templateKind` as an
-enum, no numeric fields, nothing executed, and every field landing in a form a
-human reviews before anything is tracked.
+The mitigations are honest rather than absolute: schema-constrained output,
+`templateKind` as an enum, no numeric fields, nothing executed, and every
+field landing in a form a human reviews before anything is tracked.
 
 ## Error reporting (M2)
 
@@ -817,8 +816,7 @@ worth having while it means one thing.
 **What the brand cannot do** is prove that a query which received the right type
 actually used it. That gap is covered behaviourally by
 `src/db/isolation.test.ts` — two accounts, twelve assertions, every one of them
-account A reaching for account B's ids and getting nothing. The full walk-through
-is `docs/SECURITY_REVIEW.md`.
+account A reaching for account B's ids and getting nothing.
 
 The same file exports **`habitsFor(userId, onDate?)`**, the single predicate for
 reading a user's habits and the only place a user-scoped `from(habits)` is
