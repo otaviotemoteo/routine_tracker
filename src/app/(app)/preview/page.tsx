@@ -5,7 +5,7 @@ import { PreviewBoard } from "@/components/preview/PreviewBoard";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import type { SetupRow } from "@/lib/setup-summary";
-import type { HabitRow } from "@/db/habits";
+import type { ActivityWithHabit } from "@/db/habits";
 
 // A workbench for the redesign — every reworked component on one screen, with
 // invented data, reading from nothing.
@@ -22,12 +22,13 @@ import type { HabitRow } from "@/db/habits";
 // production.
 export const dynamic = "force-dynamic";
 
-const habit = (over: Partial<HabitRow>): HabitRow =>
+const habit = (over: Partial<ActivityWithHabit>): ActivityWithHabit =>
   ({
     id: 1,
+    habitId: 1,
+    habitName: "Leitura",
     name: "Leitura",
     slug: "leitura",
-    icon: null,
     optional: false,
     domainSlug: "education",
     metricType: "count",
@@ -35,13 +36,14 @@ const habit = (over: Partial<HabitRow>): HabitRow =>
     target: 10,
     minimalAction: "uma página",
     templateKind: "leitura",
+    config: null,
     source: "human",
     why: null,
     activeFrom: "2026-07-21",
     activeTo: null,
     position: 1,
     ...over,
-  }) as HabitRow;
+  }) as ActivityWithHabit;
 
 export default async function PreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
@@ -54,14 +56,20 @@ export default async function PreviewPage() {
   // carrying a warning rather than a count.
   const rows: SetupRow[] = [
     {
-      section: "workout",
+      activityId: 1,
+      habitId: 1,
+      habitName: "Cuidado com o corpo",
+      templateKind: "treino",
       label: copy.onboarding.review.sections.workout,
       configured: true,
       value: "Treino A",
       meta: "5 dias de treino no plano",
     },
     {
-      section: "reading",
+      activityId: 2,
+      habitId: 2,
+      habitName: "Leitura",
+      templateKind: "leitura",
       label: copy.onboarding.review.sections.reading,
       configured: true,
       value: "6 livros",
@@ -69,21 +77,30 @@ export default async function PreviewPage() {
       hintTone: "info",
     },
     {
-      section: "sleep",
+      activityId: 3,
+      habitId: 3,
+      habitName: "Descanso",
+      templateKind: "sono",
       label: copy.onboarding.review.sections.sleep,
       configured: true,
       value: "23:00 – 06:00",
       meta: "janela de 7h por noite",
     },
     {
-      section: "routine",
+      activityId: 4,
+      habitId: 4,
+      habitName: "Rotina",
+      templateKind: "rotina",
       label: copy.onboarding.review.sections.routine,
       configured: true,
       value: "Academia, Banho e café, Leitura",
       meta: "6 blocos no dia",
     },
     {
-      section: "duolingo",
+      activityId: 5,
+      habitId: 5,
+      habitName: "Idiomas",
+      templateKind: "duolingo",
       label: copy.onboarding.review.sections.duolingo,
       configured: true,
       value: "Inglês, Francês, Espanhol, Alemão",
@@ -91,17 +108,22 @@ export default async function PreviewPage() {
       hintTone: "warn",
     },
     {
-      section: "spirituality",
+      activityId: 6,
+      habitId: 6,
+      habitName: "Espiritualidade",
+      templateKind: "espiritualidade",
       label: copy.onboarding.review.sections.spirituality,
       configured: false,
       value: null,
     },
   ];
 
-  const habits: HabitRow[] = [
+  const habits: ActivityWithHabit[] = [
     habit({ id: 1 }),
     habit({
       id: 2,
+      habitId: 2,
+      habitName: "Treino",
       name: "Treino",
       slug: "treino",
       metricType: "binary",
@@ -113,6 +135,8 @@ export default async function PreviewPage() {
     }),
     habit({
       id: 3,
+      habitId: 3,
+      habitName: "Ler o salmo do dia",
       name: "Ler o salmo do dia",
       slug: "salmo",
       metricType: "binary",
