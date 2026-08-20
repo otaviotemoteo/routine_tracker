@@ -11,10 +11,10 @@ import {
   suggestedGenericTemplateKind,
   type GenericTemplateKind,
 } from "@/lib/templates";
-import type { HabitRow } from "@/db/habits";
+import type { ActivityWithHabit } from "@/db/habits";
 
 interface TemplateChooserListProps {
-  habits: HabitRow[];
+  habits: ActivityWithHabit[];
   lang: Lang;
   copy: Copy["templates"];
   todayCopy: Copy["today"];
