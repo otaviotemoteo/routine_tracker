@@ -2,12 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { promoteToRichKind } from "@/db/habits";
+import { createActivity, removeActivity, acceptProposedActivities } from "@/db/habits";
 import { proposeActivities, type ActivityPick } from "@/lib/ai/propose-activities";
 import type { ActivityProposal } from "@/lib/ai/activity-proposer";
 import { slugify } from "@/lib/slugify";
 import { getLang } from "@/lib/get-lang";
 import { requireUserId } from "@/lib/session";
+import { todayInSaoPaulo } from "@/lib/utils";
 
 const HERE = "/onboarding/activities";
 
@@ -24,18 +25,33 @@ const PROPOSABLE: ReadonlySet<string> = new Set([
   "espiritualidade",
 ]);
 
+const DEFAULT_NAME: Record<string, string> = {
+  treino: "Treino",
+  leitura: "Leitura",
+  rotina: "Rotina",
+  duolingo: "Duolingo",
+  espiritualidade: "Espiritualidade",
+};
+
 function parsePicks(formData: FormData): ActivityPick[] {
   try {
     const parsed = JSON.parse(String(formData.get("picks") ?? "[]"));
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (p): p is ActivityPick =>
-        p &&
-        Number.isInteger(p.habitId) &&
-        p.habitId > 0 &&
-        typeof p.kind === "string" &&
-        PROPOSABLE.has(p.kind)
-    );
+    return parsed
+      .filter(
+        (p): p is { habitId: number; kind: string; briefing: unknown } =>
+          p &&
+          Number.isInteger(p.habitId) &&
+          p.habitId > 0 &&
+          typeof p.kind === "string" &&
+          PROPOSABLE.has(p.kind)
+      )
+      .map((p) => ({
+        habitId: p.habitId,
+        kind: p.kind as ActivityPick["kind"],
+        briefing:
+          typeof p.briefing === "string" && p.briefing.trim() ? p.briefing.trim() : null,
+      }));
   } catch {
     return [];
   }
@@ -43,9 +59,9 @@ function parsePicks(formData: FormData): ActivityPick[] {
 
 // Shapes a fresh proposal into config-schemas.ts's real shape — ids starting
 // at 1, everything active. This path never has an existing config to merge
-// with (promoteToRichKind is only ever reached from 'plain' or a re-run of
-// the SAME kind — see its own comment), so there's no retired-entry history
-// to preserve the way rich-habits.ts's save* functions have to handle.
+// with (createActivity always inserts a NEW row — Decision 3,
+// docs/HABIT-VS-ACTIVITY-MODEL.md), so there's no retired-entry history to
+// preserve the way rich-habits.ts's save* functions have to handle.
 function shapeConfig(proposal: ActivityProposal): unknown {
   switch (proposal.kind) {
     case "treino":
@@ -109,14 +125,11 @@ function shapeConfig(proposal: ActivityProposal): unknown {
   }
 }
 
-// The one action on this screen: turn every {habitId, kind} pick into ONE
-// batched generation, then write each result immediately — see
-// HABIT-VS-ACTIVITY-MODEL.md and the Phase plan for why this step skips a
-// separate "accept" click (unlike proposed HABITS, there's no lightweight
-// "not yet real" row shape for a nested config the way active_from gives
-// habits one) and instead treats "look at what got made and remove anything
-// unwanted" — already possible via /config's existing edit path — as the
-// review step.
+// Turn every {habitId, kind, briefing} pick into ONE batched generation, then
+// write each result as a PROPOSED activity (active_from NULL) — never
+// straight to tracked. This is what makes the review step real: the old
+// version of this screen wrote straight to config and redirected, with
+// nothing left to actually review. See docs/HABIT-VS-ACTIVITY-MODEL.md.
 export async function generateActivitiesAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const lang = await getLang();
@@ -129,13 +142,51 @@ export async function generateActivitiesAction(formData: FormData): Promise<void
   const outcome = await proposeActivities(userId, picks, lang, null);
 
   if (outcome.status === "ok") {
-    for (const { habitId, proposal } of outcome.perHabit) {
-      await promoteToRichKind(userId, habitId, proposal.kind, shapeConfig(proposal));
+    for (const { habitId, proposal, briefing } of outcome.perHabit) {
+      await createActivity(
+        userId,
+        habitId,
+        {
+          name: DEFAULT_NAME[proposal.kind] ?? proposal.kind,
+          metricType: "binary",
+          unit: null,
+          target: null,
+          minimalAction: null,
+          templateKind: proposal.kind,
+          config: shapeConfig(proposal),
+        },
+        { source: "ai_suggested", why: briefing, activeFrom: null }
+      );
     }
   }
 
   revalidatePath(HERE);
+  redirect(outcome.status === "ok" ? safeNext(formData, HERE) : `${HERE}?failed=1`);
+}
+
+// The review step's one write: every still-proposed activity for this
+// account becomes real at once, habit's placeholder default activity
+// retired where it applies (acceptProposedActivities, src/db/habits.ts).
+export async function acceptActivitiesAction(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
+  await acceptProposedActivities(userId, todayInSaoPaulo());
+
+  revalidatePath(HERE);
   revalidatePath("/config");
   revalidatePath("/");
-  redirect(outcome.status === "ok" ? safeNext(formData, HERE) : `${HERE}?failed=1`);
+  redirect(safeNext(formData, "/"));
+}
+
+// Discard one still-proposed activity from the review list — nothing can
+// reference it yet, so this is a real delete (removeActivity's proposed
+// path), not an archive.
+export async function rejectActivityAction(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) redirect(HERE);
+
+  await removeActivity(userId, id, todayInSaoPaulo());
+
+  revalidatePath(HERE);
+  redirect(safeNext(formData, HERE));
 }
