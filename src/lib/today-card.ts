@@ -3,7 +3,7 @@ import { format, locale, plural, type Copy, type Lang } from "@/lib/i18n";
 import { templateKindOf } from "@/lib/templates";
 import { relativeDay } from "@/lib/utils";
 import type { TodayComparisons } from "@/db/queries";
-import type { CheckWithHabit, TodayContext } from "@/types/habit";
+import type { ActivityContext, CheckWithActivity } from "@/types/habit";
 
 // Everything a Today card shows, in one shape for all seven habits: one big
 // number that carries the point, a tinted panel that stretches to fill whatever
@@ -109,8 +109,8 @@ function hoursLabel(hours: number): string {
 }
 
 export function buildTodayCard(
-  check: CheckWithHabit,
-  context: TodayContext,
+  check: CheckWithActivity,
+  context: ActivityContext,
   copy: Copy["today"],
   lang: Lang,
   today: string,
@@ -586,7 +586,7 @@ export function buildTodayCard(
 // aim at. Shared by `plainCard` and `streakCard` — both draw the same "here's
 // what this habit is actually asking for" line, just under a different hero.
 function genericContextLine(
-  check: CheckWithHabit,
+  check: CheckWithActivity,
   copy: Copy["today"],
   target: number | null
 ): string {
@@ -603,7 +603,7 @@ function genericContextLine(
 // "which ones" is the question a checklist habit is being asked, same as the
 // legacy `rotina` card's blocks.
 function checklistCard(
-  check: CheckWithHabit,
+  check: CheckWithActivity,
   copy: Copy["today"],
   state: CardState,
   panelLabel: string,
@@ -653,7 +653,7 @@ function checklistCard(
 // number, it's the run — so unlike everywhere else in this file, the hero
 // here is a comparison (`comparisons.streak`) rather than today's `details`.
 function streakCard(
-  check: CheckWithHabit,
+  check: CheckWithActivity,
   copy: Copy["today"],
   state: CardState,
   streak: number,
@@ -684,7 +684,7 @@ function streakCard(
 // one — and because sibling cards have to match in height, which is the
 // panel's job via `flex-1`.
 function plainCard(
-  check: CheckWithHabit,
+  check: CheckWithActivity,
   copy: Copy["today"],
   state: CardState,
   panelLabel: string,
