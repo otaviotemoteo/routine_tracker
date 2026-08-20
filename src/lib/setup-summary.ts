@@ -2,7 +2,7 @@ import type { UserId } from "@/db/scope";
 // Server-only: one summary of every configured rich-kind ACTIVITY, shared by
 // /config's index and Overview's "Activities" section — so those two never
 // drift. One row per activity that exists now, not six fixed account-wide
-// slots — see docs/HABIT-VS-ACTIVITY-MODEL.md. An account with no workout
+// slots — see docs/ARCHITECTURE.md. An account with no workout
 // activity simply has no workout row, rather than a permanent "not set"
 // nudge for something nobody asked to track.
 import { listTrackedActivities } from "@/db/habits";
