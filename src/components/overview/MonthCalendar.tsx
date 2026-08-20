@@ -122,7 +122,7 @@ export function MonthCalendar({
                 <DaySummary
                   date={day.date}
                   title={`${dayNames[day.weekday - 1]}, ${day.dayOfMonth}`}
-                  habits={day.habits}
+                  habits={day.activities}
                   lang={lang}
                   copy={copy}
                   floating
@@ -157,7 +157,7 @@ export function MonthCalendar({
           <DaySummary
             date={open.date}
             title={`${dayNames[open.weekday - 1]}, ${open.dayOfMonth}`}
-            habits={open.habits}
+            habits={open.activities}
             lang={lang}
             copy={copy}
           />
