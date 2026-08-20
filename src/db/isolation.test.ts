@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sql } from "drizzle-orm";
 import { DOMAIN_SLUGS } from "@/lib/domains";
-import { PLAIN_KIND } from "@/lib/templates";
-import type { HabitEdit, HabitInput } from "./habits";
+import type { DefaultActivityInput, HabitEdit, HabitInput } from "./habits";
 import type { UserId } from "./scope";
 
 // Cross-user isolation, proven rather than remembered.
@@ -47,17 +46,15 @@ const NAME_A = `iso-a-${stamp}`;
 const NAME_B = `iso-b-${stamp}`;
 
 function habit(name: string): HabitInput {
-  return {
-    name,
-    domainSlug: "health",
-    metricType: "count",
-    unit: "pages",
-    target: null,
-    minimalAction: "one page",
-    templateKind: PLAIN_KIND,
-    why: null,
-  };
+  return { name, domainSlug: "health", why: null };
 }
+
+const defaultActivity: DefaultActivityInput = {
+  metricType: "count",
+  unit: "pages",
+  target: null,
+  minimalAction: "one page",
+};
 
 // A complete grid, so sealAssessment has all twelve domains and actually
 // freezes a priority cut. The action column differs per user so that reading
@@ -88,11 +85,9 @@ async function wipe(id: number): Promise<void> {
   await db.execute(sql`
     DELETE FROM assessment_ratings
      WHERE assessment_id IN (SELECT id FROM assessments WHERE user_id = ${id})`);
-  // The six rich domains (workout plan, reading list, routine blocks,
-  // languages, spiritual practices, sleep target) no longer have tables of
-  // their own — deleting the `habits` row below takes their `config` with it.
   for (const table of [
     "daily_checks",
+    "activities",
     "ai_runs",
     "ai_pending_requests",
     "direction_narratives",
@@ -110,9 +105,13 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
   let B: UserId;
   let aHabit: number;
   let bHabit: number;
-  let bProposal: number;
+  let aActivity: number;
+  let bActivity: number;
+  let bProposalHabit: number;
+  let bProposalActivity: number;
   let bCheck: number;
   let bCycle: number;
+  let bRoutineActivity: number;
 
   beforeAll(async () => {
     [Index, Assess, Habits, Queries, RichHabits, Scope, Users] = await Promise.all([
@@ -140,27 +139,48 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
       narrative: "B's private direction",
     });
 
-    aHabit = await Habits.createHabit(A, habit("A reads"), {
-      source: "human",
-      activeFrom: DATE,
-    });
-    bHabit = await Habits.createHabit(B, habit("B reads"), {
-      source: "human",
-      activeFrom: DATE,
-    });
-    bProposal = await Habits.createHabit(B, habit("B proposal"), {
-      source: "ai_suggested",
-      activeFrom: null,
-    });
+    ({ habitId: aHabit, activityId: aActivity } = await Habits.createHabit(
+      A,
+      habit("A reads"),
+      defaultActivity,
+      { source: "human", activeFrom: DATE }
+    ));
+    ({ habitId: bHabit, activityId: bActivity } = await Habits.createHabit(
+      B,
+      habit("B reads"),
+      defaultActivity,
+      { source: "human", activeFrom: DATE }
+    ));
+    ({ habitId: bProposalHabit, activityId: bProposalActivity } = await Habits.createHabit(
+      B,
+      habit("B proposal"),
+      defaultActivity,
+      { source: "ai_suggested", activeFrom: null }
+    ));
 
-    // Materialises one daily_checks row per live habit per user.
+    // Materialises one daily_checks row per live activity per user.
     await Queries.getDayChecks(A, DATE);
     const bChecks = await Queries.getDayChecks(B, DATE);
     bCheck = bChecks[0].id;
 
-    // A rich habit for B only — config-scoping has nothing to prove without
-    // one account actually having a config the other could try to reach.
-    await RichHabits.saveRoutineBlocks(B, [
+    // A rich activity for B only — config-scoping has nothing to prove
+    // without one account actually having a config the other could try to
+    // reach.
+    bRoutineActivity = await Habits.createActivity(
+      B,
+      bHabit,
+      {
+        name: "Rotina",
+        metricType: "binary",
+        unit: null,
+        target: null,
+        minimalAction: null,
+        templateKind: "rotina",
+        config: { blocks: [] },
+      },
+      { source: "human", why: null, activeFrom: DATE }
+    );
+    await RichHabits.saveRoutineBlocks(B, bRoutineActivity, [
       {
         startTime: "07:00",
         endTime: "08:00",
@@ -190,18 +210,23 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
   test("A cannot fetch B's habit by id", async () => {
     expect(await Habits.getHabit(A, bHabit)).toBeNull();
     // Including the invisible one: a proposal is not a back door.
-    expect(await Habits.getHabit(A, bProposal)).toBeNull();
+    expect(await Habits.getHabit(A, bProposalHabit)).toBeNull();
   });
 
-  test("A's day shows only A's habits", async () => {
+  test("A cannot fetch B's activity by id", async () => {
+    expect(await Habits.getActivity(A, bActivity)).toBeNull();
+    expect(await Habits.getActivity(A, bProposalActivity)).toBeNull();
+  });
+
+  test("A's day shows only A's activities", async () => {
     const checks = await Queries.getDayChecks(A, DATE);
     expect(checks.length).toBeGreaterThan(0);
-    expect(checks.every((c) => c.habitId === aHabit)).toBe(true);
+    expect(checks.every((c) => c.activityId === aActivity)).toBe(true);
   });
 
   test("A's proposal list contains none of B's", async () => {
     const proposals = await Habits.listProposedHabits(A);
-    expect(proposals.map((h) => h.id)).not.toContain(bProposal);
+    expect(proposals.map((h) => h.id)).not.toContain(bProposalHabit);
   });
 
   test("A reads their own sealed assessment, not B's", async () => {
@@ -225,15 +250,16 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
     expect(json).not.toContain("B reads");
     expect(json).not.toContain("B proposal");
     expect(json).not.toContain("B's private direction");
+    expect(json).not.toContain("B's secret block");
   });
 
   // ─── Id-addressed writes ───────────────────────────────────────────────────
 
   test("A cannot edit B's habit", async () => {
-    // An edit carries only the fields the form shows — template_kind and why
-    // are not among them, by type. See HabitEdit in src/db/habits.ts.
-    const { templateKind: _t, why: _w, ...edit } = habit("stolen");
-    const ok = await Habits.updateHabit(A, bHabit, edit as HabitEdit);
+    // An edit carries only the fields the form shows — why is not among
+    // them, by type. See HabitEdit in src/db/habits.ts.
+    const edit: HabitEdit = { name: "stolen", domainSlug: "health" };
+    const ok = await Habits.updateHabit(A, bHabit, edit);
     expect(ok).toBe(false);
 
     // And the row is genuinely untouched, not merely reported as unchanged.
@@ -248,6 +274,13 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
     expect(still?.activeTo).toBeNull();
   });
 
+  test("A cannot remove B's activity", async () => {
+    const ok = await Habits.removeActivity(A, bActivity, DATE);
+    expect(ok).toBe(false);
+    const still = await Habits.getActivity(B, bActivity);
+    expect(still?.activeTo).toBeNull();
+  });
+
   test("A cannot toggle B's check", async () => {
     const result = await Queries.toggleCheck(A, bCheck, true);
     expect(result).toBeNull();
@@ -258,51 +291,50 @@ describe.skipIf(!LIVE)("cross-user isolation", () => {
   test("A starting tracking does not activate B's proposals", async () => {
     await Habits.activateProposedHabits(A, DATE);
     const stillProposed = await Habits.listProposedHabits(B);
-    expect(stillProposed.map((h) => h.id)).toContain(bProposal);
-    expect((await Habits.getHabit(B, bProposal))?.activeFrom).toBeNull();
+    expect(stillProposed.map((h) => h.id)).toContain(bProposalHabit);
+    expect((await Habits.getHabit(B, bProposalHabit))?.activeFrom).toBeNull();
   });
 
   // ─── The proposed/tracked split ────────────────────────────────────────────
 
   test("a proposal is invisible to every user-facing read", async () => {
-    const proposal = await Habits.createHabit(A, habit("A proposal"), {
-      source: "ai_suggested",
-      activeFrom: null,
-    });
+    const { habitId: proposalHabit, activityId: proposalActivity } =
+      await Habits.createHabit(A, habit("A proposal"), defaultActivity, {
+        source: "ai_suggested",
+        activeFrom: null,
+      });
 
     expect((await Habits.listHabits(A, DATE)).map((h) => h.id)).not.toContain(
-      proposal
+      proposalHabit
     );
     expect(
-      (await Queries.getDayChecks(A, DATE)).map((c) => c.habitId)
-    ).not.toContain(proposal);
+      (await Queries.getDayChecks(A, DATE)).map((c) => c.activityId)
+    ).not.toContain(proposalActivity);
     expect(
       JSON.stringify(await Queries.getExport(A, DATE, OTHER_DATE))
     ).not.toContain("A proposal");
 
     // Visible only to the one read that asks for it by name.
     expect((await Habits.listProposedHabits(A)).map((h) => h.id)).toContain(
-      proposal
+      proposalHabit
     );
   });
 
-  // ─── Rich habit config (Phase 3) ───────────────────────────────────────────
+  // ─── Rich activity config ───────────────────────────────────────────────────
   //
   // The six rich domains used to be account-scoped by construction — a
-  // dedicated table's own `user_id` column. Now they're one habit's `config`,
-  // reached through getHabitByTemplateKind(userId, kind) — scoped the same
-  // way every other habit read is, but never exercised by a test until now.
+  // dedicated table's own `user_id` column, then one habit's `config`. Now
+  // they're one ACTIVITY's `config`, reached through getActivity(userId, id)
+  // — scoped the same way every other read is, exercised here against a real
+  // id belonging to the other account.
 
-  test("A has no access to B's routine config", async () => {
-    // A never created a 'rotina' habit, so there is nothing to find — not a
-    // read that happens to come back empty because of a filter elsewhere.
-    expect(await RichHabits.getRoutineConfig(A)).toBeNull();
-    expect((await RichHabits.listRoutineBlocks(A)).map((b) => b.activity)).not
-      .toContain("B's secret block");
+  test("A cannot reach B's routine activity by id", async () => {
+    expect(await RichHabits.getRoutineConfig(A, bRoutineActivity)).toBeNull();
+    expect(await RichHabits.listRoutineBlocks(A, bRoutineActivity)).toEqual([]);
   });
 
   test("A's Day Audit lookups carry none of B's block names", async () => {
     const lookups = await Queries.getAuditLookups(A);
-    expect(Object.values(lookups.blocks)).not.toContain("B's secret block");
+    expect(JSON.stringify(lookups)).not.toContain("B's secret block");
   });
 });
