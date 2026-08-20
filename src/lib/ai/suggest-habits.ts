@@ -124,7 +124,7 @@ export async function suggestHabits(
         // habit.templateKind (enum-constrained to 'plain' this phase) is not
         // carried forward — the habit itself no longer has a template layer
         // at all; its default activity, created by writeProposedHabits, is
-        // always plain regardless. See docs/HABIT-VS-ACTIVITY-MODEL.md.
+        // always plain regardless. See docs/ARCHITECTURE.md.
       });
     }
   }
