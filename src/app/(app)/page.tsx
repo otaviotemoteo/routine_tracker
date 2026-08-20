@@ -33,7 +33,7 @@ export default async function TodayPage() {
 
   // Same source as the Overview note, so the two never disagree. Only the
   // healthy "here's your pace" case belongs on the card.
-  const reading = setup.find((row) => row.section === "reading");
+  const reading = setup.find((row) => row.templateKind === "leitura");
   const paceValues =
     reading?.hintTone === "info" ? reading.paceValues : undefined;
   const pace = paceValues
