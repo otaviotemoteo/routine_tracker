@@ -3,10 +3,10 @@ import { domainIcon } from "@/lib/domain-icons";
 import { isDomainSlug, DOMAIN_SLUGS, type DomainSlug } from "@/lib/domains";
 import { ASSESSMENT_COPY } from "@/lib/i18n-assessment";
 import type { Copy, Lang } from "@/lib/i18n";
-import type { HabitRow as HabitRowData } from "@/db/habits";
+import type { ActivityWithHabit } from "@/db/habits";
 
 interface HabitGroupsProps {
-  habits: HabitRowData[];
+  habits: ActivityWithHabit[];
   lang: Lang;
   copy: Copy["habits"];
   removeAction: (formData: FormData) => void;
@@ -32,8 +32,8 @@ export function HabitGroups({
   showSource = false,
   streaks,
 }: HabitGroupsProps) {
-  const byDomain = new Map<DomainSlug, HabitRowData[]>();
-  const unanchored: HabitRowData[] = [];
+  const byDomain = new Map<DomainSlug, ActivityWithHabit[]>();
+  const unanchored: ActivityWithHabit[] = [];
   for (const habit of habits) {
     if (habit.domainSlug && isDomainSlug(habit.domainSlug)) {
       const list = byDomain.get(habit.domainSlug) ?? [];
@@ -44,7 +44,7 @@ export function HabitGroups({
     }
   }
 
-  const groups: { key: string; label: string; icon: React.ReactNode; items: HabitRowData[] }[] =
+  const groups: { key: string; label: string; icon: React.ReactNode; items: ActivityWithHabit[] }[] =
     [];
   for (const slug of DOMAIN_SLUGS) {
     const items = byDomain.get(slug);
