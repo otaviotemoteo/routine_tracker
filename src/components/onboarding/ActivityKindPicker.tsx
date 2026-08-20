@@ -40,7 +40,7 @@ interface Pick {
 // icon-buttons for which kind of activity set it's made of. The briefing is
 // the context that closes the "onboarding-time calls have no why" gap: a
 // good umbrella habit plus a real briefing makes for an assertive activity
-// instead of a generic one. See docs/HABIT-VS-ACTIVITY-MODEL.md.
+// instead of a generic one. See docs/ARCHITECTURE.md.
 //
 // A single press elsewhere (Generate) runs ONE batched call for every pick
 // at once (see generateActivitiesAction) — this component only ever
