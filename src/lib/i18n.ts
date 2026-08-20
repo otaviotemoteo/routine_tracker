@@ -559,6 +559,8 @@ export interface Copy {
     kindLanguages: string;
     kindSpirituality: string;
     pick: string; // aria-label prefix for a kind button, {kind} appended
+    briefingLabel: string;
+    briefingPlaceholder: string;
     generate: string;
     generating: string;
     generateFailed: string;
@@ -568,6 +570,13 @@ export interface Copy {
     continueLabel: string;
     noneLeft: string; // every habit already has activities or none exist
     editHint: string; // "fine-tune in /config" style note under a done card
+    // The review step, between generating and accepting.
+    reviewTitle: string; // {n}
+    reviewLead: string;
+    reviewEdit: string; // link to /config to inspect/tweak before accepting
+    reject: string; // discard one still-proposed activity
+    acceptAll: string;
+    accepting: string;
   };
   onboarding: {
     stepOf: string; // {current} / {total}
@@ -1188,6 +1197,8 @@ export const COPY: Record<Lang, Copy> = {
       kindLanguages: "Languages",
       kindSpirituality: "Spirituality",
       pick: "Set up as {kind}",
+      briefingLabel: "Briefly, what would you like to do here?",
+      briefingPlaceholder: "e.g. a beginner strength split, 3 days a week",
       generate: "Generate activities",
       generating: "Generating…",
       generateFailed:
@@ -1198,6 +1209,13 @@ export const COPY: Record<Lang, Copy> = {
       continueLabel: "Continue to Today",
       noneLeft: "Nothing left to set up here.",
       editHint: "Edit in settings",
+      reviewTitle: "{n} activities generated — review before accepting",
+      reviewLead:
+        "Take a look, tweak anything that isn't quite right, then accept the set.",
+      reviewEdit: "Review",
+      reject: "Discard",
+      acceptAll: "Accept and continue",
+      accepting: "Accepting…",
     },
     onboarding: {
       confirmRemove: "Remove {name}?",
@@ -1832,6 +1850,8 @@ export const COPY: Record<Lang, Copy> = {
       kindLanguages: "Idiomas",
       kindSpirituality: "Espiritualidade",
       pick: "Configurar como {kind}",
+      briefingLabel: "Em poucas palavras, o que você gostaria de fazer aqui?",
+      briefingPlaceholder: "ex.: treino de força para iniciante, 3x por semana",
       generate: "Gerar atividades",
       generating: "Gerando…",
       generateFailed:
@@ -1842,6 +1862,13 @@ export const COPY: Record<Lang, Copy> = {
       continueLabel: "Continuar para o Hoje",
       noneLeft: "Nada mais para configurar aqui.",
       editHint: "Editar nas configurações",
+      reviewTitle: "{n} atividades geradas — revise antes de aceitar",
+      reviewLead:
+        "Dê uma olhada, ajuste o que não estiver certo, e aceite o conjunto.",
+      reviewEdit: "Revisar",
+      reject: "Descartar",
+      acceptAll: "Aceitar e continuar",
+      accepting: "Aceitando…",
     },
     onboarding: {
       confirmRemove: "Remover {name}?",
