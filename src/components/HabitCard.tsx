@@ -6,15 +6,17 @@ import { format, habitName, type Copy, type Lang } from "@/lib/i18n";
 import { buildTodayCard, type ReadingPace } from "@/lib/today-card";
 import type { PaceValues } from "@/lib/setup-summary";
 import type { TodayComparisons } from "@/db/queries";
-import type { CheckWithHabit, TodayContext } from "@/types/habit";
+import type { ActivityContext, CheckWithActivity } from "@/types/habit";
 
 // What fits in the panel of a 320px card alongside a label, a line of text and
 // the note.
 const MAX_PANEL_ITEMS = 5;
 
 interface HabitCardProps {
-  check: CheckWithHabit;
-  context: TodayContext;
+  check: CheckWithActivity;
+  // Already resolved to this activity's own slice — see TodayBoard, which
+  // reads context.activities[check.activityId] for each card.
+  context: ActivityContext;
   lang: Lang;
   copy: Copy["today"];
   readingCopy: Copy["onboarding"]["reading"];
