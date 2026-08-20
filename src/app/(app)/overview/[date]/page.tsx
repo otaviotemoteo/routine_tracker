@@ -198,6 +198,7 @@ export default async function DayAuditPage({ params }: DayAuditPageProps) {
               check.templateKind,
               check.details,
               lookups,
+              check.activityId,
               copy.sheets,
               copy.today,
               { unit: check.unit, target: check.target }
