@@ -60,7 +60,7 @@ interface Eligible {
 // A pick is dropped rather than failing the whole batch — the same per-item
 // defensiveness suggestHabits already applies to domainSlug — when the habit
 // doesn't belong to this account. That's the only guard now: Decision 3
-// (docs/HABIT-VS-ACTIVITY-MODEL.md) means generating always creates a NEW
+// (docs/ARCHITECTURE.md) means generating always creates a NEW
 // activity, never merges into an existing one, so there is no more "already
 // carries a different kind" conflict to check — a habit can hold as many
 // activities, of as many kinds, as it's given.
