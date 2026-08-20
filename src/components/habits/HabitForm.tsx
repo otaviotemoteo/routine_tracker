@@ -14,6 +14,10 @@ export interface HabitFormValues {
   id?: number;
   name: string;
   domainSlug: DomainSlug | null;
+  // Only meaningful when creating: a new habit's default activity is
+  // created in the same submission (see docs/HABIT-VS-ACTIVITY-MODEL.md).
+  // Editing an existing habit shows name/area only — its metric spine
+  // belongs to its activity now, edited from /config.
   metricType: MetricType;
   unit: string;
   target: string;
@@ -61,13 +65,19 @@ function Section({
 
 // The habit form — used for both create and edit, empty or prefilled.
 //
-// Field set is deliberately short: name, area, metric (+ unit and target when
-// the metric has a number), and the minimal action. `triggerWhen` and
-// `triggerWhere` are in the method and worth having eventually, but they are
-// the two most likely to make this feel like paperwork, so they are deferred.
+// CREATING shows all three sections: name/area, metric (+ unit and target
+// when the metric has a number), and the minimal action — one submission
+// creates the habit AND its one default activity together (the
+// default-activity invariant, docs/HABIT-VS-ACTIVITY-MODEL.md).
 //
-// There is no template picker. Every habit created here is plain, because the
-// seven rich renderers read tables only the owner has rows in — see
+// EDITING shows only the first section. The metric spine and minimal action
+// belong to the habit's activity now, not the umbrella — editing those
+// happens from /config, which the form links out to. This is the same rule
+// `HabitEdit`'s `?: never` guards enforce one layer down: the form only ever
+// owns the fields it shows.
+//
+// There is no template picker. Every activity created here is plain, because
+// the seven rich renderers read config only their own activity has — see
 // src/lib/templates.ts. A picker offering choices that break is worse than no
 // picker at all.
 export function HabitForm({
@@ -80,6 +90,7 @@ export function HabitForm({
   proposed = false,
   showError = false,
 }: HabitFormProps) {
+  const isCreating = initial.id === undefined;
   const [name, setName] = useState(initial.name);
   const [metricType, setMetricType] = useState<MetricType>(initial.metricType);
   const [domainSlug, setDomainSlug] = useState(initial.domainSlug ?? "");
@@ -91,29 +102,40 @@ export function HabitForm({
 
   // Dirtiness is measured, not guessed: a snapshot taken once on mount and
   // compared to the current state. Save stays disabled on an edit until
-  // something actually changes, matching /config.
+  // something actually changes, matching /config. Editing only ever touches
+  // name/area now, so only those two are part of the comparison — the
+  // metric fields aren't rendered on that path at all.
   const snapshot = useMemo(
-    () => JSON.stringify(initial),
+    () =>
+      JSON.stringify(
+        isCreating
+          ? initial
+          : { id: initial.id, name: initial.name, domainSlug: initial.domainSlug }
+      ),
     // Intentionally frozen at mount — that is what makes it a baseline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
-  const current = JSON.stringify({
-    id: initial.id,
-    name,
-    domainSlug: (domainSlug || null) as DomainSlug | null,
-    metricType,
-    unit,
-    target,
-    minimalAction,
-  });
+  const current = JSON.stringify(
+    isCreating
+      ? {
+          id: initial.id,
+          name,
+          domainSlug: (domainSlug || null) as DomainSlug | null,
+          metricType,
+          unit,
+          target,
+          minimalAction,
+        }
+      : { id: initial.id, name, domainSlug: (domainSlug || null) as DomainSlug | null }
+  );
   const dirty = current !== snapshot;
 
   // A binary habit counts nothing, so the unit and target fields don't apply.
   // Hidden rather than disabled: a control that can't do anything shouldn't
   // be on screen.
   const counts = metricType !== "binary";
-  const canSave = name.trim().length > 0 && (initial.id === undefined || dirty);
+  const canSave = name.trim().length > 0 && (isCreating || dirty);
 
   return (
     <form action={action} className="mt-6 flex flex-col gap-5">
@@ -180,6 +202,17 @@ export function HabitForm({
         <p className={hintClass}>{copy.areaHint}</p>
       </Section>
 
+      {!isCreating && (
+        <p className="text-sm opacity-75">
+          {copy.editMeasurementLead}{" "}
+          <Link href="/config" className="font-semibold underline">
+            {copy.editMeasurementLink}
+          </Link>
+        </p>
+      )}
+
+      {isCreating && (
+      <>
       <Section step={copy.step2} aside={copy.step2Hint}>
         <fieldset>
           <legend className="sr-only">{copy.metric}</legend>
@@ -318,6 +351,8 @@ export function HabitForm({
           </p>
         </div>
       </Section>
+      </>
+      )}
 
       <div className="flex gap-2 flex-wrap justify-end pt-1">
         <Link href={cancelHref} className={ghostButton}>
