@@ -543,7 +543,7 @@ export interface Copy {
     emptyPost: string;
   };
   errorPage: { title: string; text: string; retry: string };
-  // The onboarding activities step — HABIT-VS-ACTIVITY-MODEL.md's last leg:
+  // The onboarding activities step — ARCHITECTURE.md's last leg:
   // after habits are active, an optional, one-time offer to generate
   // concrete activities for any of them. Not a gate — the NavBar is already
   // showing by the time this renders (habits are active), so leaving via
