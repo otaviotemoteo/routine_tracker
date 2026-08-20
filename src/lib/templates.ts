@@ -1,24 +1,25 @@
-// The template vocabulary — how a habit renders: its Today card, its grid
+// The template vocabulary — how an ACTIVITY renders: its Today card, its grid
 // cell, its check-in sheet, its summary sentence. `null`/'plain' is the
-// generic one that works for any habit anywhere with no setup at all.
+// generic one that works for any activity anywhere with no setup at all. See
+// docs/HABIT-VS-ACTIVITY-MODEL.md — this kind lives on `activities`, not on
+// the umbrella habit above it.
 //
-// Every other kind reads only the habit's own columns (metricType, unit,
+// Every other kind reads only the activity's own columns (metricType, unit,
 // target, minimalAction) and its own `config`/`details` — never a shared,
-// account-wide table — so any one of them may be given to any habit, old or
-// new, without limit. That used to only be true of five kinds; the other
-// seven (treino/leitura/sono/rotina/duolingo/espiritualidade/hobby) each read
-// a per-domain table (workout_plans, books, routine_blocks,
+// account-wide table, and never another activity's row — so any one of them
+// may be given to any activity, old or new, without limit. That used to only
+// be true of five kinds; the other seven
+// (treino/leitura/sono/rotina/duolingo/espiritualidade/hobby) each read a
+// per-domain table (workout_plans, books, routine_blocks,
 // spiritual_practices, languages, sleep_targets) that assumed exactly one
-// account owned exactly one row/list, account-wide — a real habit couldn't
-// safely be given one of those seven kinds without either breaking (no data
-// to render) or silently sharing another habit's plan.
+// account owned exactly one row/list, account-wide.
 //
-// Phase 3 closed that gap at the data layer: the six with real setup (all
-// but `hobby`, which never had a table) now keep that setup in the habit's
-// own `config`, shaped by config-schemas.ts — the same place Checklist's
-// `{items}` has always lived. Reading a per-domain table is no longer
-// possible, and every render/status/summary function below dispatches on
-// `config` alone — nothing left in this file is unsafe to run on any habit.
+// Phase 3 closed that gap by moving that setup onto the owning HABIT's own
+// `config`; this phase moved it one layer further, onto the specific
+// ACTIVITY's `config`, so two activities of the same kind — under the same
+// habit or different ones — can coexist without one's config overwriting the
+// other's. Every render/status/summary function below dispatches on `config`
+// alone — nothing here is unsafe to run on any activity.
 //
 // What DIDN'T change: the `/habits/templates` chooser's own UI still only
 // knows the original five cards — no copy, icon, or setup flow exists yet
@@ -36,8 +37,8 @@ export const PLAIN_KIND = "plain" as const;
 // The card-style-chooser's kinds — the exact five it has always offered.
 // `TemplateChooserList` renders one card per member of this list, so adding
 // to it is a UI decision (copy, icon, preview), not just a data one — nothing
-// here changes that list's membership. `setHabitTemplate` (src/db/habits.ts),
-// the chooser's write path, is typed to exactly this set.
+// here changes that list's membership. `setActivityTemplate`
+// (src/db/habits.ts), the chooser's write path, is typed to exactly this set.
 export const GENERIC_TEMPLATE_KINDS = [
   "number", // Plain/number — a figure, its unit, its target.
   "check", // Done-or-not — a yes/no for today plus the streak.
@@ -111,22 +112,22 @@ export function templateKindOf(value: string | null): TemplateKind {
   return PLAIN_KIND;
 }
 
-// A habit is eligible for the card-style chooser when it isn't one of the
-// seven kinds the chooser has no card for (the six rich kinds plus `hobby`) —
-// unchanged from before Phase 3. That used to be a safety rule (those seven
-// were owner-shaped and dangerous to touch); it's now purely a UI-surface
-// rule (the chooser has nowhere to send a "reassign my workout plan" click),
-// but the visible result — which habits show up in `/habits/templates` — is
-// identical either way, which is the point: nothing about this screen should
-// look any different than it did before this phase.
+// An activity is eligible for the card-style chooser when it isn't one of
+// the seven kinds the chooser has no card for (the six rich kinds plus
+// `hobby`) — unchanged from before Phase 3. That used to be a safety rule
+// (those seven were owner-shaped and dangerous to touch); it's now purely a
+// UI-surface rule (the chooser has nowhere to send a "reassign my workout
+// plan" click), but the visible result — which activities show up in
+// `/habits/templates` — is identical either way, which is the point: nothing
+// about this screen should look any different than it did before this phase.
 export function isChoosableTemplateKind(value: string | null): boolean {
   return !isRichTemplateKind(value);
 }
 
-// The chooser's "suggested" badge, computed live rather than stored: a
-// habit's metric type already implies which of the three simple kinds fits,
-// so nothing needs remembering until the user actually confirms one — see
-// UX_PRINCIPLES.md, "a suggestion looks like a suggestion until it is
+// The chooser's "suggested" badge, computed live rather than stored: an
+// activity's metric type already implies which of the three simple kinds
+// fits, so nothing needs remembering until the user actually confirms one —
+// see UX_PRINCIPLES.md, "a suggestion looks like a suggestion until it is
 // touched". Checklist, Streak-forward, and the six richer kinds have no
 // metric-driven default: each is equally sensible on any metric (or requires
 // its own setup regardless), so offering one as "suggested" would be a guess
@@ -139,8 +140,9 @@ export function suggestedGenericTemplateKind(
   return "number";
 }
 
-// What goes INTO the database for a new habit. Plain habits store NULL rather
-// than the string 'plain', so "has a template" stays a NULL check in SQL.
+// What goes INTO the database for a new activity. Plain activities store
+// NULL rather than the string 'plain', so "has a template" stays a NULL
+// check in SQL.
 export function storedTemplateKind(
   kind: SuggestableTemplateKind
 ): string | null {
