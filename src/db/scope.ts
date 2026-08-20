@@ -28,7 +28,7 @@
 //   manual audit  migrate-*.ts, seed*.ts — pg over TCP, no session, operator
 //                 run. Covered behaviourally by src/db/isolation.test.ts.
 import { and, eq, isNotNull, isNull, or, gte, lte, sql } from "drizzle-orm";
-import { habits } from "./schema";
+import { activities, habits } from "./schema";
 
 declare const brand: unique symbol;
 
@@ -88,6 +88,51 @@ export function habitsForRange(userId: UserId, from: string, to: string) {
 // Separate from habitsFor by design — a caller has to ask for these by name.
 export function proposedHabitsFor(userId: UserId) {
   return and(eq(habits.userId, userId), isNull(habits.activeFrom));
+}
+
+// Every user-facing read of `activities` goes through this — the same rule
+// habitsFor() enforces one layer up, see docs/HABIT-VS-ACTIVITY-MODEL.md.
+// One extra guard beyond mirroring habitsFor(): an activity's own
+// active_from IS NOT NULL is necessary but not sufficient — its PARENT
+// HABIT must also be live on the date, so a bug in removeHabit's archive
+// fan-out (below) can't resurrect a card whose habit was actually removed.
+// Requires `activities` joined to `habits` in the query this is used in.
+export function activitiesFor(userId: UserId, onDate?: string) {
+  return and(
+    eq(activities.userId, userId),
+    isNotNull(activities.activeFrom),
+    onDate ? lte(activities.activeFrom, onDate) : undefined,
+    onDate
+      ? or(isNull(activities.activeTo), gte(activities.activeTo, onDate))
+      : undefined,
+    isNotNull(habits.activeFrom),
+    onDate ? lte(habits.activeFrom, onDate) : undefined,
+    onDate ? or(isNull(habits.activeTo), gte(habits.activeTo, onDate)) : undefined
+  );
+}
+
+// Activities that overlap a date range at all — mirrors habitsForRange(),
+// for the week grid and month view.
+export function activitiesForRange(userId: UserId, from: string, to: string) {
+  return and(
+    eq(activities.userId, userId),
+    isNotNull(activities.activeFrom),
+    lte(activities.activeFrom, to),
+    or(isNull(activities.activeTo), gte(activities.activeTo, from)),
+    isNotNull(habits.activeFrom),
+    lte(habits.activeFrom, to),
+    or(isNull(habits.activeTo), gte(habits.activeTo, from))
+  );
+}
+
+// The complement: an account's proposed activities, optionally narrowed to
+// one habit's own — only the activities review screen reads these.
+export function proposedActivitiesFor(userId: UserId, habitId?: number) {
+  return and(
+    eq(activities.userId, userId),
+    isNull(activities.activeFrom),
+    habitId !== undefined ? eq(activities.habitId, habitId) : undefined
+  );
 }
 
 // Whether a habit row was live on a given day, for callers that already hold
