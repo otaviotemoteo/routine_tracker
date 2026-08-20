@@ -11,6 +11,8 @@
 // and the six step components below need no change to their own action prop
 // type to pass it through. See docs/HABIT-VS-ACTIVITY-MODEL.md.
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import {
   getReadingConfig,
   saveLanguages,
@@ -20,6 +22,7 @@ import {
   saveSpiritualPractices,
   saveWorkoutPlan,
 } from "@/db/rich-habits";
+import { updateActivity, type ActivityEdit } from "@/db/habits";
 import type { PlannedExercise } from "@/db/schema";
 import { slugify } from "@/lib/slugify";
 import { todayInSaoPaulo } from "@/lib/utils";
@@ -190,5 +193,63 @@ export async function saveSpiritualityStep(
     }))
     .filter((p) => p.name && p.slug && !seen.has(p.slug) && seen.add(p.slug));
   await saveSpiritualPractices(userId, activityId, practices);
+  redirect(safeNext(formData));
+}
+
+// A plain activity's own editor (ActivityForm.tsx) — name/metric/minimal
+// action, the same fields HabitForm used to carry before they moved here.
+// Reads its own id off the form rather than a bound argument, matching
+// habits/actions.ts's updateHabitAction.
+const activityEditSchema = z.object({
+  id: z.coerce.number().int().positive(),
+  name: z.string().trim().min(1).max(50),
+  metricType: z.enum(["binary", "count", "duration"]),
+  unit: z
+    .string()
+    .trim()
+    .max(20)
+    .transform((v) => (v === "" ? null : v)),
+  target: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : Number(v)))
+    .refine(
+      (v) => v === null || (Number.isInteger(v) && v > 0 && v <= 100_000),
+      "Target must be a positive whole number"
+    ),
+  minimalAction: z
+    .string()
+    .trim()
+    .max(200)
+    .transform((v) => (v === "" ? null : v)),
+});
+
+export async function updateActivityAction(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
+  const parsed = activityEditSchema.safeParse({
+    id: formData.get("id"),
+    name: formData.get("name") ?? "",
+    metricType: formData.get("metricType") ?? "binary",
+    unit: formData.get("unit") ?? "",
+    target: formData.get("target") ?? "",
+    minimalAction: formData.get("minimalAction") ?? "",
+  });
+  if (!parsed.success) redirect(safeNext(formData));
+
+  const edit: ActivityEdit = {
+    name: parsed.data.name,
+    metricType: parsed.data.metricType,
+    // A binary activity counts nothing, so a leftover unit/target from
+    // switching the metric in the form would render as a figure that means
+    // nothing.
+    unit: parsed.data.metricType === "binary" ? null : parsed.data.unit,
+    target: parsed.data.metricType === "binary" ? null : parsed.data.target,
+    minimalAction: parsed.data.minimalAction,
+  };
+  await updateActivity(userId, parsed.data.id, edit);
+
+  revalidatePath("/habits");
+  revalidatePath("/");
+  revalidatePath("/config");
   redirect(safeNext(formData));
 }
