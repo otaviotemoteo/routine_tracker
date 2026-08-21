@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Check } from "lucide-react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Check, Loader2 } from "lucide-react";
 import { setHabitTemplateAction } from "@/app/(app)/habits/templates/actions";
 import { templatePreviewFor } from "@/lib/template-previews";
 import { type Copy } from "@/lib/i18n";
@@ -13,21 +14,33 @@ interface TemplateOptionProps {
   kind: GenericTemplateKind;
   chosen: boolean;
   suggested: boolean;
+  // Tapped but not saved yet — turns the card green immediately, with no
+  // server round trip, so picking one is instant to see and cheap to change
+  // your mind about before committing.
+  staged: boolean;
+  onStage: () => void;
+  // Called once the save actually lands — the list closes this habit's row
+  // and clears the staged pick, so confirming reads as "done", not as a
+  // reload of the same open accordion.
+  onSaved: () => void;
   copy: Copy["templates"];
   todayCopy: Copy["today"];
 }
 
 // One of the five card-style options inside an open habit row. Four of the
-// five are a single tap — a form with two hidden fields, saved the instant
-// it's pressed (see setHabitTemplateAction). Checklist alone needs one more
+// five are tap-to-stage, then an explicit "Salvar template" — clicking the
+// card only turns it green and reveals that button (see StagedSaveButton
+// below); nothing saves until it's pressed. Checklist alone needs one more
 // answer — its own item names — before there's anything to save, so it's a
-// different component below that shows an inline form instead of an instant
-// submit.
+// different component below that shows an inline form instead.
 export function TemplateOption({
   habit,
   kind,
   chosen,
   suggested,
+  staged,
+  onStage,
+  onSaved,
   copy,
   todayCopy,
 }: TemplateOptionProps) {
@@ -44,17 +57,78 @@ export function TemplateOption({
   }
 
   const preview = templatePreviewFor(kind, habit, todayCopy);
+  // Green the instant it's picked, not just once it's actually saved.
+  const selected = chosen || staged;
 
   return (
-    <form action={setHabitTemplateAction}>
-      <input type="hidden" name="activityId" value={habit.id} />
-      <input type="hidden" name="kind" value={kind} />
-      <button type="submit" className={optionShellClass(chosen, suggested)}>
+    <div className={optionShellClass(selected, suggested)}>
+      {staged && (
+        <StagedSaveButton
+          activityId={habit.id}
+          kind={kind}
+          label={copy.saveTemplate}
+          onSaved={onSaved}
+        />
+      )}
+      <button
+        type="button"
+        onClick={onStage}
+        className="w-full text-left flex flex-col gap-2.5"
+      >
         <OptionHeader kind={kind} chosen={chosen} suggested={suggested} copy={copy} />
         <PreviewBlock preview={preview} />
-        <OptionAction chosen={chosen} suggested={suggested} copy={copy} />
+        {!staged && <OptionAction chosen={chosen} suggested={suggested} copy={copy} />}
       </button>
-    </form>
+    </div>
+  );
+}
+
+// The one real submit — appears only on the card someone just tapped, and
+// only stays visible until it's pressed (or a different card is tapped
+// instead). useTransition, not useFormStatus: onSaved needs to fire once the
+// save has actually landed, which a plain <form action> can't signal back
+// to the list that owns "which habit is open."
+function StagedSaveButton({
+  activityId,
+  kind,
+  label,
+  onSaved,
+}: {
+  activityId: number;
+  kind: GenericTemplateKind;
+  label: string;
+  onSaved: () => void;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  function handleSave() {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("activityId", String(activityId));
+      formData.set("kind", kind);
+      await setHabitTemplateAction(formData);
+      // The action's own revalidatePath calls invalidate the router cache;
+      // refresh is what actually re-fetches this page's Server Component
+      // with the new templateKind, so the closed row doesn't show a stale
+      // "not chosen yet" until the next real navigation.
+      router.refresh();
+      onSaved();
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleSave}
+      disabled={isPending}
+      className="min-h-[36px] inline-flex items-center justify-center gap-1.5 px-3 rounded-full border-2 border-forest bg-clover text-white font-semibold text-xs shadow-hard-sm self-start disabled:opacity-70"
+    >
+      {isPending && (
+        <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+      )}
+      {label}
+    </button>
   );
 }
 
@@ -68,7 +142,7 @@ function ChecklistOption({
   suggested,
   copy,
   todayCopy,
-}: Omit<TemplateOptionProps, "kind">) {
+}: Omit<TemplateOptionProps, "kind" | "staged" | "onStage" | "onSaved">) {
   const configRecord =
     habit.config && typeof habit.config === "object"
       ? (habit.config as Record<string, unknown>)
@@ -161,7 +235,10 @@ function optionShellClass(
   // card readable as green at a glance, not just as one dot in its badge.
   const border = suggested && !chosen ? "border-dashed" : "border-solid";
   const bg = chosen ? "bg-mint" : suggested ? "bg-straw/10" : "bg-cream";
-  return `w-full h-full text-left rounded-card border-2 ${border} border-forest ${bg} shadow-hard-sm px-3.5 py-3 flex flex-col gap-2.5 ${extra}`;
+  // Staging is meant to read as instant feedback, not a redraw — the color
+  // eases in rather than snapping, motion-reduce dropping straight to the
+  // end state like every other transition in this app.
+  return `w-full h-full text-left rounded-card border-2 ${border} border-forest ${bg} shadow-hard-sm px-3.5 py-3 flex flex-col gap-2.5 transition-colors duration-200 motion-reduce:transition-none ${extra}`;
 }
 
 function OptionHeader({
