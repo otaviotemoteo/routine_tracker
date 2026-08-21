@@ -10,7 +10,7 @@ import type { GenericTemplateKind } from "@/lib/templates";
 import type { ActivityWithHabit } from "@/db/habits";
 
 interface TemplateOptionProps {
-  habit: ActivityWithHabit;
+  activity: ActivityWithHabit;
   kind: GenericTemplateKind;
   chosen: boolean;
   suggested: boolean;
@@ -34,7 +34,7 @@ interface TemplateOptionProps {
 // answer — its own item names — before there's anything to save, so it's a
 // different component below that shows an inline form instead.
 export function TemplateOption({
-  habit,
+  activity,
   kind,
   chosen,
   suggested,
@@ -47,7 +47,7 @@ export function TemplateOption({
   if (kind === "checklist") {
     return (
       <ChecklistOption
-        habit={habit}
+        activity={activity}
         chosen={chosen}
         suggested={suggested}
         copy={copy}
@@ -56,7 +56,7 @@ export function TemplateOption({
     );
   }
 
-  const preview = templatePreviewFor(kind, habit, todayCopy);
+  const preview = templatePreviewFor(kind, activity, todayCopy);
   // Green the instant it's picked, not just once it's actually saved.
   const selected = chosen || staged;
 
@@ -73,7 +73,7 @@ export function TemplateOption({
       </button>
       {staged && (
         <StagedSaveButton
-          activityId={habit.id}
+          activityId={activity.id}
           kind={kind}
           label={copy.saveTemplate}
           onSaved={onSaved}
@@ -137,15 +137,15 @@ function StagedSaveButton({
 // a ghost "Edit items" button that reopens the same form, prefilled — so
 // naming items once doesn't mean they're stuck forever.
 function ChecklistOption({
-  habit,
+  activity,
   chosen,
   suggested,
   copy,
   todayCopy,
 }: Omit<TemplateOptionProps, "kind" | "staged" | "onStage" | "onSaved">) {
   const configRecord =
-    habit.config && typeof habit.config === "object"
-      ? (habit.config as Record<string, unknown>)
+    activity.config && typeof activity.config === "object"
+      ? (activity.config as Record<string, unknown>)
       : null;
   const existingItems = Array.isArray(configRecord?.items)
     ? configRecord!.items.filter((i): i is string => typeof i === "string")
@@ -154,7 +154,7 @@ function ChecklistOption({
   const [draft, setDraft] = useState(existingItems.join("\n"));
   const canSave = draft.split("\n").some((line) => line.trim().length > 0);
 
-  const preview = templatePreviewFor("checklist", habit, todayCopy);
+  const preview = templatePreviewFor("checklist", activity, todayCopy);
 
   if (editing) {
     return (
@@ -162,7 +162,7 @@ function ChecklistOption({
         <OptionHeader kind="checklist" chosen={chosen} suggested={suggested} copy={copy} />
         {existingItems.length === 0 && <PreviewBlock preview={preview} example />}
         <form action={setHabitTemplateAction} className="flex flex-col gap-2">
-          <input type="hidden" name="activityId" value={habit.id} />
+          <input type="hidden" name="activityId" value={activity.id} />
           <input type="hidden" name="kind" value="checklist" />
           <label className="text-xs font-bold uppercase tracking-wide opacity-60">
             {copy.checklistItemsLabel}
