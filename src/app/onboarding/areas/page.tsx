@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Sparkles } from "lucide-react";
 import { AssessmentShell } from "@/components/assessment/AssessmentShell";
 import { StepTitle } from "@/components/onboarding/OnboardingChrome";
 import { AreaCards } from "@/components/assessment/AreaCards";
 import { AddAreaPicker } from "@/components/assessment/AddAreaPicker";
+import { GenerateHabitsButton } from "@/components/assessment/GenerateHabitsButton";
 import { goToHabitsAction } from "./actions";
 import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import { canGenerate } from "@/lib/ai/harness";
@@ -97,10 +97,12 @@ export default async function AreasPage() {
               name="generate"
               value={generates ? "1" : "0"}
             />
-            <button type="submit" className={`${primaryButton} w-full sm:w-auto`}>
-              {generates && <Sparkles className="w-5 h-5" aria-hidden />}
-              {generates ? copy.areas.generate : copy.areas.manual}
-            </button>
+            <GenerateHabitsButton
+              generates={generates}
+              label={copy.areas.generate}
+              generatingLabel={copy.areas.generating}
+              manualLabel={copy.areas.manual}
+            />
             <p className="mt-3 text-sm opacity-75 max-w-prose">
               {generates ? copy.areas.generateNote : copy.areas.manualNote}
             </p>
