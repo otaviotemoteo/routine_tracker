@@ -305,7 +305,6 @@ export interface Copy {
     templatesNudgeTitle: string; // {n}
     templatesNudgeLead: string;
     templatesNudgeCta: string;
-    templatesNudgeDismiss: string;
     templatesNudgeSectionLabel: string;
     templatesEntryLabel: string;
     templatesEntryValue: string; // {done} {total}
@@ -980,7 +979,6 @@ export const COPY: Record<Lang, Copy> = {
       templatesNudgeLead:
         "No card has a template yet. It takes a minute and you can change it later.",
       templatesNudgeCta: "Choose templates",
-      templatesNudgeDismiss: "Not now",
       templatesNudgeSectionLabel: "Your cards, still without a template",
       templatesEntryLabel: "Card templates",
       templatesEntryValue: "{done} of {total} · change anytime",
@@ -1645,7 +1643,6 @@ export const COPY: Record<Lang, Copy> = {
       templatesNudgeLead:
         "Nenhum card tem template ainda. Leva um minuto e dá pra mudar depois.",
       templatesNudgeCta: "Escolher templates",
-      templatesNudgeDismiss: "Agora não",
       templatesNudgeSectionLabel: "Seus cards, ainda sem template",
       templatesEntryLabel: "Templates dos cards",
       templatesEntryValue: "{done} de {total} · mude quando quiser",
