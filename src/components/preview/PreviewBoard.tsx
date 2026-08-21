@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { HabitRow as HabitRowCard } from "@/components/habits/HabitRow";
+import { ActivityBriefingForm } from "@/components/onboarding/ActivityBriefingForm";
+import { ProposedActivityCard } from "@/components/onboarding/ProposedActivityCard";
 import { ListCard } from "@/components/onboarding/ListCard";
 import { SetupPanel } from "@/components/onboarding/SetupPanel";
 import { inputClass } from "@/components/ui/styles";
 import { COPY, format, type Copy, type Lang } from "@/lib/i18n";
-import type { ActivityWithHabit } from "@/db/habits";
+import type { ActivityRow, ActivityWithHabit, HabitRow } from "@/db/habits";
 
 // The half of the preview that has to be pressed to be judged.
 //
@@ -27,12 +29,105 @@ const cell =
   "min-h-[40px] px-2.5 rounded-lg border-2 border-forest bg-cream focus:bg-white";
 const num = `${cell} font-mono text-sm text-center px-1`;
 
+// Screen 4's four faces — one ActivityRow per proposable kind, real
+// config-schemas.ts shapes (ProposedActivityCard reads them directly, no
+// looser preview-only shape).
+const proposedActivity = (over: Partial<ActivityRow>): ActivityRow =>
+  ({
+    id: 1,
+    habitId: 1,
+    name: "Treino de força",
+    slug: "treino-forca",
+    metricType: "binary",
+    unit: null,
+    target: null,
+    minimalAction: null,
+    templateKind: "treino",
+    config: null,
+    source: "ai_suggested",
+    why: null,
+    activeFrom: null,
+    activeTo: null,
+    position: 0,
+    ...over,
+  }) as ActivityRow;
+
+const PROPOSED_ACTIVITIES: ActivityRow[] = [
+  proposedActivity({
+    id: 1,
+    name: "Treino de força",
+    templateKind: "treino",
+    config: {
+      planName: "Full body 3x",
+      days: [
+        {
+          id: 1,
+          weekday: 1,
+          focus: "Peito e ombro",
+          exercises: [
+            { name: "Agachamento", sets: 3, reps: 10 },
+            { name: "Remada", sets: 3, reps: 12 },
+            { name: "Prancha", sets: 3, seconds: 40, kind: "time" },
+          ],
+          active: true,
+        },
+        {
+          id: 2,
+          weekday: 3,
+          focus: "Costas e trapézio",
+          exercises: [
+            { name: "Supino", sets: 3, reps: 10 },
+            { name: "Puxada", sets: 3, reps: 12 },
+          ],
+          active: true,
+        },
+      ],
+    },
+  }),
+  proposedActivity({
+    id: 2,
+    name: "Leitura da noite",
+    templateKind: "leitura",
+    config: {
+      year: 2026,
+      targetBooksPerYear: 3,
+      books: [
+        { id: 1, title: "Imitação de Cristo", author: null, totalPages: 464, currentPage: 169, status: "reading", position: 0, startedAt: null, finishedAt: null },
+        { id: 2, title: "O cavaleiro preso na armadura", author: null, totalPages: 110, currentPage: 0, status: "queued", position: 1, startedAt: null, finishedAt: null },
+        { id: 3, title: "O apagamento", author: null, totalPages: 301, currentPage: 0, status: "queued", position: 2, startedAt: null, finishedAt: null },
+      ],
+    },
+  }),
+  proposedActivity({
+    id: 3,
+    name: "Práticas da manhã",
+    templateKind: "espiritualidade",
+    config: {
+      practices: [
+        { slug: "oracao", name: "Oração", countable: true, position: 0, active: true },
+        { slug: "terco", name: "Terço", countable: true, position: 1, active: true },
+        { slug: "leitura-biblica", name: "Leitura bíblica", countable: false, position: 2, active: true },
+      ],
+    },
+  }),
+  proposedActivity({
+    id: 4,
+    name: "Ligar para um amigo",
+    templateKind: null,
+    config: null,
+    metricType: "binary",
+    minimalAction: "Uma ligação por semana",
+  }),
+];
+
 export function PreviewBoard({
   lang,
   habits,
+  proposedHabits,
 }: {
   lang: Lang;
   habits: ActivityWithHabit[];
+  proposedHabits: HabitRow[];
 }) {
   const copy = COPY[lang];
   const [bedtime, setBedtime] = useState("23:00");
@@ -48,6 +143,30 @@ export function PreviewBoard({
 
   return (
     <>
+      <Block title="Tela 3 — Briefing">
+        <ActivityBriefingForm
+          habits={proposedHabits}
+          lang={lang}
+          copy={copy.activities}
+          action={() => {}}
+        />
+      </Block>
+
+      <Block title="Tela 4 — Atividades sugeridas (quatro faces)">
+        <ul className="flex flex-col gap-3.5 list-none">
+          {PROPOSED_ACTIVITIES.map((activity) => (
+            <ProposedActivityCard
+              key={activity.id}
+              activity={activity}
+              lang={lang}
+              copy={copy.activities}
+              editHref="#"
+              rejectAction={() => {}}
+            />
+          ))}
+        </ul>
+      </Block>
+
       <Block title="Hábitos — linha completa (/habits)">
         <ul className="flex flex-col gap-2.5 list-none">
           {habits.map((h, i) => (
