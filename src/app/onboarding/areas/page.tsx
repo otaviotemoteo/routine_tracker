@@ -9,7 +9,7 @@ import { goToHabitsAction } from "./actions";
 import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import { canGenerate } from "@/lib/ai/harness";
 import { buildingAreas } from "@/lib/assessment";
-import { rankByGap } from "@/lib/diagnose";
+import { diagnose, rankByGap } from "@/lib/diagnose";
 import { isDomainSlug } from "@/lib/domains";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
@@ -85,7 +85,12 @@ export default async function AreasPage() {
         </div>
       ) : (
         <>
-          <AreaCards areas={building} written={written} copy={copy} />
+          <AreaCards
+            areas={building}
+            written={written}
+            findings={diagnose(sealed.ratings)}
+            copy={copy}
+          />
 
           <AddAreaPicker remaining={remaining} copy={copy} />
 
