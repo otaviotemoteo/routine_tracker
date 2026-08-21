@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { TodayBoard } from "@/components/TodayBoard";
 import { TemplatesNudge } from "@/components/today/TemplatesNudge";
 import {
@@ -11,7 +10,6 @@ import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { getSetupSummary } from "@/lib/setup-summary";
 import { forecastFinishDate } from "@/lib/today-card";
-import { TEMPLATES_NUDGE_SEEN_COOKIE } from "@/lib/templates";
 import { formatDayLong, todayInSaoPaulo } from "@/lib/utils";
 import { requireUserId } from "@/lib/session";
 
@@ -48,14 +46,16 @@ export default async function TodayPage() {
     : undefined;
 
   // First-run nudge into the card-style chooser: only when there's a real
-  // board to show (an empty Today has its own, different empty state) and
-  // only until the cookie says it's been seen once — see
-  // src/components/today/TemplatesNudge.tsx and templates-nudge-actions.ts.
-  const nudgeSeen =
-    (await cookies()).get(TEMPLATES_NUDGE_SEEN_COOKIE)?.value === "1";
+  // board to show (an empty Today has its own, different empty state).
+  // Derived purely from whether any tracked activity is still the bare,
+  // untouched default — no dismiss-once cookie any more. A one-time
+  // dismissal meant "Choose templates" and "Not now" both permanently hid
+  // the nudge even if only some habits got a real template, which is
+  // exactly the state that must not be reachable: an untouched card must
+  // not be visible until it's actually been given a template, not just
+  // until someone closed the banner once.
   const uncustomized = checks.filter((c) => c.templateKind === null);
-  const showTemplatesNudge =
-    !nudgeSeen && checks.length > 0 && uncustomized.length > 0;
+  const showTemplatesNudge = checks.length > 0 && uncustomized.length > 0;
   // BUG-2: the nudge already lists these by name — their default cards must
   // not ALSO render behind it. Still counted toward progress (TodayBoard's
   // own `checks` stays the full list); only the grid excludes them.
