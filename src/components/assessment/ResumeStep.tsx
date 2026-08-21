@@ -27,7 +27,8 @@ export function ResumeStep({
 }: ResumeStepProps) {
   return (
     <div>
-      <p className="eyebrow mb-2">{copy.intro.eyebrow}</p>
+      {/* P1's fix applies here too — AssessmentShell's persistent eyebrow
+          above is chrome enough; see IntroStep's own comment. */}
       <h1 className="display-title text-3xl sm:text-4xl">{copy.resume.title}</h1>
       <p className="mt-3 opacity-80">
         {format(copy.resume.lead, {
