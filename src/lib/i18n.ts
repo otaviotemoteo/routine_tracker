@@ -1071,7 +1071,7 @@ export const COPY: Record<Lang, Copy> = {
     templates: {
       eyebrow: "Configure · activities",
       title: "Choose templates",
-      lead: "Each habit can show up differently on your day. Tap a habit to see the options.",
+      lead: "Each activity can show up differently on your day. Tap an activity to see the options.",
       chosenLabel: "Chosen",
       chosenCount: "{done} of {total}",
       statusChosen: "Chosen · {name}",
@@ -1082,7 +1082,7 @@ export const COPY: Record<Lang, Copy> = {
       previewNote: "Previews use example data. Your card starts empty.",
       footerNote: "Each choice is saved instantly. You can change it later, here.",
       done: "Done",
-      actionChosen: "This is how this habit appears on your day",
+      actionChosen: "This is how this activity appears on your day",
       actionSuggested: "Suggestion — tap to confirm",
       actionPick: "Tap to use this template",
       names: {
@@ -1106,7 +1106,7 @@ export const COPY: Record<Lang, Copy> = {
       checklistCancel: "Cancel",
       checklistNeedsOne: "Add at least one item to save this template.",
       noEligible:
-        "Every habit here already uses one of the seven original card styles, which aren't changed from this screen.",
+        "Every activity here already uses one of the seven original card styles, which aren't changed from this screen.",
     },
     sheets: {
       save: "Save",
@@ -1735,7 +1735,7 @@ export const COPY: Record<Lang, Copy> = {
     templates: {
       eyebrow: "Configurar · atividades",
       title: "Escolher templates",
-      lead: "Cada hábito pode aparecer de um jeito diferente no seu dia. Toque em um hábito para ver as opções.",
+      lead: "Cada atividade pode aparecer de um jeito diferente no seu dia. Toque em uma atividade para ver as opções.",
       chosenLabel: "Escolhidos",
       chosenCount: "{done} de {total}",
       statusChosen: "Escolhido · {name}",
@@ -1746,7 +1746,7 @@ export const COPY: Record<Lang, Copy> = {
       previewNote: "As prévias usam dados de exemplo. Seu card começa vazio.",
       footerNote: "Cada escolha é salva na hora. Você pode mudar depois, aqui mesmo.",
       done: "Concluir",
-      actionChosen: "É assim que este hábito aparece no seu dia",
+      actionChosen: "É assim que esta atividade aparece no seu dia",
       actionSuggested: "Sugestão — toque para confirmar",
       actionPick: "Toque para usar este template",
       names: {
@@ -1770,7 +1770,7 @@ export const COPY: Record<Lang, Copy> = {
       checklistCancel: "Cancelar",
       checklistNeedsOne: "Adicione ao menos um item para salvar este template.",
       noEligible:
-        "Todo hábito aqui já usa um dos sete templates originais, que não mudam nesta tela.",
+        "Toda atividade aqui já usa um dos sete templates originais, que não mudam nesta tela.",
     },
     sheets: {
       save: "Salvar",
