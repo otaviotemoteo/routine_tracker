@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { primaryButton, ghostButton } from "@/components/ui/styles";
 import { RatingScale } from "./RatingScale";
+import { DomainStepSkeleton } from "./DomainStepSkeleton";
 import { RATING_SCALES, type DomainSlug, type ScaleKey } from "@/lib/domains";
 import { format, plural, type Copy } from "@/lib/i18n";
 
@@ -46,6 +47,17 @@ function SubmitButton({
   );
 }
 
+// The redirect to the next domain is a server-action navigation, which
+// doesn't reliably trip the route's own loading.tsx the way a <Link> would
+// (same route, form-submit-driven). This swaps the whole body — including
+// the footer, since a still-clickable Back/Continue next to a skeleton would
+// be its own confusion — the instant the submit goes pending, so the wait
+// is never a stale, half-answered domain sitting frozen on screen.
+function StepBody({ children }: { children: React.ReactNode }) {
+  const { pending } = useFormStatus();
+  return pending ? <DomainStepSkeleton /> : <>{children}</>;
+}
+
 // One life domain: what the area covers, what it does not, and the six
 // questions.
 //
@@ -72,72 +84,75 @@ export function DomainStep({
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="domain" value={slug} />
 
-      {/* No eyebrow here: OnboardingProgress above already renders the
-          "Area n of 12" line in the eyebrow style, and two counters stacked
-          with different denominators is worse than one. */}
-      <h1 className="display-title text-3xl sm:text-4xl">{domain.name}</h1>
-      <p className="mt-2 opacity-75">{domain.description}</p>
+      <StepBody>
+        {/* No eyebrow here: OnboardingProgress above already renders the
+            "Area n of 12" line in the eyebrow style, and two counters stacked
+            with different denominators is worse than one. */}
+        <h1 className="display-title text-3xl sm:text-4xl">{domain.name}</h1>
+        <p className="mt-2 opacity-75">{domain.description}</p>
 
-      {/* The worksheet is emphatic that the areas must not bleed into each
-          other, and family against partner against children is exactly where
-          it happens. Saying it here costs one line and saves the answer. */}
-      <p className="mt-3 text-sm bg-straw/15 border-2 border-forest rounded-card px-4 py-2.5">
-        <span className="font-semibold">{copy.domainStep.boundaryLabel}: </span>
-        {domain.boundary}
-      </p>
+        {/* The worksheet is emphatic that the areas must not bleed into each
+            other, and family against partner against children is exactly
+            where it happens. Saying it here costs one line and saves the
+            answer. */}
+        <p className="mt-3 text-sm bg-straw/15 border-2 border-forest rounded-card px-4 py-2.5">
+          <span className="font-semibold">{copy.domainStep.boundaryLabel}: </span>
+          {domain.boundary}
+        </p>
 
-      <div className="flex flex-col gap-3 mt-6">
-        {RATING_SCALES.map((key) => {
-          const scale = copy.scales[key];
-          return (
-            <RatingScale
-              key={key}
-              name={key}
-              label={scale.label}
-              question={scale.question}
-              why={scale.why}
-              lowAnchor={scale.lowAnchor}
-              highAnchor={scale.highAnchor}
-              whyLabel={copy.domainStep.whyLabel}
-              unansweredLabel={copy.domainStep.unanswered}
-              unansweredHint={copy.scaleUnanswered}
-              valueTemplate={copy.scaleValue}
-              rangeTemplate={copy.scaleRange}
-              value={answers[key] ?? null}
-              onChange={(value) =>
-                setAnswers((prev) => ({ ...prev, [key]: value }))
-              }
+        <div className="flex flex-col gap-3 mt-6">
+          {RATING_SCALES.map((key) => {
+            const scale = copy.scales[key];
+            return (
+              <RatingScale
+                key={key}
+                name={key}
+                label={scale.label}
+                question={scale.question}
+                why={scale.why}
+                lowAnchor={scale.lowAnchor}
+                highAnchor={scale.highAnchor}
+                whyLabel={copy.domainStep.whyLabel}
+                unansweredLabel={copy.domainStep.unanswered}
+                unansweredHint={copy.scaleUnanswered}
+                valueTemplate={copy.scaleValue}
+                rangeTemplate={copy.scaleRange}
+                value={answers[key] ?? null}
+                onChange={(value) =>
+                  setAnswers((prev) => ({ ...prev, [key]: value }))
+                }
+              />
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 flex-wrap mt-6">
+          <div>
+            {backHref && (
+              <Link href={backHref} className={ghostButton}>
+                {copy.back}
+              </Link>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Says what is still missing rather than leaving a dead button
+                to be puzzled over. */}
+            {missing > 0 && (
+              <p aria-live="polite" className="text-sm opacity-75">
+                {format(
+                  plural(missing, copy.domainStep.remainingOne, copy.domainStep.remaining),
+                  { n: missing }
+                )}
+              </p>
+            )}
+            <SubmitButton
+              label={isLast ? copy.domainStep.finish : copy.continueLabel}
+              savingLabel={copy.saving}
+              disabled={missing > 0}
             />
-          );
-        })}
-      </div>
-
-      <div className="flex items-center justify-between gap-3 flex-wrap mt-6">
-        <div>
-          {backHref && (
-            <Link href={backHref} className={ghostButton}>
-              {copy.back}
-            </Link>
-          )}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Says what is still missing rather than leaving a dead button to
-              be puzzled over. */}
-          {missing > 0 && (
-            <p aria-live="polite" className="text-sm opacity-75">
-              {format(
-                plural(missing, copy.domainStep.remainingOne, copy.domainStep.remaining),
-                { n: missing }
-              )}
-            </p>
-          )}
-          <SubmitButton
-            label={isLast ? copy.domainStep.finish : copy.continueLabel}
-            savingLabel={copy.saving}
-            disabled={missing > 0}
-          />
-        </div>
-      </div>
+      </StepBody>
     </form>
   );
 }
