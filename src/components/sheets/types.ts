@@ -19,7 +19,7 @@ export interface SheetBodyProps {
   // generic bodies have no such config to read, so their whole form (a
   // number, a unit, a target to compare against, or — for Checklist — the
   // activity's own named items) comes from here.
-  habit: Pick<
+  activity: Pick<
     CheckWithActivity,
     "name" | "metricType" | "unit" | "target" | "minimalAction" | "config"
   >;
