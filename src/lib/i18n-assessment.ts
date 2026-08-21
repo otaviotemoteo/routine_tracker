@@ -181,6 +181,7 @@ export interface AssessmentCopy {
     addGap: string; // {n}
     addNoGap: string;
     generate: string;
+    generating: string; // P8: disabled+spinner while the generate action runs
     generateNote: string;
     manual: string;
     manualNote: string;
@@ -497,7 +498,7 @@ const en: AssessmentCopy = {
     doneAction: "Build your habits",
     indexTitle: "Your directions",
     indexLead:
-      "One sentence per area, for the days when the reason is hard to remember. Edit any of them whenever the wording stops being true.",
+      "Written by you, from the areas with the biggest distance between what matters and what actually happens. Edit any of them whenever the wording stops being true — saving brings you back to this page, not forward.",
     indexEdit: "Edit",
     indexEmpty: "Not written yet",
   },
@@ -514,6 +515,7 @@ const en: AssessmentCopy = {
     addGap: "{n} apart",
     addNoGap: "no distance",
     generate: "Generate habits",
+    generating: "Generating habits…",
     generateNote:
       "Your directions are sent to a language model, which proposes a few habits per area. You review every one before anything is tracked.",
     manual: "Add habits manually",
@@ -834,7 +836,7 @@ const pt: AssessmentCopy = {
     doneAction: "Montar seus hábitos",
     indexTitle: "Suas direções",
     indexLead:
-      "Uma frase por área, para os dias em que o motivo é difícil de lembrar. Edite qualquer uma quando a escrita deixar de ser verdade.",
+      "Escritas por você, a partir das áreas com maior distância entre o que importa e o que acontece. Edite qualquer uma quando a escrita deixar de ser verdade — salvar volta pra esta página, não avança.",
     indexEdit: "Editar",
     indexEmpty: "Ainda não escrita",
   },
@@ -851,6 +853,7 @@ const pt: AssessmentCopy = {
     addGap: "{n} de distância",
     addNoGap: "sem distância",
     generate: "Gerar hábitos",
+    generating: "Gerando hábitos…",
     generateNote:
       "Suas direções são enviadas para um modelo de linguagem, que propõe alguns hábitos por área. Você revisa cada um antes de qualquer coisa virar registro.",
     manual: "Escrever os hábitos",
