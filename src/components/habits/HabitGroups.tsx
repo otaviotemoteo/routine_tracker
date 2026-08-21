@@ -6,24 +6,24 @@ import type { Copy, Lang } from "@/lib/i18n";
 import type { ActivityWithHabit } from "@/db/habits";
 
 interface HabitGroupsProps {
-  habits: ActivityWithHabit[];
+  activities: ActivityWithHabit[];
   lang: Lang;
   copy: Copy["habits"];
   removeAction: (formData: FormData) => void;
   editHrefFor: (id: number) => string;
   next: string;
   showSource?: boolean;
-  // Per habit id. Absent on the review screen, where nothing has been tracked
-  // yet and every figure would be a zero.
+  // Per activity id. Absent on the review screen, where nothing has been
+  // tracked yet and every figure would be a zero.
   streaks?: Record<number, number>;
 }
 
-// Habits grouped by life area, in the fixed domain order — the same order the
-// assessment asks them in, so the two screens never disagree about where an
-// area sits. Habits with no area come last under their own heading rather
-// than being hidden: "not yet anchored to a value" is useful data.
+// Activities grouped by life area, in the fixed domain order — the same order
+// the assessment asks them in, so the two screens never disagree about where
+// an area sits. Activities with no area come last under their own heading
+// rather than being hidden: "not yet anchored to a value" is useful data.
 export function HabitGroups({
-  habits,
+  activities,
   lang,
   copy,
   removeAction,
@@ -34,13 +34,13 @@ export function HabitGroups({
 }: HabitGroupsProps) {
   const byDomain = new Map<DomainSlug, ActivityWithHabit[]>();
   const unanchored: ActivityWithHabit[] = [];
-  for (const habit of habits) {
-    if (habit.domainSlug && isDomainSlug(habit.domainSlug)) {
-      const list = byDomain.get(habit.domainSlug) ?? [];
-      list.push(habit);
-      byDomain.set(habit.domainSlug, list);
+  for (const activity of activities) {
+    if (activity.domainSlug && isDomainSlug(activity.domainSlug)) {
+      const list = byDomain.get(activity.domainSlug) ?? [];
+      list.push(activity);
+      byDomain.set(activity.domainSlug, list);
     } else {
-      unanchored.push(habit);
+      unanchored.push(activity);
     }
   }
 
@@ -75,16 +75,16 @@ export function HabitGroups({
             {group.label}
           </h2>
           <ul className="flex flex-col gap-3 list-none">
-            {group.items.map((habit) => (
+            {group.items.map((activity) => (
               <HabitRow
-                key={habit.id}
-                habit={habit}
+                key={activity.id}
+                activity={activity}
                 copy={copy}
-                editHref={editHrefFor(habit.id)}
+                editHref={editHrefFor(activity.id)}
                 removeAction={removeAction}
                 next={next}
                 showSource={showSource}
-                streak={streaks?.[habit.id]}
+                streak={streaks?.[activity.id]}
               />
             ))}
           </ul>
