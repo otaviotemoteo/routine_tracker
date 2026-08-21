@@ -149,9 +149,3 @@ export function storedTemplateKind(
   return kind === PLAIN_KIND ? null : kind;
 }
 
-// Marks that Today's first-run card-templates nudge has been shown (or
-// dismissed) once, so it stops appearing — a navigation hint, not a data
-// flag. Set only from a Server Action
-// (src/app/(app)/templates-nudge-actions.ts); read from the Today page,
-// which can only read cookies, not write them.
-export const TEMPLATES_NUDGE_SEEN_COOKIE = "templates_nudge_seen";
