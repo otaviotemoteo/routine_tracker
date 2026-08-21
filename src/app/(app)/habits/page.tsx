@@ -26,17 +26,17 @@ export default async function HabitsPage() {
   const copy = COPY[lang].habits;
 
   const today = todayInSaoPaulo();
-  const [habits, proposed, pending, streaks] = await Promise.all([
+  const [activities, proposed, pending, streaks] = await Promise.all([
     listTrackedActivities(userId),
     listProposedHabits(userId),
     findPendingRequest(userId, "habit_suggester"),
     getActivityStreaks(userId, today),
   ]);
 
-  // Habits with no life area still count on Today, but they sit outside the
-  // per-area totals in the week and month views — which is a quiet way to be
-  // wrong about your own week, so the screen says it out loud.
-  const unanchored = habits.filter((h) => h.domainSlug === null).length;
+  // Activities with no life area still count on Today, but they sit outside
+  // the per-area totals in the week and month views — which is a quiet way to
+  // be wrong about your own week, so the screen says it out loud.
+  const unanchored = activities.filter((a) => a.domainSlug === null).length;
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-8 pb-24">
@@ -48,10 +48,10 @@ export default async function HabitsPage() {
         <StepTitle backHref="/overview" backLabel={copy.back}>
           {copy.title}
         </StepTitle>
-        {habits.length > 0 && (
+        {activities.length > 0 && (
           <p className="shrink-0 border-2 border-forest rounded-card bg-white px-3 py-1.5 text-right leading-none">
             <span className="block font-mono font-bold text-lg">
-              {habits.length}
+              {activities.length}
             </span>
             <span className="block text-[10px] font-bold tracking-wider opacity-50 mt-1">
               {copy.activeLabel}
@@ -85,7 +85,7 @@ export default async function HabitsPage() {
         </p>
       )}
 
-      {habits.length === 0 ? (
+      {activities.length === 0 ? (
         <div className="border-2 border-forest rounded-card bg-white shadow-hard px-6 py-8 text-center">
           <h2 className="display-title text-2xl">{copy.emptyTitle}</h2>
           <p className="mt-2 opacity-75 max-w-prose mx-auto">{copy.emptyLead}</p>
@@ -97,7 +97,7 @@ export default async function HabitsPage() {
       ) : (
         <>
           <HabitGroups
-            habits={habits}
+            activities={activities}
             lang={lang}
             copy={copy}
             removeAction={removeActivityAction}
