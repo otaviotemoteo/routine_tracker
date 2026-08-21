@@ -413,6 +413,10 @@ export interface Copy {
     previewNote: string;
     footerNote: string;
     done: string;
+    // Tap-to-stage, then confirm — the button that appears on whichever
+    // card was just tapped, above its preview. Nothing saves until it's
+    // pressed. See TemplateOption.tsx.
+    saveTemplate: string;
     actionChosen: string;
     actionSuggested: string;
     actionPick: string;
@@ -1075,13 +1079,14 @@ export const COPY: Record<Lang, Copy> = {
       chosenLabel: "Chosen",
       chosenCount: "{done} of {total}",
       statusChosen: "Chosen · {name}",
-      statusSuggested: "Suggestion: {name}. Tap to confirm or change.",
+      statusSuggested: "Suggestion: {name}.",
       statusNone: "Not chosen yet",
       suggestedBadge: "Suggested",
       chosenBadge: "Chosen",
       previewNote: "Previews use example data. Your card starts empty.",
-      footerNote: "Each choice is saved instantly. You can change it later, here.",
+      footerNote: "Tap a card to preview it, then Save template to confirm. You can change it later, here.",
       done: "Done",
+      saveTemplate: "Save template",
       actionChosen: "This is how this activity appears on your day",
       actionSuggested: "Suggestion — tap to confirm",
       actionPick: "Tap to use this template",
@@ -1739,13 +1744,14 @@ export const COPY: Record<Lang, Copy> = {
       chosenLabel: "Escolhidos",
       chosenCount: "{done} de {total}",
       statusChosen: "Escolhido · {name}",
-      statusSuggested: "Sugestão: {name}. Toque para confirmar ou trocar.",
+      statusSuggested: "Sugestão: {name}.",
       statusNone: "Ainda sem escolha",
       suggestedBadge: "Sugerido pela IA",
       chosenBadge: "Escolhido",
       previewNote: "As prévias usam dados de exemplo. Seu card começa vazio.",
-      footerNote: "Cada escolha é salva na hora. Você pode mudar depois, aqui mesmo.",
+      footerNote: "Toque num card para ver a prévia, depois Salvar template para confirmar. Dá para mudar depois, aqui mesmo.",
       done: "Concluir",
+      saveTemplate: "Salvar template",
       actionChosen: "É assim que esta atividade aparece no seu dia",
       actionSuggested: "Sugestão — toque para confirmar",
       actionPick: "Toque para usar este template",
