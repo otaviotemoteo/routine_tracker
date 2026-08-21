@@ -5,6 +5,13 @@
 @layer base {
   body {
     @apply bg-cream text-forest font-sans antialiased;
+    /* Every page's own <main> already carries a generous pb-24, but that's a
+       fixed value and a phone's own bottom chrome (the iOS home-indicator
+       bar, gesture-nav on Android) isn't — it can eat into that padding and
+       leave the last bit of a footer/button visually clipped. Additive, not
+       a replacement: zero on anything without a safe area, so nothing
+       changes on desktop or an older phone. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* Visible focus everywhere, in straw so it stands out on both cream and mint. */
