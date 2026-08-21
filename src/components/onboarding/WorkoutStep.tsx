@@ -264,8 +264,14 @@ export function WorkoutStep({
                   return (
                     <li
                       key={k}
-                      className="flex flex-col gap-2 border-t-2 border-dashed border-sand pt-2 first:border-t-0 first:pt-0"
+                      className="flex items-center gap-2 flex-wrap sm:flex-nowrap border-t-2 border-dashed border-sand pt-2 first:border-t-0 first:pt-0"
                     >
+                      <span
+                        aria-hidden
+                        className="shrink-0 w-6 h-6 rounded bg-cream border-2 border-forest flex items-center justify-center font-mono text-[10px] font-bold"
+                      >
+                        {k + 1}
+                      </span>
                       <input
                         placeholder={copy.workout.exerciseName}
                         aria-label={copy.workout.exerciseName}
@@ -273,146 +279,140 @@ export function WorkoutStep({
                         onChange={(e) =>
                           updateExercise(i, k, { name: e.target.value })
                         }
-                        className={inputClass}
+                        className={`${fieldBase} min-w-0 flex-1 basis-32`}
                       />
+                      <select
+                        aria-label={copy.workout.measuredBy}
+                        value={kind}
+                        onChange={(e) =>
+                          updateExercise(i, k, {
+                            kind: e.target.value as ExerciseKind,
+                          })
+                        }
+                        className={`${fieldBase} shrink-0 w-[4.75rem] font-mono text-xs px-1.5`}
+                      >
+                        {KINDS.map((option) => (
+                          <option key={option} value={option}>
+                            {kindLabel[option]}
+                          </option>
+                        ))}
+                      </select>
+                      {kind !== "distance" && (
+                        <>
+                          <input
+                            type="number"
+                            min={1}
+                            inputMode="numeric"
+                            placeholder={copy.workout.sets}
+                            aria-label={copy.workout.sets}
+                            value={ex.sets ?? ""}
+                            onChange={(e) =>
+                              updateExercise(i, k, {
+                                sets: e.target.value
+                                  ? Number(e.target.value)
+                                  : undefined,
+                              })
+                            }
+                            className={`${fieldBase} shrink-0 font-mono text-center w-12 px-1`}
+                          />
+                          <span aria-hidden className="shrink-0 opacity-60 text-sm">
+                            ×
+                          </span>
+                        </>
+                      )}
 
-                      {/* How it's measured sits on the same row as the
-                          numbers it governs: three toggle buttons above two
-                          inputs made one exercise look like two questions. */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <select
-                          aria-label={copy.workout.measuredBy}
-                          value={kind}
+                      {kind === "reps" && (
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          placeholder={copy.workout.reps}
+                          aria-label={copy.workout.reps}
+                          value={ex.reps ?? ""}
                           onChange={(e) =>
                             updateExercise(i, k, {
-                              kind: e.target.value as ExerciseKind,
+                              reps: e.target.value
+                                ? Number(e.target.value)
+                                : undefined,
                             })
                           }
-                          className={`${fieldBase} w-28 px-2`}
+                          className={`${fieldBase} shrink-0 font-mono text-center w-12 px-1`}
+                        />
+                      )}
+
+                      {kind === "time" && (
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          placeholder={copy.workout.seconds}
+                          aria-label={copy.workout.seconds}
+                          value={ex.seconds ?? ""}
+                          onChange={(e) =>
+                            updateExercise(i, k, {
+                              seconds: e.target.value
+                                ? Number(e.target.value)
+                                : undefined,
+                            })
+                          }
+                          className={`${fieldBase} shrink-0 font-mono text-center w-16 px-1`}
+                        />
+                      )}
+
+                      {kind === "distance" && (
+                        <>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            inputMode="decimal"
+                            placeholder={copy.workout.distance}
+                            aria-label={copy.workout.distance}
+                            value={ex.distance ?? ""}
+                            onChange={(e) =>
+                              updateExercise(i, k, {
+                                distance: e.target.value
+                                  ? Number(e.target.value)
+                                  : undefined,
+                              })
+                            }
+                            className={`${fieldBase} shrink-0 font-mono text-center w-14 px-1`}
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            inputMode="numeric"
+                            placeholder={copy.workout.minutes}
+                            aria-label={copy.workout.minutes}
+                            value={ex.minutes ?? ""}
+                            onChange={(e) =>
+                              updateExercise(i, k, {
+                                minutes: e.target.value
+                                  ? Number(e.target.value)
+                                  : undefined,
+                              })
+                            }
+                            className={`${fieldBase} shrink-0 font-mono text-center w-16 px-1`}
+                          />
+                        </>
+                      )}
+
+                      {day.exercises.length > 1 && (
+                        <button
+                          type="button"
+                          aria-label={copy.workout.removeExercise}
+                          onClick={() =>
+                            updateDay(i, {
+                              exercises: day.exercises.filter(
+                                (_, j) => j !== k
+                              ),
+                            })
+                          }
+                          className="min-h-[44px] min-w-[44px] ml-auto sm:ml-0 shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
                         >
-                          {KINDS.map((option) => (
-                            <option key={option} value={option}>
-                              {kindLabel[option]}
-                            </option>
-                          ))}
-                        </select>
-                        {kind !== "distance" && (
-                          <>
-                            <input
-                              type="number"
-                              min={1}
-                              inputMode="numeric"
-                              placeholder={copy.workout.sets}
-                              aria-label={copy.workout.sets}
-                              value={ex.sets ?? ""}
-                              onChange={(e) =>
-                                updateExercise(i, k, {
-                                  sets: e.target.value
-                                    ? Number(e.target.value)
-                                    : undefined,
-                                })
-                              }
-                              className={`${fieldBase} font-mono w-20 px-2`}
-                            />
-                            <span aria-hidden className="opacity-60">
-                              ×
-                            </span>
-                          </>
-                        )}
-
-                        {kind === "reps" && (
-                          <input
-                            type="number"
-                            min={1}
-                            inputMode="numeric"
-                            placeholder={copy.workout.reps}
-                            aria-label={copy.workout.reps}
-                            value={ex.reps ?? ""}
-                            onChange={(e) =>
-                              updateExercise(i, k, {
-                                reps: e.target.value
-                                  ? Number(e.target.value)
-                                  : undefined,
-                              })
-                            }
-                            className={`${fieldBase} font-mono w-20 px-2`}
-                          />
-                        )}
-
-                        {kind === "time" && (
-                          <input
-                            type="number"
-                            min={1}
-                            inputMode="numeric"
-                            placeholder={copy.workout.seconds}
-                            aria-label={copy.workout.seconds}
-                            value={ex.seconds ?? ""}
-                            onChange={(e) =>
-                              updateExercise(i, k, {
-                                seconds: e.target.value
-                                  ? Number(e.target.value)
-                                  : undefined,
-                              })
-                            }
-                            className={`${fieldBase} font-mono w-24 px-2`}
-                          />
-                        )}
-
-                        {kind === "distance" && (
-                          <>
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.1"
-                              inputMode="decimal"
-                              placeholder={copy.workout.distance}
-                              aria-label={copy.workout.distance}
-                              value={ex.distance ?? ""}
-                              onChange={(e) =>
-                                updateExercise(i, k, {
-                                  distance: e.target.value
-                                    ? Number(e.target.value)
-                                    : undefined,
-                                })
-                              }
-                              className={`${fieldBase} font-mono w-20 px-2`}
-                            />
-                            <input
-                              type="number"
-                              min={0}
-                              inputMode="numeric"
-                              placeholder={copy.workout.minutes}
-                              aria-label={copy.workout.minutes}
-                              value={ex.minutes ?? ""}
-                              onChange={(e) =>
-                                updateExercise(i, k, {
-                                  minutes: e.target.value
-                                    ? Number(e.target.value)
-                                    : undefined,
-                                })
-                              }
-                              className={`${fieldBase} font-mono w-24 px-2`}
-                            />
-                          </>
-                        )}
-
-                        {day.exercises.length > 1 && (
-                          <button
-                            type="button"
-                            aria-label={copy.workout.removeExercise}
-                            onClick={() =>
-                              updateDay(i, {
-                                exercises: day.exercises.filter(
-                                  (_, j) => j !== k
-                                ),
-                              })
-                            }
-                            className="min-h-[44px] min-w-[44px] ml-auto shrink-0 inline-flex items-center justify-center rounded-lg border-2 border-forest bg-white"
-                          >
-                            <X className="w-4 h-4" aria-hidden />
-                          </button>
-                        )}
-                      </div>
+                          <X className="w-4 h-4" aria-hidden />
+                        </button>
+                      )}
                     </li>
                   );
                 })}
