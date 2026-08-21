@@ -975,7 +975,7 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "yesterday",
       agoDays: "{n} days ago",
       agoNever: "never",
-      templatesNudgeTitle: "You have {n} habits. Choose how you want to see them.",
+      templatesNudgeTitle: "You have {n} activities with no template yet. Choose how you want to see them.",
       templatesNudgeLead:
         "No card has a template yet. It takes a minute and you can change it later.",
       templatesNudgeCta: "Choose templates",
@@ -1639,7 +1639,7 @@ export const COPY: Record<Lang, Copy> = {
       agoYesterday: "ontem",
       agoDays: "há {n} dias",
       agoNever: "nunca",
-      templatesNudgeTitle: "Você tem {n} hábitos. Escolha como quer ver eles.",
+      templatesNudgeTitle: "Você tem {n} atividades ainda sem template. Escolha como quer ver elas.",
       templatesNudgeLead:
         "Nenhum card tem template ainda. Leva um minuto e dá pra mudar depois.",
       templatesNudgeCta: "Escolher templates",
