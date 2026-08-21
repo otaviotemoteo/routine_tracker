@@ -18,6 +18,21 @@ interface TemplateChooserListProps {
   lang: Lang;
   copy: Copy["templates"];
   todayCopy: Copy["today"];
+  // Which activity ?activity=<id> asked to open, if any — see page.tsx's
+  // own comment on why this route is activity-addressed the same way
+  // /config?activity= is.
+  initialActivityId: number | null;
+  // Carried through so the URL this list keeps in sync with doesn't drop
+  // where "Concluir" is supposed to go back to.
+  from?: string;
+}
+
+function activityUrl(id: number | null, from: string | undefined): string {
+  const params = new URLSearchParams();
+  if (id !== null) params.set("activity", String(id));
+  if (from) params.set("from", from);
+  const query = params.toString();
+  return `/habits/templates${query ? `?${query}` : ""}`;
 }
 
 // The chooser's one interactive surface: a list of habits, each an
@@ -29,22 +44,31 @@ interface TemplateChooserListProps {
 //
 // Only one habit is open at a time: opening a second closes the first, same
 // as the onboarding preview board's accordion — five previews per habit is
-// already a lot on a 360px screen, and two at once would be a wall.
+// already a lot on a 360px screen, and two at once would be a wall. The URL
+// tracks whichever one that is (history.replaceState, no real navigation —
+// same idiom AssessmentGrid uses) so a link straight into one activity's
+// chooser, or a reload while one is open, both land in the right place.
 export function TemplateChooserList({
   habits,
   lang,
   copy,
   todayCopy,
+  initialActivityId,
+  from,
 }: TemplateChooserListProps) {
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<number | null>(
+    habits.some((h) => h.id === initialActivityId) ? initialActivityId : null
+  );
   // The card someone tapped but hasn't saved yet — cleared whenever a
   // different habit opens (or this one closes), since only one habit is
   // open at a time and its staged pick shouldn't survive past that.
   const [stagedKind, setStagedKind] = useState<GenericTemplateKind | null>(null);
 
   function toggleOpen(id: number) {
-    setOpenId((prev) => (prev === id ? null : id));
+    const next = openId === id ? null : id;
+    setOpenId(next);
     setStagedKind(null);
+    window.history.replaceState(null, "", activityUrl(next, from));
   }
 
   return (
@@ -128,6 +152,7 @@ export function TemplateChooserList({
                       onSaved={() => {
                         setOpenId(null);
                         setStagedKind(null);
+                        window.history.replaceState(null, "", activityUrl(null, from));
                       }}
                       copy={copy}
                       todayCopy={todayCopy}
