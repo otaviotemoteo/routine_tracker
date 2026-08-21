@@ -381,9 +381,9 @@ export interface Copy {
     unitDone: string;
     unitCount: string;
     unitTime: string;
-    // The suggestion review screen
+    // The suggestion review screen (Screen 2 — habits review)
     reviewEyebrow: string;
-    reviewTitle: string;
+    reviewTitle: string; // P9: this is the review screen, not "daily habits"
     reviewLead: string;
     suggested: string;
     edited: string;
@@ -1052,7 +1052,7 @@ export const COPY: Record<Lang, Copy> = {
       unitCount: "Nº",
       unitTime: "MIN",
       reviewEyebrow: "Build your habits",
-      reviewTitle: "Your daily habits",
+      reviewTitle: "Your habits, one per direction",
       reviewLead: "Suggestions, one set per area. Change anything that isn't right, remove what doesn't fit, and add your own. Nothing is tracked until you start.",
       suggested: "Suggested",
       edited: "Edited by you",
@@ -1719,7 +1719,7 @@ export const COPY: Record<Lang, Copy> = {
       unitCount: "Nº",
       unitTime: "MIN",
       reviewEyebrow: "Monte seus hábitos",
-      reviewTitle: "Seus hábitos diários",
+      reviewTitle: "Seus hábitos, um por direção",
       reviewLead: "Sugestões, um conjunto por área. Mude o que não estiver certo, remova o que não serve e adicione os seus. Nada é acompanhado até você começar.",
       suggested: "Sugerido",
       edited: "Editado por você",
