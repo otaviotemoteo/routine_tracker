@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { HabitRow as HabitRowCard } from "@/components/habits/HabitRow";
+import { ProposedHabitGroups } from "@/components/habits/ProposedHabitGroups";
 import { ActivityBriefingForm } from "@/components/onboarding/ActivityBriefingForm";
 import { ProposedActivityCard } from "@/components/onboarding/ProposedActivityCard";
 import { ListCard } from "@/components/onboarding/ListCard";
@@ -143,6 +144,23 @@ export function PreviewBoard({
 
   return (
     <>
+      {/* ProposedHabitGroups renders ProposedHabitRow, which is a Client
+          Component (needs the remove-confirm dialog's own state) — it has
+          to be mounted from inside this client island, not from the server
+          page.tsx, or a plain closure passed as removeAction/editHrefFor
+          crosses the server/client boundary illegally. */}
+      <Block title="Tela 2 — Hábitos (revisão)">
+        <ProposedHabitGroups
+          habits={proposedHabits}
+          lang={lang}
+          copy={copy.habits}
+          removeAction={() => {}}
+          editHrefFor={() => "#"}
+          next="#"
+          showSource
+        />
+      </Block>
+
       <Block title="Tela 3 — Briefing">
         <ActivityBriefingForm
           habits={proposedHabits}
