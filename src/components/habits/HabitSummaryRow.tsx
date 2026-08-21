@@ -5,7 +5,7 @@ import { format, type Copy, type Lang } from "@/lib/i18n";
 import type { ActivityWithHabit } from "@/db/habits";
 
 interface HabitSummaryRowProps {
-  habit: ActivityWithHabit;
+  activity: ActivityWithHabit;
   lang: Lang;
   copy: Copy["habits"];
   streak?: number;
@@ -20,22 +20,22 @@ interface HabitSummaryRowProps {
 // component would have meant shipping the delete dialog to a page that must
 // not offer deleting.
 export function HabitSummaryRow({
-  habit,
+  activity,
   lang,
   copy,
   streak,
 }: HabitSummaryRowProps) {
-  const Icon = habitIcon(habit.templateKind, habit.domainSlug);
+  const Icon = habitIcon(activity.templateKind, activity.domainSlug);
 
   const area =
-    habit.domainSlug && isDomainSlug(habit.domainSlug)
-      ? ASSESSMENT_COPY[lang].domains[habit.domainSlug].name
+    activity.domainSlug && isDomainSlug(activity.domainSlug)
+      ? ASSESSMENT_COPY[lang].domains[activity.domainSlug].name
       : copy.unanchored;
 
   const badge =
-    habit.metricType === "binary"
+    activity.metricType === "binary"
       ? copy.badgeBinary
-      : (habit.unit?.trim() || copy.badgeBinary).toUpperCase();
+      : (activity.unit?.trim() || copy.badgeBinary).toUpperCase();
 
   return (
     <li className="border-2 border-forest rounded-card bg-white shadow-hard min-h-[60px] flex items-center gap-3 flex-wrap px-3 py-2.5">
@@ -48,7 +48,7 @@ export function HabitSummaryRow({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold break-words">{habit.name}</span>
+          <span className="font-semibold break-words">{activity.name}</span>
           <span className="shrink-0 font-mono text-[10px] font-bold tracking-wider text-clover bg-mint px-2 py-0.5 rounded-full">
             {badge}
           </span>
@@ -58,8 +58,9 @@ export function HabitSummaryRow({
         <p className="text-sm opacity-60 truncate">{area}</p>
       </div>
 
-      {/* No zero. A habit with no run going has nothing to report here, and a
-          "0" would read as a verdict rather than as an absence of data. */}
+      {/* No zero. An activity with no run going has nothing to report here,
+          and a "0" would read as a verdict rather than as an absence of
+          data. */}
       {streak !== undefined && streak > 0 && (
         <p className="shrink-0 text-right leading-none">
           <span className="block font-mono font-bold text-straw">
