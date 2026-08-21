@@ -132,15 +132,18 @@ export function TemplateChooserList({
             </button>
 
             {open && (
-              <div className="px-4 pb-4 border-t-2 border-dashed border-sand pt-3.5 grid grid-cols-2 gap-3">
+              // One column below sm: two-up only has room once a card isn't
+              // forced thin to fit — a phone-width screen split in half
+              // left each option too narrow for its own preview.
+              <div className="px-4 pb-4 border-t-2 border-dashed border-sand pt-3.5 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {GENERIC_TEMPLATE_KINDS.map((kind: GenericTemplateKind) => (
-                  // Checklist alone spans both columns — its editing state
-                  // grows a textarea that a squarish half-width cell can't
-                  // hold; the other four sit two-up, closer to a real card's
-                  // own squarish shape than the old full-width strip.
+                  // Checklist alone spans both columns at sm+ — its editing
+                  // state grows a textarea that a squarish half-width cell
+                  // can't hold; the other four sit two-up there, closer to a
+                  // real card's own squarish shape than a full-width strip.
                   <div
                     key={kind}
-                    className={kind === "checklist" ? "col-span-2" : undefined}
+                    className={kind === "checklist" ? "sm:col-span-2" : undefined}
                   >
                     <TemplateOption
                       habit={habit}
