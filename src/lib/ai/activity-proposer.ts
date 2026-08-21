@@ -1,29 +1,42 @@
 import { z } from "zod";
 import type { Generator } from "./harness";
-import type { RichTemplateKind } from "@/lib/templates";
 import type { Lang } from "@/lib/i18n";
 
-// ActivityProposer — the general on-request AI socket for turning an
-// existing habit into concrete activities. Not a single-purpose "activity
-// generator" so much as the one door any future on-request AI iteration on a
-// habit's setup should go through (see ARCHITECTURE.md) — this is
-// its first and, for now, only shape: propose a starter activity set for one
-// or more rich-kind habits at once.
+// ActivityProposer — the on-request AI socket for turning one existing habit
+// into a concrete starter activity: real workout days, a real reading list, a
+// real set of countable practices, or — new here — a plain metric it picks
+// itself when none of those rich shapes fit. See ARCHITECTURE.md.
 //
-// BATCHED, deliberately — one call for every umbrella habit the onboarding
-// activity step is showing, not one call per habit. Two reasons, both load-
-// bearing: DAILY_RUN_QUOTA (src/db/ai.ts) is a flat per-account daily count
-// shared across every generator, so N habits × N calls would burn a first
-// session's whole budget before anyone reaches Today; and it's one wait
-// instead of N, which matters when a single call already measures in the
-// tens of seconds (see providers.ts's latency note). On request only — see
-// propose-activities.ts for the "never unprompted" rule this enforces.
+// ONE HABIT PER CALL, deliberately — not the batch this generator used to
+// take. The batched shape existed to protect DAILY_RUN_QUOTA (src/db/ai.ts)
+// and to make one wait instead of N, and that reasoning was real — but a
+// batched call answering for only 1 of 5 habits, silently, was worse: a
+// beautiful review screen over a generator that drops 4 of 5 briefings is
+// worthless. propose-activities.ts now makes one call per habit and lets a
+// single habit's failure (or a quota ceiling) leave the other N-1 with real
+// proposals instead of nothing. The quota cost is accepted on purpose, not
+// overlooked — see propose-activities.ts.
 //
 // Output shape mirrors config-schemas.ts's list fields exactly (planName +
-// days, books, blocks, languages, practices) but WITHOUT ids, active flags or
-// positions — those are bookkeeping propose-activities.ts adds when it turns
-// an accepted proposal into real config rows, the same split habit-suggester
-// keeps between what a model proposes and what the database stores.
+// days, books, practices) but WITHOUT ids, active flags or positions — those
+// are bookkeeping propose-activities.ts adds when it turns an accepted
+// proposal into real config rows, the same split habit-suggester keeps
+// between what a model proposes and what the database stores.
+//
+// KIND IS NOW AN OUTPUT, not an input. Until this phase, a human picked the
+// kind explicitly (ActivityKindPicker's five icon-buttons) and this generator
+// only ever filled in that kind's content — ARCHITECTURE.md documented that
+// as deliberate ("the model never decides a rich kind; a human does,
+// explicitly"). Otávio reversed this for onboarding specifically: the model
+// now picks the best-fit kind itself, from exactly the four this generator
+// still knows how to propose (treino/leitura/espiritualidade/plain) — the
+// four the review screen (Screen 4) has a designed face for. `rotina` and
+// `duolingo` are no longer proposable here; a human can still promote a habit
+// to either through /config directly, by hand, same as any rich kind always
+// could be. Reintroducing them as proposable — for a future non-onboarding
+// "suggest" action, the shape ARCHITECTURE.md still names as an eventual
+// second caller — is a well-scoped addition (their old schemas are in git
+// history, this file's prior shape, if ever needed), not a redesign.
 
 // Some structured-output models emit a whole number as a JSON float literal
 // ("3.0") even for a field meant to be an integer — found live, via this
@@ -89,35 +102,6 @@ const readingProposal = z
   })
   .strict();
 
-const routineProposal = z
-  .object({
-    kind: z.literal("rotina"),
-    blocks: z
-      .array(
-        z
-          .object({
-            startTime: z.string().regex(/^\d{2}:\d{2}$/),
-            endTime: z.string().regex(/^\d{2}:\d{2}$/),
-            activity: z.string().max(120),
-            weekdays: z.array(boundedWholeNumber(1, 7)).min(1),
-          })
-          .strict()
-      )
-      .min(1)
-      .max(20),
-  })
-  .strict();
-
-const duolingoProposal = z
-  .object({
-    kind: z.literal("duolingo"),
-    languages: z
-      .array(z.object({ name: z.string().max(50) }).strict())
-      .min(1)
-      .max(10),
-  })
-  .strict();
-
 const spiritualityProposal = z
   .object({
     kind: z.literal("espiritualidade"),
@@ -132,84 +116,80 @@ const spiritualityProposal = z
   })
   .strict();
 
+// The fallback face: a habit that's better tracked as a simple did/didn't, a
+// count, or a duration than as any of the three rich shapes above — "Ligar
+// para um amigo" (once a week, did-it-or-not) or "Violão" (20 minutes a
+// session) rather than a structured plan. metricType/unit/target/
+// minimalAction mirror activities' own columns exactly (ActivityForm.tsx
+// edits the same four fields by hand) — this is the model proposing the same
+// starting point a person would otherwise type in themselves, not a new kind
+// of guess: rule 5 below ("never calculate a target/frequency/streak") is
+// about not inventing ACCOUNT-LEVEL cadence, the same restraint the rich
+// kinds already keep while still proposing concrete numbers inside their own
+// lists (a workout's sets/reps, a book's page count) — a modest starting
+// target here is that same behavior one level down, not an exception to it.
+const plainProposal = z
+  .object({
+    kind: z.literal("plain"),
+    metricType: z.enum(["binary", "count", "duration"]),
+    unit: z.string().max(20).optional(),
+    target: boundedWholeNumber(1, 1000).optional(),
+    minimalAction: z.string().max(200).optional(),
+  })
+  .strict();
+
 export const activityProposal = z.discriminatedUnion("kind", [
   workoutProposal,
   readingProposal,
-  routineProposal,
-  duolingoProposal,
   spiritualityProposal,
+  plainProposal,
 ]);
 
 export type ActivityProposal = z.infer<typeof activityProposal>;
 
-// Every kind the proposer accepts — `sono` is deliberately absent from
-// RICH_TEMPLATE_KINDS' use here, not from the type: a caller passing "sono"
-// is a caller bug, not a model failure, and TypeScript is the wall for it.
-export type ProposableKind = Exclude<RichTemplateKind, "sono" | "hobby">;
-
-export interface ActivityBatchHabit {
-  habitName: string;
-  why: string | null;
-  // The per-habit briefing typed on /onboarding/activities ("escreva
-  // brevemente uma ação que você gostaria de fazer aqui") — the context that
-  // gives generation something real to be assertive about, answering the
-  // "onboarding-time calls have no why" gap `why` alone doesn't close (a
-  // habit's `why` explains the AREA; this explains what THIS ACTIVITY should
-  // actually be). Parallel to `why`, not a replacement for it — both travel
-  // to the model when present. See docs/ARCHITECTURE.md.
-  briefing: string | null;
-  kind: ProposableKind;
-}
+// The kinds this generator may choose between — see the file header.
+export type ProposableKind = ActivityProposal["kind"];
 
 export interface ActivityProposerInput {
   lang: Lang;
-  // One or more habits, all proposed in the same call. Order matters: the
-  // schema has no id field for the model to echo back (models are worse at
-  // exactly copying arbitrary integers than at preserving list order), so
-  // the caller zips `perHabit[i]` back to `habits[i]` by POSITION — see
-  // propose-activities.ts.
-  habits: ActivityBatchHabit[];
-  // Applies to the whole batch — set only for the free-text form
-  // ("recommend me 5 fiction books for my reading habit"); absent for the
-  // plain "suggest" action, which works from each habit's name/why alone.
-  request: string | null;
+  habitName: string;
+  why: string | null;
+  // The briefing typed on /onboarding/activities ("escreva brevemente uma
+  // ação que você gostaria de fazer aqui") — the context that gives
+  // generation something real to be assertive about, answering the
+  // "onboarding-time calls have no why" gap `why` alone doesn't close (a
+  // habit's `why` explains the AREA; this explains what THIS ACTIVITY should
+  // actually be), and now also the main signal the model uses to CHOOSE a
+  // kind, not just to fill one in. See docs/ARCHITECTURE.md.
+  briefing: string | null;
 }
 
-// One proposal per input habit, in the SAME ORDER as `habits` above — never
-// keyed by an id the model would have to invent or copy.
-export const activityBatchProposal = z
-  .object({
-    perHabit: z.array(activityProposal).min(1).max(12),
-  })
-  .strict();
-
-export type ActivityBatchProposal = z.infer<typeof activityBatchProposal>;
-
-const SYSTEM = `You propose small starter sets of concrete activities for habits someone already has — a workout plan's days, a reading list, a set of routine time blocks, languages to practice, or spiritual practices. You do not invent the habits themselves; they already exist. You may be given one habit or several at once; treat each independently.
+const SYSTEM = `You propose a concrete starter activity for a habit someone already has. You do not invent the habit itself; it already exists. Every proposal covers exactly one habit.
 
 Rules, in order of importance:
-1. Answer for EVERY habit listed, in the exact same order they were given —
-   your first proposal is for the first habit listed, your second for the
-   second, and so on. One proposal per habit, no more, no fewer. If N habits
-   are listed, perHabit MUST have exactly N entries — never stop early, even
-   if the first habit's proposal already feels complete.
-2. Each proposal's kind must match that specific habit's kind exactly. Never
-   swap kinds between habits.
-3. Small and concrete. A reading list is real books with real page counts you
+1. Choose the best-fit kind for THIS habit, from exactly four: "treino" (a
+   structured workout plan, days with real exercises), "leitura" (a reading
+   list with real books), "espiritualidade" (a set of named, nameable
+   practices — prayer, meditation, journaling — some of which are naturally
+   countable), or "plain" (everything else: a simple did/didn't, a count, or
+   a duration, with a sensible starting target). Pick "plain" whenever none
+   of the other three genuinely fits — it is not a lesser answer, it is the
+   right one for most habits (a phone call, a walk, tidying a room).
+2. Small and concrete. A reading list is real books with real page counts you
    know, not placeholders. A workout plan is exercises with real, sane sets/
    reps for a beginner unless told otherwise.
-4. Each habit may carry its OWN briefing — what that person specifically
-   wants for THIS habit, in their own words. Follow it precisely for that
-   habit. If given an explicit whole-batch request as well ("recommend me 5
-   fiction books"), that applies too, but a habit's own briefing is the more
-   specific instruction and wins if the two ever pull in different
-   directions. For any habit with neither, propose a sensible, modest
-   starter set from its name and 'why' alone: 2–3 books, a 3–4 day workout
-   split, a handful of time blocks, 1–2 languages, 2–3 practices.
-5. Never calculate a target, a frequency or a streak — that is not this
-   proposal's job.
-6. This is a proposal a person will review, edit and accept item by item, not
-   a finished plan. Fewer, well-chosen items beat a long list.`;
+3. The habit's own briefing — what that person specifically wants for THIS
+   habit, in their own words — is the strongest signal for both which kind to
+   choose and what to put in it. Follow it precisely. With no briefing,
+   propose a sensible, modest starter set from the habit's name and 'why'
+   alone: 2–3 books, a 3–4 day workout split, 2–3 practices, or one plain
+   metric with a small, realistic target.
+4. Never calculate an account-level frequency or a streak — that is not this
+   proposal's job. A concrete number INSIDE the proposal itself (a book's
+   page count, a plain activity's starting target) is expected, not an
+   exception to this rule.
+5. This is a proposal a person will review, edit and accept, not a finished
+   plan. Fewer, well-chosen items beat a long list.`;
 
 function buildPrompt(input: ActivityProposerInput): {
   system: string;
@@ -220,43 +200,27 @@ function buildPrompt(input: ActivityProposerInput): {
       ? "Write every name/title/activity in Brazilian Portuguese."
       : "Write every name/title/activity in English.";
 
-  const habits = input.habits
-    .map((h, i) => {
-      const lines = [
-        `HABIT ${i + 1} (kind: ${h.kind}): "${h.habitName}"`,
-        h.why ? `  Why this habit exists: "${h.why}"` : null,
-        h.briefing ? `  What they specifically want here: "${h.briefing}"` : null,
-      ].filter(Boolean);
-      return lines.join("\n");
-    })
-    .join("\n");
-
-  const request = input.request
-    ? `\nThe person's specific request: "${input.request}"`
-    : "";
+  const lines = [
+    `HABIT: "${input.habitName}"`,
+    input.why ? `Why this habit exists: "${input.why}"` : null,
+    input.briefing ? `What they specifically want here: "${input.briefing}"` : null,
+  ].filter(Boolean);
 
   return {
     system: `${SYSTEM}\n\n${language}`,
-    prompt: `Here ${input.habits.length === 1 ? "is the habit" : "are the habits"} to propose activities for, in order:
-
-${habits}
-${request}
-
-Propose one activity set per habit above, in the same order, matching each habit's own kind. There ${input.habits.length === 1 ? "is 1 habit" : `are ${input.habits.length} habits`} listed — perHabit must have exactly ${input.habits.length} ${input.habits.length === 1 ? "entry" : "entries"}.`,
+    prompt: `Propose one activity for this habit:\n\n${lines.join("\n")}`,
   };
 }
 
-export const activityProposer: Generator<
-  ActivityProposerInput,
-  ActivityBatchProposal
-> = {
+export const activityProposer: Generator<ActivityProposerInput, ActivityProposal> = {
   name: "activity_proposer",
-  // Bumped 1 → 2: the input/output shape changed from one habit to a batch —
-  // a cached single-habit answer is not a valid answer to the batched schema.
-  // Bumped 2 → 3: each habit now carries its own optional briefing, which
-  // changes what the prompt says even for a request whose other fields are
-  // identical to a cached one.
-  promptVersion: 3,
-  schema: activityBatchProposal,
+  // Bumped 1 → 2: the input/output shape changed from one habit to a batch.
+  // Bumped 2 → 3: each habit gained its own optional briefing.
+  // Bumped 3 → 4: reversed direction — back to one habit per call, and kind
+  // moved from a required input to a model-chosen output, constrained to
+  // treino/leitura/espiritualidade/plain. Both the input and output shapes
+  // changed, so every prior cached answer is correctly invalidated.
+  promptVersion: 4,
+  schema: activityProposal,
   buildPrompt,
 };
