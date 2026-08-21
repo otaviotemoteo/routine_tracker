@@ -1,13 +1,11 @@
 import { redirect } from "next/navigation";
 import { AssessmentShell } from "@/components/assessment/AssessmentShell";
-import {
-  OnboardingProgress,
-  StepTitle,
-} from "@/components/onboarding/OnboardingChrome";
+import { OnboardingProgress, StepTitle } from "@/components/onboarding/OnboardingChrome";
 import { CycleDoneDialog } from "@/components/assessment/CycleDoneDialog";
 import { DirectionStep } from "@/components/assessment/DirectionStep";
+import { AssessmentDirectionsWalk } from "@/components/assessment/AssessmentDirectionsWalk";
 import { DirectionsIndex } from "@/components/assessment/DirectionsIndex";
-import { saveDirection } from "../values-actions";
+import { saveDirection, saveDirectionAdvance } from "../values-actions";
 import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
 import { diagnose } from "@/lib/diagnose";
 import { isDomainSlug } from "@/lib/domains";
@@ -98,41 +96,47 @@ export default async function DirectionsPage({ searchParams }: DirectionsPagePro
     }
 
     const index = priority.indexOf(requested);
-    const isLast = index === priority.length - 1;
-    const href = (i: number) => `${INDEX_HREF}?domain=${priority[i]}`;
+
+    // Reviewing (every direction already written) is always a single hop
+    // back to the list — no repeated flash to fix, so it stays an ordinary
+    // page. The ordered first walk is the one with back-to-back domain
+    // transitions, so it gets AssessmentDirectionsWalk's client-owned state.
+    if (reviewing) {
+      return (
+        <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="focus">
+          <OnboardingProgress
+            stepNumber={index + 1}
+            total={priority.length}
+            label={format(copy.directions.eyebrow, {
+              current: index + 1,
+              total: priority.length,
+            })}
+          />
+          <DirectionStep
+            action={saveDirection}
+            next={INDEX_HREF}
+            backHref={INDEX_HREF}
+            slug={requested}
+            submitLabel={copy.directions.saveOnly}
+            copy={copy}
+            unsaved={COPY[lang].onboarding.unsaved}
+            initialReflection={written[requested]?.rawReflection ?? ""}
+            initialNarrative={written[requested]?.narrative ?? ""}
+          />
+        </AssessmentShell>
+      );
+    }
 
     return (
       <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="focus">
-        <OnboardingProgress
-          stepNumber={index + 1}
-          total={priority.length}
-          label={format(copy.directions.eyebrow, {
-            current: index + 1,
-            total: priority.length,
-          })}
-        />
-        <DirectionStep
-          action={saveDirection}
-          next={
-            reviewing
-              ? INDEX_HREF
-              : isLast
-                ? `${INDEX_HREF}?done=1`
-                : href(index + 1)
-          }
-          backHref={reviewing || index === 0 ? INDEX_HREF : href(index - 1)}
-          slug={requested}
-          submitLabel={
-            reviewing
-              ? copy.directions.saveOnly
-              : isLast
-                ? copy.directions.finish
-                : copy.directions.save
-          }
+        <AssessmentDirectionsWalk
+          priority={priority}
+          initialIndex={index}
+          initialWritten={written}
+          action={saveDirectionAdvance}
+          indexHref={INDEX_HREF}
           copy={copy}
           unsaved={COPY[lang].onboarding.unsaved}
-          initialReflection={written[requested]?.rawReflection ?? ""}
-          initialNarrative={written[requested]?.narrative ?? ""}
         />
       </AssessmentShell>
     );
