@@ -33,7 +33,7 @@ export function AreaCards({ areas, written, findings, copy }: AreaCardsProps) {
         const own = findings.filter((f) => f.domainSlug === slug);
 
         return (
-          <li key={slug} className={`${cardSurface} p-4`}>
+          <li key={slug} className={`${cardSurface} p-4 relative pr-[76px]`}>
             <div className="flex items-start gap-3">
               <span
                 aria-hidden
@@ -76,17 +76,17 @@ export function AreaCards({ areas, written, findings, copy }: AreaCardsProps) {
               </div>
             </div>
 
-            {/* Editing means leaving for the direction form. The card reports;
-                it does not grow a textarea. */}
-            <div className="flex justify-end mt-3">
-              <Link
-                href={`/onboarding/directions?domain=${slug}&from=areas`}
-                className="min-h-[44px] inline-flex items-center gap-1.5 px-3 -mr-1 font-semibold text-sm underline"
-              >
-                <Pencil className="w-4 h-4" aria-hidden />
-                {copy.areas.edit}
-              </Link>
-            </div>
+            {/* Editing means leaving for the direction form. The card
+                reports; it does not grow a textarea. Same round shadowed
+                square as DirectionsIndex's own Editar button — Screen 1's
+                design, carried onto this screen's cards too. */}
+            <Link
+              href={`/onboarding/directions?domain=${slug}&from=areas`}
+              aria-label={`${copy.areas.edit} ${copy.domains[slug].name}`}
+              className="absolute top-4 right-4 w-10 h-10 rounded-lg border-2 border-forest bg-white shadow-hard-sm flex items-center justify-center transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0.5 active:translate-y-0.5"
+            >
+              <Pencil className="w-[18px] h-[18px]" aria-hidden />
+            </Link>
           </li>
         );
       })}
