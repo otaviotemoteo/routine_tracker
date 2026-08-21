@@ -4,16 +4,16 @@ import { useEffect, useState } from "react";
 import { asRecord, fieldClass, labelClass, type SheetBodyProps } from "./types";
 import { format } from "@/lib/i18n";
 
-// The check-in step for a habit with no template — which, after the remodel,
-// is every habit anyone creates.
+// The check-in step for an activity with no template — which, after the
+// remodel, is every activity anyone creates.
 //
 // The seven original bodies each ask a question shaped by their area: which
 // exercises, which book and page, how many hours. This one has only the
-// habit's own metric to go on, so it asks the one question that metric
+// activity's own metric to go on, so it asks the one question that metric
 // supports and nothing else. That is the point rather than a limitation:
 // the daily check-in has to stay under two minutes, and a generic form that
 // invented extra fields would spend that budget on nothing.
-export function PlainBody({ initial, copy, habit, onChange }: SheetBodyProps) {
+export function PlainBody({ initial, copy, activity, onChange }: SheetBodyProps) {
   const initialRecord = asRecord(initial);
   const initialValue =
     typeof initialRecord?.value === "number" ? initialRecord.value : null;
@@ -24,7 +24,7 @@ export function PlainBody({ initial, copy, habit, onChange }: SheetBodyProps) {
     initialValue === null ? "" : String(initialValue)
   );
 
-  const isBinary = habit.metricType === "binary";
+  const isBinary = activity.metricType === "binary";
 
   useEffect(() => {
     if (isBinary) {
@@ -42,9 +42,9 @@ export function PlainBody({ initial, copy, habit, onChange }: SheetBodyProps) {
   if (isBinary) {
     return (
       <p className="opacity-75">
-        {habit.minimalAction
+        {activity.minimalAction
           ? format(copy.plain.binaryWithMinimal, {
-              action: habit.minimalAction,
+              action: activity.minimalAction,
             })
           : copy.plain.binary}
       </p>
@@ -55,8 +55,8 @@ export function PlainBody({ initial, copy, habit, onChange }: SheetBodyProps) {
     <div className="flex flex-col gap-4">
       <div>
         <label htmlFor="plain-value" className={labelClass}>
-          {habit.unit
-            ? format(copy.plain.valueWithUnit, { unit: habit.unit })
+          {activity.unit
+            ? format(copy.plain.valueWithUnit, { unit: activity.unit })
             : copy.plain.value}
         </label>
         <input
@@ -70,18 +70,18 @@ export function PlainBody({ initial, copy, habit, onChange }: SheetBodyProps) {
         />
         {/* The target is shown, never enforced: falling short of it is data,
             not an error, and a form that scolds is one people stop filling. */}
-        {habit.target !== null && (
+        {activity.target !== null && (
           <p className="mt-1.5 text-sm opacity-75">
             {format(copy.plain.target, {
-              n: habit.target,
-              unit: habit.unit ?? "",
+              n: activity.target,
+              unit: activity.unit ?? "",
             }).trim()}
           </p>
         )}
       </div>
-      {habit.minimalAction && (
+      {activity.minimalAction && (
         <p className="text-sm opacity-75">
-          {format(copy.plain.minimal, { action: habit.minimalAction })}
+          {format(copy.plain.minimal, { action: activity.minimalAction })}
         </p>
       )}
     </div>
