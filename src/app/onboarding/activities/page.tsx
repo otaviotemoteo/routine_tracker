@@ -4,6 +4,7 @@ import { AssessmentShell } from "@/components/assessment/AssessmentShell";
 import { StepTitle } from "@/components/onboarding/OnboardingChrome";
 import { ActivityBriefingForm } from "@/components/onboarding/ActivityBriefingForm";
 import { ProposedActivityCard } from "@/components/onboarding/ProposedActivityCard";
+import { FinishOnboardingButton } from "@/components/onboarding/FinishOnboardingButton";
 import {
   acceptActivitiesAction,
   generateActivitiesAction,
@@ -15,7 +16,6 @@ import { format } from "@/lib/i18n";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { isFirstRun } from "@/lib/onboarding-flow";
-import { primaryButton, ghostButton } from "@/components/ui/styles";
 import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -26,11 +26,13 @@ interface ActivitiesPageProps {
 
 // The last leg of onboarding, and the only one that isn't a gate. By the time
 // this renders, "Start tracking" has already run — habits are active, the
-// NavBar is already showing, and Today already works. This screen is a
-// one-time OFFER, not a step anyone can get stuck behind: leaving via the nav
-// is always available, and not picking a kind for a habit is exactly what
-// "declining" looks like (ARCHITECTURE.md's "empty is a signal,
-// not a failure").
+// NavBar is already showing, and Today already works. Not writing a
+// briefing for a habit is still a legitimate "declining" — it keeps its
+// plain default activity, exactly the "empty is a signal, not a failure"
+// state ARCHITECTURE.md describes — but there is deliberately no separate
+// "skip this screen" invitation any more: activities are what Today's cards
+// actually show, so the one way off this page (FinishOnboardingButton,
+// below) always accepts whatever's pending first, never bypasses it.
 //
 // Three states, not two: still-plain habits to pick a kind + briefing for;
 // generated activities waiting to be reviewed and accepted; and habits that
@@ -104,16 +106,11 @@ export default async function ActivitiesPage({
                 activity={activity}
                 lang={lang}
                 copy={copy}
-                editHref={`/config?activity=${activity.id}`}
+                editHref={`/config?activity=${activity.id}&from=onboarding`}
                 rejectAction={rejectActivityAction}
               />
             ))}
           </ul>
-          <form action={acceptActivitiesAction} className="mt-1">
-            <button type="submit" className={primaryButton}>
-              {copy.acceptAll}
-            </button>
-          </form>
         </div>
       )}
 
@@ -130,7 +127,7 @@ export default async function ActivitiesPage({
               >
                 <span className="font-semibold">{activity.name}</span>
                 <Link
-                  href={`/config?activity=${activity.id}`}
+                  href={`/config?activity=${activity.id}&from=onboarding`}
                   className="text-xs font-bold underline shrink-0"
                 >
                   {copy.editHint}
@@ -154,11 +151,15 @@ export default async function ActivitiesPage({
         done.length === 0 && <p className="opacity-75">{copy.noneLeft}</p>
       )}
 
-      <div className="mt-8 flex items-center gap-3 flex-wrap">
-        <Link href="/" className={candidates.length > 0 ? ghostButton : primaryButton}>
-          {candidates.length > 0 ? copy.skip : copy.continueLabel}
-        </Link>
-      </div>
+      {/* Activities are what Today's cards actually show, so there's no
+          skip here — one mandatory way off this screen: accept whatever's
+          still proposed (a no-op if nothing is) and go to Today. */}
+      <form action={acceptActivitiesAction} className="mt-8">
+        <FinishOnboardingButton
+          label={copy.finishOnboarding}
+          finishingLabel={copy.accepting}
+        />
+      </form>
     </AssessmentShell>
   );
 }
