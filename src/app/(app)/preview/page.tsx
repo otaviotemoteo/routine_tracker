@@ -27,7 +27,7 @@ import type { DomainSlug } from "@/lib/domains";
 // production.
 export const dynamic = "force-dynamic";
 
-const habit = (over: Partial<ActivityWithHabit>): ActivityWithHabit =>
+const activity = (over: Partial<ActivityWithHabit>): ActivityWithHabit =>
   ({
     id: 1,
     habitId: 1,
@@ -233,9 +233,9 @@ export default async function PreviewPage() {
     },
   ];
 
-  const habits: ActivityWithHabit[] = [
-    habit({ id: 1 }),
-    habit({
+  const activities: ActivityWithHabit[] = [
+    activity({ id: 1 }),
+    activity({
       id: 2,
       habitId: 2,
       habitName: "Treino",
@@ -248,7 +248,7 @@ export default async function PreviewPage() {
       templateKind: "treino",
       domainSlug: "health",
     }),
-    habit({
+    activity({
       id: 3,
       habitId: 3,
       habitName: "Ler o salmo do dia",
@@ -292,10 +292,10 @@ export default async function PreviewPage() {
 
       <Block title="Hábitos — linha resumida (Overview)">
         <ul className="flex flex-col gap-2.5 list-none">
-          {habits.map((h, i) => (
+          {activities.map((a, i) => (
             <HabitSummaryRow
-              key={h.id}
-              habit={h}
+              key={a.id}
+              activity={a}
               lang={lang}
               copy={copy.habits}
               streak={i === 0 ? 4 : undefined}
@@ -307,7 +307,7 @@ export default async function PreviewPage() {
       {/* The interactive half lives in a client island: the accordion states,
           the inline confirmation and the live sleep window only mean anything
           when you can press them. */}
-      <PreviewBoard lang={lang} habits={habits} proposedHabits={proposedHabits} />
+      <PreviewBoard lang={lang} activities={activities} proposedHabits={proposedHabits} />
     </main>
   );
 }
