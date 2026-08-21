@@ -17,19 +17,13 @@ function safeNext(formData: FormData, fallback: string): string {
   return typeof next === "string" && next.startsWith("/") ? next : fallback;
 }
 
-const PROPOSABLE: ReadonlySet<string> = new Set([
-  "treino",
-  "leitura",
-  "rotina",
-  "duolingo",
-  "espiritualidade",
-]);
-
+// Kind is chosen by the model now, not picked by hand — see
+// activity-proposer.ts. "plain" has no generic label the way the three rich
+// kinds do (there's no one-word category for an arbitrary metric), so its
+// activity is named after its own habit instead — see generateActivitiesAction.
 const DEFAULT_NAME: Record<string, string> = {
   treino: "Treino",
   leitura: "Leitura",
-  rotina: "Rotina",
-  duolingo: "Duolingo",
   espiritualidade: "Espiritualidade",
 };
 
@@ -39,16 +33,11 @@ function parsePicks(formData: FormData): ActivityPick[] {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter(
-        (p): p is { habitId: number; kind: string; briefing: unknown } =>
-          p &&
-          Number.isInteger(p.habitId) &&
-          p.habitId > 0 &&
-          typeof p.kind === "string" &&
-          PROPOSABLE.has(p.kind)
+        (p): p is { habitId: number; briefing: unknown } =>
+          p && Number.isInteger(p.habitId) && p.habitId > 0
       )
       .map((p) => ({
         habitId: p.habitId,
-        kind: p.kind as ActivityPick["kind"],
         briefing:
           typeof p.briefing === "string" && p.briefing.trim() ? p.briefing.trim() : null,
       }));
@@ -62,6 +51,10 @@ function parsePicks(formData: FormData): ActivityPick[] {
 // with (createActivity always inserts a NEW row — Decision 3,
 // docs/ARCHITECTURE.md), so there's no retired-entry history to
 // preserve the way rich-habits.ts's save* functions have to handle.
+// "plain" carries no config at all — its content is the metric spine
+// (metricType/unit/target/minimalAction), written directly onto the
+// activity's own columns by the caller, same as ActivityForm.tsx's manual
+// path.
 function shapeConfig(proposal: ActivityProposal): unknown {
   switch (proposal.kind) {
     case "treino":
@@ -88,26 +81,6 @@ function shapeConfig(proposal: ActivityProposal): unknown {
           finishedAt: null,
         })),
       };
-    case "rotina":
-      return {
-        blocks: proposal.blocks.map((b, i) => ({
-          id: i + 1,
-          startTime: b.startTime,
-          endTime: b.endTime,
-          activity: b.activity,
-          weekdays: b.weekdays,
-          position: i,
-          active: true,
-        })),
-      };
-    case "duolingo": {
-      const seen = new Set<string>();
-      return {
-        languages: proposal.languages
-          .map((l) => ({ slug: slugify(l.name), name: l.name, active: true }))
-          .filter((l) => l.slug && !seen.has(l.slug) && seen.add(l.slug)),
-      };
-    }
     case "espiritualidade": {
       const seen = new Set<string>();
       return {
@@ -122,14 +95,17 @@ function shapeConfig(proposal: ActivityProposal): unknown {
           .filter((p) => p.slug && !seen.has(p.slug) && seen.add(p.slug)),
       };
     }
+    case "plain":
+      return null;
   }
 }
 
-// Turn every {habitId, kind, briefing} pick into ONE batched generation, then
-// write each result as a PROPOSED activity (active_from NULL) — never
-// straight to tracked. This is what makes the review step real: the old
-// version of this screen wrote straight to config and redirected, with
-// nothing left to actually review. See docs/ARCHITECTURE.md.
+// Turn every {habitId, briefing} pick into its own generation call (one each
+// — see propose-activities.ts), then write each result as a PROPOSED
+// activity (active_from NULL) — never straight to tracked. This is what
+// makes the review step real: the old version of this screen wrote straight
+// to config and redirected, with nothing left to actually review. See
+// docs/ARCHITECTURE.md.
 export async function generateActivitiesAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const lang = await getLang();
@@ -139,29 +115,43 @@ export async function generateActivitiesAction(formData: FormData): Promise<void
     redirect(safeNext(formData, HERE));
   }
 
-  const outcome = await proposeActivities(userId, picks, lang, null);
+  const outcome = await proposeActivities(userId, picks, lang);
 
-  if (outcome.status === "ok") {
-    for (const { habitId, proposal, briefing } of outcome.perHabit) {
-      await createActivity(
-        userId,
-        habitId,
-        {
-          name: DEFAULT_NAME[proposal.kind] ?? proposal.kind,
-          metricType: "binary",
-          unit: null,
-          target: null,
-          minimalAction: null,
-          templateKind: proposal.kind,
-          config: shapeConfig(proposal),
-        },
-        { source: "ai_suggested", why: briefing, activeFrom: null }
-      );
-    }
+  if (outcome.status === "nothing") {
+    redirect(`${HERE}?failed=1`);
+  }
+
+  for (const { habitId, habitName, proposal, briefing } of outcome.perHabit) {
+    const isPlain = proposal.kind === "plain";
+    await createActivity(
+      userId,
+      habitId,
+      {
+        name: isPlain ? habitName : (DEFAULT_NAME[proposal.kind] ?? proposal.kind),
+        metricType: isPlain ? proposal.metricType : "binary",
+        unit: isPlain ? (proposal.unit ?? null) : null,
+        target: isPlain ? (proposal.target ?? null) : null,
+        minimalAction: isPlain ? (proposal.minimalAction ?? null) : null,
+        templateKind: isPlain ? null : proposal.kind,
+        config: shapeConfig(proposal),
+      },
+      { source: "ai_suggested", why: briefing, activeFrom: null }
+    );
   }
 
   revalidatePath(HERE);
-  redirect(outcome.status === "ok" ? safeNext(formData, HERE) : `${HERE}?failed=1`);
+  // Every pick failed: same dead end as "nothing to propose" from the
+  // person's point of view. Some failed, some didn't: still forward — a
+  // partial batch a person can review beats a wall blocking the ones that
+  // worked. Either way the failure count travels in the query string so the
+  // review screen can name it rather than stay silent about the gap.
+  const to =
+    outcome.perHabit.length === 0
+      ? `${HERE}?failed=1`
+      : outcome.failed.length > 0
+        ? `${safeNext(formData, HERE)}?partialFail=${outcome.failed.length}`
+        : safeNext(formData, HERE);
+  redirect(to);
 }
 
 // The review step's one write: every still-proposed activity for this
