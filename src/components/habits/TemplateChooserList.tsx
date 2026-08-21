@@ -37,6 +37,15 @@ export function TemplateChooserList({
   todayCopy,
 }: TemplateChooserListProps) {
   const [openId, setOpenId] = useState<number | null>(null);
+  // The card someone tapped but hasn't saved yet — cleared whenever a
+  // different habit opens (or this one closes), since only one habit is
+  // open at a time and its staged pick shouldn't survive past that.
+  const [stagedKind, setStagedKind] = useState<GenericTemplateKind | null>(null);
+
+  function toggleOpen(id: number) {
+    setOpenId((prev) => (prev === id ? null : id));
+    setStagedKind(null);
+  }
 
   return (
     <ul className="flex flex-col gap-2.5 list-none">
@@ -71,7 +80,7 @@ export function TemplateChooserList({
             <button
               type="button"
               aria-expanded={open}
-              onClick={() => setOpenId(open ? null : habit.id)}
+              onClick={() => toggleOpen(habit.id)}
               className="w-full min-h-[64px] text-left px-4 py-3 flex items-start gap-3"
             >
               <Icon
@@ -114,6 +123,12 @@ export function TemplateChooserList({
                       kind={kind}
                       chosen={chosenKind === kind}
                       suggested={!chosenKind && suggestedKind === kind}
+                      staged={stagedKind === kind}
+                      onStage={() => setStagedKind(kind)}
+                      onSaved={() => {
+                        setOpenId(null);
+                        setStagedKind(null);
+                      }}
                       copy={copy}
                       todayCopy={todayCopy}
                     />
