@@ -117,11 +117,11 @@ export function WeekGrid({
             </tr>
           </thead>
           <tbody>
-            {rows.map((habit, row) => {
-              const Icon = habitIcon(habit.templateKind, habit.domainSlug);
+            {rows.map((activity, row) => {
+              const Icon = habitIcon(activity.templateKind, activity.domainSlug);
               return (
                 <tr
-                  key={habit.activityId}
+                  key={activity.activityId}
                   className="border-t-2 border-dashed border-sand"
                 >
                   <td className="py-1 pr-2">
@@ -131,16 +131,16 @@ export function WeekGrid({
                         className="w-3.5 h-3.5 shrink-0 opacity-60"
                       />
                       <span className="text-[0.7rem] font-semibold truncate max-w-[7rem]">
-                        {habitName(lang, habit.slug, habit.name)}
+                        {habitName(lang, activity.slug, activity.name)}
                       </span>
-                      {habit.optional && (
+                      {activity.optional && (
                         <span className="shrink-0 text-[0.5rem] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-sand text-forest/60">
                           {optionalLabel}
                         </span>
                       )}
                     </span>
                   </td>
-                  {habit.cells.map((cell, i) => {
+                  {activity.cells.map((cell, i) => {
                     // Outside the record — not yet, or before the first check.
                     const future = !week.tracked[i];
                     return (
@@ -163,7 +163,7 @@ export function WeekGrid({
                             setOpenRow(row);
                             toggle(i);
                           }}
-                          aria-label={`${habitName(lang, habit.slug, habit.name)}, ${dayNames[i]}: ${
+                          aria-label={`${habitName(lang, activity.slug, activity.name)}, ${dayNames[i]}: ${
                             cell.done
                               ? (cell.value ?? copy.done)
                               : future
@@ -203,14 +203,14 @@ export function WeekGrid({
                   <td className="text-right pl-1">
                     <span
                       className={`font-mono text-[0.7rem] font-bold ${
-                        habit.percent >= 70
+                        activity.percent >= 70
                           ? "text-clover"
-                          : habit.percent >= 40
+                          : activity.percent >= 40
                             ? "opacity-60"
                             : "text-straw"
                       }`}
                     >
-                      {habit.percent}%
+                      {activity.percent}%
                     </span>
                   </td>
                 </tr>
