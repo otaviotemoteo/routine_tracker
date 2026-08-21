@@ -10,8 +10,12 @@ import {
   generateActivitiesAction,
   rejectActivityAction,
 } from "./actions";
-import { listHabits, listProposedActivities, listTrackedActivities } from "@/db/habits";
-import { isChoosableTemplateKind } from "@/lib/templates";
+import {
+  listAllActivities,
+  listHabits,
+  listProposedActivities,
+  listTrackedActivities,
+} from "@/db/habits";
 import { format } from "@/lib/i18n";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
@@ -46,23 +50,36 @@ export default async function ActivitiesPage({
   const params = await searchParams;
   const firstRun = await isFirstRun(userId);
 
-  const [allHabits, tracked, proposed] = await Promise.all([
+  const [allHabits, everGenerated, tracked, proposed] = await Promise.all([
     listHabits(userId),
+    // Every activity a habit has EVER had accepted, active or since
+    // retired — not just what's live today. A count of 1 means nothing but
+    // the original default has ever existed; anything more can only exist
+    // because generation already ran once (Decision 3: generating always
+    // inserts a new row, never updates). Checking "is the current one rich"
+    // instead used to let a habit whose AI-proposed activity came back
+    // "plain" (a real, complete answer, not a placeholder) get offered as a
+    // candidate again — same habit, same briefing screen, a second AI call,
+    // a second activity, the old one retired same-day. That's the
+    // duplicate-activity bug found live: kind is chosen by the model now,
+    // so "not rich" no longer means "never touched."
+    listAllActivities(userId),
     listTrackedActivities(userId),
     listProposedActivities(userId),
   ]);
 
-  const richHabitIds = new Set(
-    tracked.filter((a) => !isChoosableTemplateKind(a.templateKind)).map((a) => a.habitId)
-  );
+  const activityCountByHabit = new Map<number, number>();
+  for (const a of everGenerated) {
+    activityCountByHabit.set(a.habitId, (activityCountByHabit.get(a.habitId) ?? 0) + 1);
+  }
   const proposedHabitIds = new Set(proposed.map((a) => a.habitId));
-  // A habit with a rich activity already tracked, OR one still pending
-  // review, isn't a candidate any more — picking a second kind for it is
+  // A habit that's already been generated for, OR one still pending review,
+  // isn't a candidate any more — picking another activity for it is
   // /config's "add an activity" job now, not this one-time offer's.
   const candidates = allHabits.filter(
-    (h) => !richHabitIds.has(h.id) && !proposedHabitIds.has(h.id)
+    (h) => (activityCountByHabit.get(h.id) ?? 0) <= 1 && !proposedHabitIds.has(h.id)
   );
-  const done = tracked.filter((a) => !isChoosableTemplateKind(a.templateKind));
+  const done = tracked.filter((a) => (activityCountByHabit.get(a.habitId) ?? 0) > 1);
 
   // Two designed screens share this one route: Screen 3 (still collecting
   // briefings) and Screen 4 (reviewing what came back). Both can be true at
