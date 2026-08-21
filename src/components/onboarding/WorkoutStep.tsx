@@ -6,7 +6,12 @@ import {
   OnboardingFooter,
   StepTitle,
 } from "./OnboardingChrome";
-import { fieldBase, ghostButton, inputClass } from "@/components/ui/styles";
+import {
+  fieldBase,
+  ghostButton,
+  inputClass,
+  noSpinnerClass,
+} from "@/components/ui/styles";
 import { ListCard, type ListChip } from "./ListCard";
 import type { ExerciseKind, PlannedExercise } from "@/db/schema";
 import { exerciseScheme } from "@/lib/exercise";
@@ -313,7 +318,7 @@ export function WorkoutStep({
                                   : undefined,
                               })
                             }
-                            className={`${fieldBase} shrink-0 font-mono text-center w-12 px-1`}
+                            className={`${fieldBase} shrink-0 font-mono text-center w-12 px-1 ${noSpinnerClass}`}
                           />
                           <span aria-hidden className="shrink-0 opacity-60 text-sm">
                             ×
@@ -336,7 +341,7 @@ export function WorkoutStep({
                                 : undefined,
                             })
                           }
-                          className={`${fieldBase} shrink-0 font-mono text-center w-12 px-1`}
+                          className={`${fieldBase} shrink-0 font-mono text-center w-12 px-1 ${noSpinnerClass}`}
                         />
                       )}
 
@@ -355,7 +360,7 @@ export function WorkoutStep({
                                 : undefined,
                             })
                           }
-                          className={`${fieldBase} shrink-0 font-mono text-center w-16 px-1`}
+                          className={`${fieldBase} shrink-0 font-mono text-center w-16 px-1 ${noSpinnerClass}`}
                         />
                       )}
 
@@ -376,7 +381,7 @@ export function WorkoutStep({
                                   : undefined,
                               })
                             }
-                            className={`${fieldBase} shrink-0 font-mono text-center w-14 px-1`}
+                            className={`${fieldBase} shrink-0 font-mono text-center w-14 px-1 ${noSpinnerClass}`}
                           />
                           <input
                             type="number"
@@ -392,7 +397,7 @@ export function WorkoutStep({
                                   : undefined,
                               })
                             }
-                            className={`${fieldBase} shrink-0 font-mono text-center w-16 px-1`}
+                            className={`${fieldBase} shrink-0 font-mono text-center w-16 px-1 ${noSpinnerClass}`}
                           />
                         </>
                       )}
