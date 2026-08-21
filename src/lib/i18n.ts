@@ -551,32 +551,49 @@ export interface Copy {
   // a habit and pressing Generate anyway (or none at all).
   activities: {
     eyebrow: string;
-    title: string;
+    title: string; // Screen 3 (briefing) title
     lead: string;
-    kindWorkout: string;
-    kindReading: string;
-    kindRoutine: string;
-    kindLanguages: string;
-    kindSpirituality: string;
-    pick: string; // aria-label prefix for a kind button, {kind} appended
+    // Kind is chosen by the model now (activity-proposer.ts), not picked by
+    // hand — no more kindWorkout/kindReading/kindRoutine/kindLanguages/
+    // kindSpirituality/pick copy.
     briefingLabel: string;
     briefingPlaceholder: string;
+    briefingAnswered: string; // {done}/{total} — "2 of 5 answered"
     generate: string;
     generating: string;
-    generateFailed: string;
+    generateFailed: string; // nothing at all came back
+    generatePartialFail: string; // {n} — some habits' generation failed
     doneTitle: string; // {n}
     doneLead: string;
     skip: string;
     continueLabel: string;
     noneLeft: string; // every habit already has activities or none exist
     editHint: string; // "fine-tune in /config" style note under a done card
-    // The review step, between generating and accepting.
+    // Screen 4 — the review step, between generating and accepting.
+    reviewScreenTitle: string;
+    reviewScreenLead: string;
     reviewTitle: string; // {n}
     reviewLead: string;
     reviewEdit: string; // link to /config to inspect/tweak before accepting
     reject: string; // discard one still-proposed activity
     acceptAll: string;
     accepting: string;
+    // The four face badges/labels a proposed activity's card can show —
+    // ProposedActivityCard.tsx.
+    faceWorkout: string; // "TREINO" badge
+    faceReading: string; // "LEITURA" badge
+    faceCountable: string; // "CONTÁVEL" badge (espiritualidade's face)
+    faceMetric: string; // "MÉTRICA" badge (plain's face)
+    facePlanLabel: string; // "PLANO DA SEMANA"
+    faceQueueLabel: string; // "FILA E META"
+    facePracticesLabel: string; // "ITENS DA PRÁTICA"
+    faceMetricLabel: string; // "COMO REGISTRAR"
+    facePerYearLabel: string; // "books a year" / "livros por ano"
+    facePagesUnit: string; // "pages" / "pág"
+    faceCountableLabel: string; // "countable" / "contável", per practice row
+    metricModeBinary: string; // "Done or not" / "Feito ou não"
+    metricModeCount: string; // "Count" / "Contagem"
+    metricModeDuration: string; // "Duration" / "Duração"
   };
   onboarding: {
     stepOf: string; // {current} / {total}
@@ -1188,27 +1205,27 @@ export const COPY: Record<Lang, Copy> = {
     },
     activities: {
       eyebrow: "Activities",
-      title: "Add activities to your habits",
+      title: "Tell us a bit about each habit",
       lead:
-        "Optional, and you can always add these later in settings. Pick what a habit is made of — a workout plan, a reading list — and generate a starter set for it.",
-      kindWorkout: "Workout",
-      kindReading: "Reading",
-      kindRoutine: "Routine",
-      kindLanguages: "Languages",
-      kindSpirituality: "Spirituality",
-      pick: "Set up as {kind}",
+        "Short answers are enough. It's what we use to propose activities that fit your week.",
       briefingLabel: "Briefly, what would you like to do here?",
       briefingPlaceholder: "e.g. a beginner strength split, 3 days a week",
+      briefingAnswered: "{done} of {total} answered — you can generate even with blanks",
       generate: "Generate activities",
       generating: "Generating…",
       generateFailed:
         "Couldn't reach the suggestion service. Nothing was lost — try again, or set these up by hand in settings.",
+      generatePartialFail:
+        "{n} of these couldn't be generated. The rest are ready to review below — try the others again from settings.",
       doneTitle: "{n} habits set up",
       doneLead: "Fine-tune anything in settings whenever you like.",
       skip: "Skip for now",
       continueLabel: "Continue to Today",
       noneLeft: "Nothing left to set up here.",
       editHint: "Edit in settings",
+      reviewScreenTitle: "Suggested activities",
+      reviewScreenLead:
+        "Each one came with the form that fits it. Edit opens the activity on its own page.",
       reviewTitle: "{n} activities generated — review before accepting",
       reviewLead:
         "Take a look, tweak anything that isn't quite right, then accept the set.",
@@ -1216,6 +1233,20 @@ export const COPY: Record<Lang, Copy> = {
       reject: "Discard",
       acceptAll: "Accept and continue",
       accepting: "Accepting…",
+      faceWorkout: "WORKOUT",
+      faceReading: "READING",
+      faceCountable: "COUNTABLE",
+      faceMetric: "METRIC",
+      facePlanLabel: "WEEK'S PLAN",
+      faceQueueLabel: "QUEUE AND GOAL",
+      facePracticesLabel: "PRACTICE ITEMS",
+      faceMetricLabel: "HOW IT'S LOGGED",
+      facePerYearLabel: "books a year",
+      facePagesUnit: "pages",
+      faceCountableLabel: "countable",
+      metricModeBinary: "Done or not",
+      metricModeCount: "Count",
+      metricModeDuration: "Duration",
     },
     onboarding: {
       confirmRemove: "Remove {name}?",
@@ -1841,27 +1872,27 @@ export const COPY: Record<Lang, Copy> = {
     },
     activities: {
       eyebrow: "Atividades",
-      title: "Adicione atividades aos seus hábitos",
+      title: "Conte um pouco de cada hábito",
       lead:
-        "Opcional, e dá pra adicionar depois nas configurações. Escolha do que um hábito é feito — um plano de treino, uma lista de leitura — e gere um conjunto inicial pra ele.",
-      kindWorkout: "Treino",
-      kindReading: "Leitura",
-      kindRoutine: "Rotina",
-      kindLanguages: "Idiomas",
-      kindSpirituality: "Espiritualidade",
-      pick: "Configurar como {kind}",
+        "Respostas curtas bastam. É o que a gente usa para propor atividades que caibam na sua semana.",
       briefingLabel: "Em poucas palavras, o que você gostaria de fazer aqui?",
       briefingPlaceholder: "ex.: treino de força para iniciante, 3x por semana",
+      briefingAnswered: "{done} de {total} respondidos — dá para gerar mesmo com campos vazios",
       generate: "Gerar atividades",
       generating: "Gerando…",
       generateFailed:
         "Não foi possível alcançar o serviço de sugestões. Nada foi perdido — tente de novo, ou configure à mão nas configurações.",
+      generatePartialFail:
+        "{n} desses não puderam ser gerados. Os outros já estão prontos pra revisar abaixo — tente os demais de novo nas configurações.",
       doneTitle: "{n} hábitos configurados",
       doneLead: "Ajuste qualquer coisa nas configurações quando quiser.",
       skip: "Pular por agora",
       continueLabel: "Continuar para o Hoje",
       noneLeft: "Nada mais para configurar aqui.",
       editHint: "Editar nas configurações",
+      reviewScreenTitle: "Atividades sugeridas",
+      reviewScreenLead:
+        "Cada atividade veio com o formulário que combina com ela. Editar abre a atividade em uma página só dela.",
       reviewTitle: "{n} atividades geradas — revise antes de aceitar",
       reviewLead:
         "Dê uma olhada, ajuste o que não estiver certo, e aceite o conjunto.",
@@ -1869,6 +1900,20 @@ export const COPY: Record<Lang, Copy> = {
       reject: "Descartar",
       acceptAll: "Aceitar e continuar",
       accepting: "Aceitando…",
+      faceWorkout: "TREINO",
+      faceReading: "LEITURA",
+      faceCountable: "CONTÁVEL",
+      faceMetric: "MÉTRICA",
+      facePlanLabel: "PLANO DA SEMANA",
+      faceQueueLabel: "FILA E META",
+      facePracticesLabel: "ITENS DA PRÁTICA",
+      faceMetricLabel: "COMO REGISTRAR",
+      facePerYearLabel: "livros por ano",
+      facePagesUnit: "pág",
+      faceCountableLabel: "contável",
+      metricModeBinary: "Feito ou não",
+      metricModeCount: "Contagem",
+      metricModeDuration: "Duração",
     },
     onboarding: {
       confirmRemove: "Remover {name}?",
