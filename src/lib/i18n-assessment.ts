@@ -217,8 +217,12 @@ const en: AssessmentCopy = {
   saving: "Saving…",
 
   intro: {
-    title: "What matters, and what you actually do",
-    lead: "Twelve areas of life, six quick questions about each. The result is a map of where the two have drifted apart.",
+    // P1, revisited: the persistent eyebrow (navLabel, "Values assessment")
+    // is deliberately kept small — this is the literal text the very first
+    // feedback pass named as needing to become the real, big title, so it's
+    // repeated here rather than a different sentence standing in for it.
+    title: "Values assessment",
+    lead: "What matters, and what you actually do. Twelve areas of life, six quick questions about each — the result is a map of where the two have drifted apart.",
     time: "About 20 minutes. One area per screen.",
     journeyTitle: "Where this leads",
     journeyItems: [
@@ -555,8 +559,8 @@ const pt: AssessmentCopy = {
   saving: "Salvando…",
 
   intro: {
-    title: "O que importa, e o que você faz de verdade",
-    lead: "Doze áreas da vida, seis perguntas rápidas sobre cada uma. No fim, um mapa de onde as duas coisas se afastaram.",
+    title: "Avaliação de valores",
+    lead: "O que importa, e o que você faz de verdade. Doze áreas da vida, seis perguntas rápidas sobre cada uma — no fim, um mapa de onde as duas coisas se afastaram.",
     time: "Cerca de 20 minutos. Uma área por tela.",
     journeyTitle: "Para onde isso leva",
     journeyItems: [
