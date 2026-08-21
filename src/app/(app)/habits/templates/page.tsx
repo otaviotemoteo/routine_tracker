@@ -28,13 +28,13 @@ export default async function TemplatesPage({
   const copy = COPY[lang].templates;
   const todayCopy = COPY[lang].today;
 
-  const allHabits = await listTrackedActivities(userId);
+  const allActivities = await listTrackedActivities(userId);
   // The seven legacy kinds aren't offered here — see src/lib/templates.ts for
   // why a chooser can't safely touch them. Showing a control for something it
   // can't act on is exactly what UX_PRINCIPLES.md rules out.
-  const habits = allHabits.filter((h) => isChoosableTemplateKind(h.templateKind));
-  const chosenCount = habits.filter((h) =>
-    isGenericTemplateKind(h.templateKind)
+  const activities = allActivities.filter((a) => isChoosableTemplateKind(a.templateKind));
+  const chosenCount = activities.filter((a) =>
+    isGenericTemplateKind(a.templateKind)
   ).length;
 
   const backHref = from === "overview" ? "/overview" : from === "today" ? "/" : "/habits";
@@ -46,10 +46,10 @@ export default async function TemplatesPage({
         <StepTitle backHref={backHref} backLabel={copy.done}>
           {copy.title}
         </StepTitle>
-        {habits.length > 0 && (
+        {activities.length > 0 && (
           <p className="shrink-0 border-2 border-forest rounded-card bg-white px-3 py-1.5 text-right leading-none">
             <span className="block font-mono font-bold text-lg">
-              {format(copy.chosenCount, { done: chosenCount, total: habits.length })}
+              {format(copy.chosenCount, { done: chosenCount, total: activities.length })}
             </span>
             <span className="block text-[10px] font-bold tracking-wider opacity-50 mt-1">
               {copy.chosenLabel.toUpperCase()}
@@ -68,7 +68,7 @@ export default async function TemplatesPage({
         </p>
       )}
 
-      {habits.length === 0 ? (
+      {activities.length === 0 ? (
         <div className="border-2 border-forest rounded-card bg-white shadow-hard px-6 py-8 text-center">
           <p className="opacity-75 max-w-prose mx-auto">{copy.noEligible}</p>
         </div>
@@ -78,7 +78,7 @@ export default async function TemplatesPage({
             {copy.previewNote}
           </p>
           <TemplateChooserList
-            habits={habits}
+            activities={activities}
             lang={lang}
             copy={copy}
             todayCopy={todayCopy}
