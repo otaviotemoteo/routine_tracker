@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { OnboardingProgress } from "@/components/onboarding/OnboardingChrome";
 import { AssessmentShell } from "@/components/assessment/AssessmentShell";
-import { DomainStep } from "@/components/assessment/DomainStep";
+import { AssessmentGrid } from "@/components/assessment/AssessmentGrid";
 import { IntroStep } from "@/components/assessment/IntroStep";
 import { ResumeStep } from "@/components/assessment/ResumeStep";
 import { restartAssessment, saveDomainRating, startAssessment } from "./values-actions";
@@ -10,14 +9,12 @@ import {
   answeredCount,
   assessmentStepHref,
   firstUnanswered,
-  nextAssessmentHref,
-  prevAssessmentHref,
   resolveAssessmentStep,
 } from "@/lib/assessment";
 import { onboardingStepHref, resolveOnboardingStep } from "@/lib/onboarding-flow";
-import { TOTAL_DOMAINS, domainPosition, isDomainSlug } from "@/lib/domains";
+import { isDomainSlug } from "@/lib/domains";
 import { getLang } from "@/lib/get-lang";
-import { COPY, format } from "@/lib/i18n";
+import { COPY } from "@/lib/i18n";
 import { requireUserId } from "@/lib/session";
 import { formatShortDayMonth, todayInSaoPaulo } from "@/lib/utils";
 
@@ -90,28 +87,13 @@ export default async function OnboardingPage({
 
   if (!isDomainSlug(step)) redirect("/onboarding");
 
-  // The bar counts areas, not steps: the intro carries no bar, so starting the
-  // count at the first domain is what makes "12 of 12" land on the last one.
-  const areaNumber = domainPosition(step);
-
   return (
     <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="focus">
-      <OnboardingProgress
-        stepNumber={areaNumber}
-        total={TOTAL_DOMAINS}
-        label={format(copy.domainStep.eyebrow, {
-          current: areaNumber,
-          total: TOTAL_DOMAINS,
-        })}
-      />
-      <DomainStep
+      <AssessmentGrid
+        initialStep={step}
+        initialRatings={draft.ratings}
         action={saveDomainRating}
-        next={nextAssessmentHref(step)}
-        backHref={prevAssessmentHref(step)}
-        slug={step}
-        isLast={areaNumber === TOTAL_DOMAINS}
         copy={copy}
-        initial={draft.ratings[step] ?? {}}
       />
     </AssessmentShell>
   );
