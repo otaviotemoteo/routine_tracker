@@ -1,4 +1,7 @@
-import { ArrowRight, Check, ExternalLink } from "lucide-react";
+"use client";
+
+import { ArrowRight, Check, ExternalLink, Loader2 } from "lucide-react";
+import { useFormStatus } from "react-dom";
 import { cardSurface, primaryButton } from "@/components/ui/styles";
 import type { Copy } from "@/lib/i18n";
 
@@ -27,7 +30,11 @@ interface IntroStepProps {
 export function IntroStep({ action, copy }: IntroStepProps) {
   return (
     <div>
-      <p className="eyebrow mb-2">{copy.intro.eyebrow}</p>
+      {/* P1: this used to sit under its own small green eyebrow line here,
+          on top of AssessmentShell's persistent "Values assessment" one
+          above it — two small labels stacked ahead of one real title. One
+          eyebrow (the persistent one) is chrome enough; the title below is
+          the one that should read as the screen's actual name. */}
       <h1 className="display-title text-3xl sm:text-4xl">{copy.intro.title}</h1>
       <p className="mt-3 text-lg opacity-80">{copy.intro.lead}</p>
       <p className="mt-2 font-mono text-sm text-clover font-semibold">
@@ -96,10 +103,28 @@ export function IntroStep({ action, copy }: IntroStepProps) {
       </section>
 
       <form action={action} className="mt-8">
-        <button type="submit" className={primaryButton}>
-          {copy.intro.start}
-        </button>
+        <StartButton label={copy.intro.start} startingLabel={copy.intro.starting} />
       </form>
     </div>
+  );
+}
+
+// P2 — disabled+spinner+"Começando…" on click, the same pattern every other
+// async action in onboarding already uses.
+function StartButton({
+  label,
+  startingLabel,
+}: {
+  label: string;
+  startingLabel: string;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending} className={primaryButton}>
+      {pending && (
+        <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden />
+      )}
+      {pending ? startingLabel : label}
+    </button>
   );
 }
