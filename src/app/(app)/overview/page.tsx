@@ -127,7 +127,7 @@ async function HabitsSection({
   today: string;
   copy: Copy;
 }) {
-  const [habits, streaks] = await Promise.all([
+  const [activities, streaks] = await Promise.all([
     listTrackedActivities(userId),
     getActivityStreaks(userId, today),
   ]);
@@ -140,23 +140,23 @@ async function HabitsSection({
           <h2 className="display-title text-2xl mt-1">{copy.habits.title}</h2>
         </div>
         <Link href="/habits" className={`${ghostButton} shrink-0`}>
-          {habits.length === 0 ? copy.habits.add : copy.habits.manage}
+          {activities.length === 0 ? copy.habits.add : copy.habits.manage}
         </Link>
       </div>
 
-      {habits.length === 0 ? (
+      {activities.length === 0 ? (
         <p className="border-2 border-forest rounded-card bg-white shadow-hard px-4 py-3.5 opacity-75">
           {copy.habits.emptyLead}
         </p>
       ) : (
         <ul className="flex flex-col gap-2.5 list-none">
-          {habits.map((habit) => (
+          {activities.map((activity) => (
             <HabitSummaryRow
-              key={habit.id}
-              habit={habit}
+              key={activity.id}
+              activity={activity}
               lang={lang}
               copy={copy.habits}
-              streak={streaks[habit.id]}
+              streak={streaks[activity.id]}
             />
           ))}
         </ul>
@@ -456,7 +456,7 @@ async function MonthView({
         dayNames={copy.overview.weekdaysLong}
       />
       <ConsistencyPanel
-        habits={data.activities}
+        activities={data.activities}
         previous={previous}
         comparable={
           !trackingStart || addMonths(month, -1) >= trackingStart.slice(0, 7)
