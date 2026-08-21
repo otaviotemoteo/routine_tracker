@@ -30,6 +30,12 @@ interface TodayBoardProps {
   // reads as one more section of a working Today rather than an announcement
   // stacked above one.
   templatesNudge?: React.ReactNode;
+  // BUG-2: the ids the nudge above is already speaking for — their default
+  // cards must not ALSO render in the grid below, or the same "not set up
+  // yet" fact shows twice, once as an offer and once as a blank card. Still
+  // counted in the progress math (they're real, trackable habits, just
+  // visually deferred to the nudge) — only the grid excludes them.
+  hideFromGrid?: ReadonlySet<number>;
 }
 
 // Today is a status board: the day in two figures, a progress bar, one call to
@@ -50,6 +56,7 @@ export function TodayBoard({
   pace,
   paceValues,
   templatesNudge,
+  hideFromGrid,
 }: TodayBoardProps) {
   const required = checks.filter((c) => !c.optional);
   const doneCount = required.filter((c) => c.done).length;
@@ -159,23 +166,25 @@ export function TodayBoard({
             gridAutoRows: "320px",
           }}
         >
-          {checks.map((check) => (
-            <li key={check.id} className="contents">
-              <HabitCard
-                check={check}
-                context={context.activities[check.activityId] ?? EMPTY_ACTIVITY_CONTEXT}
-                lang={lang}
-                copy={copy}
-                readingCopy={readingCopy}
-                today={today}
-                comparisons={comparisons}
-                pace={check.templateKind === "leitura" ? pace : undefined}
-                paceValues={
-                  check.templateKind === "leitura" ? paceValues : undefined
-                }
-              />
-            </li>
-          ))}
+          {checks
+            .filter((check) => !hideFromGrid?.has(check.id))
+            .map((check) => (
+              <li key={check.id} className="contents">
+                <HabitCard
+                  check={check}
+                  context={context.activities[check.activityId] ?? EMPTY_ACTIVITY_CONTEXT}
+                  lang={lang}
+                  copy={copy}
+                  readingCopy={readingCopy}
+                  today={today}
+                  comparisons={comparisons}
+                  pace={check.templateKind === "leitura" ? pace : undefined}
+                  paceValues={
+                    check.templateKind === "leitura" ? paceValues : undefined
+                  }
+                />
+              </li>
+            ))}
         </ul>
       </div>
     </>
