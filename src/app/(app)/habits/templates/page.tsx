@@ -10,17 +10,19 @@ import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-// The card-style chooser: pick how each habit's Today card looks, from the
-// five generic kinds in src/lib/templates.ts. A reporting-then-editing screen
-// like /config, not a status board — every choice saves the instant it's
-// tapped (see actions.ts), so there's nothing to submit as a whole and no
-// dirty-state to guard.
+// The card-style chooser: pick how each activity's Today card looks, from
+// the five generic kinds in src/lib/templates.ts. `?activity=<id>` opens
+// that one directly (and the list keeps the URL in sync as a different row
+// opens/closes) — the same "one address per activity" idea /config?activity=
+// already follows, since the template a person picks here is as much a
+// property of the activity as anything /config edits.
 export default async function TemplatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; error?: string }>;
+  searchParams: Promise<{ from?: string; error?: string; activity?: string }>;
 }) {
-  const { from, error } = await searchParams;
+  const { from, error, activity } = await searchParams;
+  const initialActivityId = activity ? Number(activity) : null;
   const userId = await requireUserId();
   const lang = await getLang();
   const copy = COPY[lang].templates;
@@ -80,6 +82,8 @@ export default async function TemplatesPage({
             lang={lang}
             copy={copy}
             todayCopy={todayCopy}
+            initialActivityId={initialActivityId}
+            from={from}
           />
           <div className="mt-8 flex flex-col gap-3">
             <p className="text-sm opacity-70">{copy.footerNote}</p>
