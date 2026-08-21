@@ -56,6 +56,12 @@ export default async function TodayPage() {
   const uncustomized = checks.filter((c) => c.templateKind === null);
   const showTemplatesNudge =
     !nudgeSeen && checks.length > 0 && uncustomized.length > 0;
+  // BUG-2: the nudge already lists these by name — their default cards must
+  // not ALSO render behind it. Still counted toward progress (TodayBoard's
+  // own `checks` stays the full list); only the grid excludes them.
+  const hideFromGrid = showTemplatesNudge
+    ? new Set(uncustomized.map((c) => c.id))
+    : undefined;
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-24">
@@ -78,6 +84,7 @@ export default async function TodayPage() {
             <TemplatesNudge habitNames={uncustomized} lang={lang} copy={copy.today} />
           )
         }
+        hideFromGrid={hideFromGrid}
       />
     </main>
   );
