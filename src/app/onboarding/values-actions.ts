@@ -17,7 +17,13 @@ import {
 import { markFirstRunStep } from "@/db/first-run";
 import { assessmentStepHref, firstUnanswered } from "@/lib/assessment";
 import { assessmentStep, directionStep } from "@/lib/first-run";
-import { RATING_SCALES, SCALE_MAX, SCALE_MIN, isDomainSlug } from "@/lib/domains";
+import {
+  RATING_SCALES,
+  SCALE_MAX,
+  SCALE_MIN,
+  isDomainSlug,
+  type DomainSlug,
+} from "@/lib/domains";
 import { requireUserId } from "@/lib/session";
 import { todayInSaoPaulo } from "@/lib/utils";
 
@@ -45,7 +51,23 @@ export async function startAssessment(): Promise<void> {
   redirect(assessmentStepHref(next ?? "results"));
 }
 
-export async function saveDomainRating(formData: FormData): Promise<void> {
+// The happy path used to end in redirect(safeNext(formData)) — a real
+// navigation for every single domain, which is what caused the blank flash
+// between domains: changing the URL's ?step= is what tears the whole page
+// tree down, skeleton included, before the next one has data to show.
+// Advancing through the grid doesn't actually need a new page each time —
+// AssessmentGrid (the client component that now owns "which domain is
+// showing") holds all twelve locally and just swaps state — so this returns
+// where to go instead of redirecting there. Sealing still ends the grid for
+// real (a genuinely different page, /onboarding/results), so that path is
+// named explicitly rather than folded into "advance."
+export type SaveDomainOutcome =
+  | { status: "advance"; next: DomainSlug }
+  | { status: "sealed" };
+
+export async function saveDomainRating(
+  formData: FormData
+): Promise<SaveDomainOutcome> {
   const userId = await requireUserId();
   const slug = String(formData.get("domain") ?? "");
   if (!isDomainSlug(slug)) redirect("/onboarding");
@@ -86,7 +108,7 @@ export async function saveDomainRating(formData: FormData): Promise<void> {
     // holding the phone.
     await sealAssessment(userId, after.id);
     await markFirstRunStep(userId, "results");
-    redirect(assessmentStepHref("results"));
+    return { status: "sealed" };
   }
 
   // The furthest point in the run that is still open, written on every
@@ -94,9 +116,15 @@ export async function saveDomainRating(formData: FormData): Promise<void> {
   // column is by construction an abandonment — see src/lib/first-run.ts.
   if (pendingDomain) {
     await markFirstRunStep(userId, assessmentStep(pendingDomain));
+    return { status: "advance", next: pendingDomain };
   }
 
-  redirect(safeNext(formData));
+  // Unreachable in practice — `after` only comes back null if the draft
+  // vanished between the write above and this re-read, which nothing in
+  // this app does. Redirecting to the resolver's own front door is the
+  // honest thing to do with a state this function has no name for, rather
+  // than inventing a fake DomainSlug to satisfy the return type.
+  redirect("/onboarding");
 }
 
 // Abandon a check-in begun on an earlier day and open a fresh one. Only ever
@@ -111,11 +139,12 @@ export async function restartAssessment(): Promise<void> {
   redirect(assessmentStepHref("intro"));
 }
 
-// Save one direction. Upserts on (cycle, domain) so revisiting a domain edits
-// what is there rather than stacking rows. Narratives are not sealed the way
-// ratings are: the grid is a measurement and must not move, a direction is
-// something you are allowed to word better next week.
-export async function saveDirection(formData: FormData): Promise<void> {
+// Upserts on (cycle, domain) so revisiting a domain edits what is there
+// rather than stacking rows. Narratives are not sealed the way ratings are:
+// the grid is a measurement and must not move, a direction is something you
+// are allowed to word better next week. Shared by both entry points below —
+// the only difference between them is what happens to the URL afterward.
+async function persistDirection(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const slug = String(formData.get("domain") ?? "");
   if (!isDomainSlug(slug)) redirect("/onboarding/directions");
@@ -138,6 +167,20 @@ export async function saveDirection(formData: FormData): Promise<void> {
     .filter(isDomainSlug)
     .find((s) => !written[s]?.narrative?.trim());
   await markFirstRunStep(userId, missing ? directionStep(missing) : "areas");
+}
 
+// The two single-hop shapes (reviewing one direction in place, or editing
+// one from the areas screen) — both always return to one fixed destination,
+// so an ordinary redirect is fine; there's no repeated flash to fix there.
+export async function saveDirection(formData: FormData): Promise<void> {
+  await persistDirection(formData);
   redirect(safeNext(formData));
+}
+
+// The ordered walk's own save — AssessmentDirectionsWalk already knows
+// which direction comes next (or that this was the last), so it doesn't
+// need this to redirect anywhere; see that component's own comment, and
+// saveDomainRating's above it for the identical reasoning on the grid.
+export async function saveDirectionAdvance(formData: FormData): Promise<void> {
+  await persistDirection(formData);
 }
