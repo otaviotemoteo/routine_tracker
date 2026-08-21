@@ -755,9 +755,16 @@ export async function acceptProposedActivities(
         .where(and(eq(dailyChecks.activityId, candidate.id), eq(dailyChecks.done, true)))
         .limit(1);
       if (!hasHistory) {
+        // Yesterday, not today: the replacement's activeFrom is `today`, and
+        // activitiesFor()'s activeTo bound is inclusive (a normal removal's
+        // "still counts through the day you deleted it" rule) — setting the
+        // retiring placeholder's activeTo to `today` too would make both
+        // rows live for the exact same day, which is the literal duplicate-
+        // card bug this line used to cause when a habit got a second
+        // activity generated the same day its first was accepted.
         await db
           .update(activities)
-          .set({ activeTo: today })
+          .set({ activeTo: addDays(today, -1) })
           .where(eq(activities.id, candidate.id));
       }
     }
