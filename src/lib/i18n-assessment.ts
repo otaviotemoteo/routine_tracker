@@ -58,7 +58,9 @@ export interface AssessmentCopy {
   saving: string;
 
   intro: {
-    eyebrow: string;
+    // P1: no eyebrow field any more — AssessmentShell's persistent
+    // "Values assessment" label is the only small label ahead of this
+    // screen's real title now.
     title: string;
     lead: string;
     time: string;
@@ -82,6 +84,7 @@ export interface AssessmentCopy {
     cautionAfter: string;
     cautionHref: string;
     start: string;
+    starting: string; // P2: disabled+spinner on click
   };
 
   resume: {
@@ -214,7 +217,6 @@ const en: AssessmentCopy = {
   saving: "Saving…",
 
   intro: {
-    eyebrow: "Values check-in",
     title: "What matters, and what you actually do",
     lead: "Twelve areas of life, six quick questions about each. The result is a map of where the two have drifted apart.",
     time: "About 20 minutes. One area per screen.",
@@ -242,6 +244,7 @@ const en: AssessmentCopy = {
       ", used here for planning rather than therapy. If an area opens something heavy, that is a sign to talk to a person, not to fill in another box.",
     cautionHref: "https://contextualscience.org/act",
     start: "Start",
+    starting: "Starting…",
   },
 
   resume: {
@@ -552,7 +555,6 @@ const pt: AssessmentCopy = {
   saving: "Salvando…",
 
   intro: {
-    eyebrow: "Check-in de valores",
     title: "O que importa, e o que você faz de verdade",
     lead: "Doze áreas da vida, seis perguntas rápidas sobre cada uma. No fim, um mapa de onde as duas coisas se afastaram.",
     time: "Cerca de 20 minutos. Uma área por tela.",
@@ -580,6 +582,7 @@ const pt: AssessmentCopy = {
       ", usada aqui para planejamento, não para terapia. Se alguma área abrir algo que pesa, isso é sinal de conversa com gente, não de mais um campo preenchido.",
     cautionHref: "https://contextualscience.org/act",
     start: "Começar",
+    starting: "Começando…",
   },
 
   resume: {
