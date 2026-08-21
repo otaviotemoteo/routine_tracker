@@ -94,7 +94,7 @@ export function DailyStep({
           copy={sheetCopy}
           lang={lang}
           onChange={setDetails}
-          habit={check}
+          activity={check}
         />
 
         <label
