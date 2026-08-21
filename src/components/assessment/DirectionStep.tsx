@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { ghostButton, inputClass, primaryButton } from "@/components/ui/styles";
 import { DirectionStepSkeleton } from "./DirectionStepSkeleton";
 import type { DomainSlug } from "@/lib/domains";
-import { format, type Copy } from "@/lib/i18n";
+import { type Copy } from "@/lib/i18n";
 
 interface DirectionStepProps {
   action: (formData: FormData) => Promise<void>;
@@ -21,40 +20,18 @@ interface DirectionStepProps {
   initialNarrative: string;
 }
 
-function SubmitButton({
-  label,
-  savingLabel,
-  disabled,
-}: {
-  label: string;
-  savingLabel: string;
-  disabled: boolean;
-}) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={disabled || pending} className={primaryButton}>
-      {pending && (
-        <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden />
-      )}
-      {pending ? savingLabel : label}
-    </button>
-  );
-}
-
-// Same reasoning as DomainStep's own StepBody: the redirect to the next
-// direction is a server-action navigation, not a <Link>, so it doesn't
-// reliably trip the route's own loading.tsx. Swap the whole body — prompt,
-// both textareas, the footer — the instant the submit goes pending.
-function StepBody({ children }: { children: React.ReactNode }) {
-  const { pending } = useFormStatus();
-  return pending ? <DirectionStepSkeleton /> : <>{children}</>;
-}
-
 // One priority domain: the worksheet's writing prompt, then the one sentence.
 //
 // Unlike the rating steps, this one guards its exit. These are long free-text
 // fields written slowly, and a mis-tapped Back that silently drops a paragraph
 // is a different order of loss than a re-draggable slider.
+//
+// Submission goes through useTransition rather than plain <form action> +
+// useFormStatus — see DomainStep's own comment for why: useFormStatus's
+// `pending` went false as soon as `action` returned, before the NEXT
+// direction's page had actually finished loading, which showed up as a
+// blank flash between the skeleton and the real content. startTransition
+// keeps `isPending` true across the redirect too.
 export function DirectionStep({
   action,
   next,
@@ -70,6 +47,7 @@ export function DirectionStep({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [reflection, setReflection] = useState(initialReflection);
   const [narrative, setNarrative] = useState(initialNarrative);
+  const [isPending, startTransition] = useTransition();
   const domain = copy.domains[slug];
 
   const dirty =
@@ -81,69 +59,86 @@ export function DirectionStep({
     else router.push(backHref);
   }
 
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      await action(formData);
+    });
+  }
+
   return (
-    <form action={action}>
+    <form onSubmit={handleSubmit}>
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="domain" value={slug} />
 
-      <StepBody>
-        {/* The progress bar above already carries "Direction n of 5". */}
-        <h1 className="display-title text-3xl sm:text-4xl">{domain.name}</h1>
-        <p className="mt-2 opacity-75">{copy.directions.lead}</p>
+      {isPending ? (
+        <DirectionStepSkeleton />
+      ) : (
+        <>
+          {/* The progress bar above already carries "Direction n of 5". */}
+          <h1 className="display-title text-3xl sm:text-4xl">{domain.name}</h1>
+          <p className="mt-2 opacity-75">{copy.directions.lead}</p>
 
-        {/* The prompt and the boundary stay on screen while writing: this is
-            the one screen where having to remember the question would cost
-            you the answer. */}
-        <div className="mt-5 border-2 border-forest rounded-card bg-mint px-4 py-3.5">
-          <p className="font-semibold">{domain.prompt}</p>
-          <p className="mt-1.5 text-sm opacity-75">{domain.boundary}</p>
-        </div>
-
-        <label htmlFor="rawReflection" className="block mt-6 mb-1 font-semibold text-sm">
-          {copy.directions.reflectionLabel}
-        </label>
-        <p className="mb-2 text-sm opacity-70">{copy.directions.reflectionHelp}</p>
-        {/* Fixed height and white: resizable fields make the page jump while
-            you write, and cream reads as disabled next to the white cards
-            around it. */}
-        <textarea
-          id="rawReflection"
-          name="rawReflection"
-          rows={7}
-          value={reflection}
-          onChange={(e) => setReflection(e.target.value)}
-          className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
-        />
-
-        <label htmlFor="narrative" className="block mt-6 mb-1 font-semibold text-sm">
-          {copy.directions.narrativeLabel}
-        </label>
-        <p className="mb-2 text-sm opacity-70">{copy.directions.narrativeHelp}</p>
-        <textarea
-          id="narrative"
-          name="narrative"
-          rows={3}
-          placeholder={copy.directions.narrativePlaceholder}
-          value={narrative}
-          onChange={(e) => setNarrative(e.target.value)}
-          className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
-        />
-
-        <div className="flex items-center justify-between gap-3 flex-wrap mt-7">
-          <div>
-            {backHref && (
-              <button type="button" onClick={goBack} className={ghostButton}>
-                {copy.back}
-              </button>
-            )}
+          {/* The prompt and the boundary stay on screen while writing: this
+              is the one screen where having to remember the question would
+              cost you the answer. */}
+          <div className="mt-5 border-2 border-forest rounded-card bg-mint px-4 py-3.5">
+            <p className="font-semibold">{domain.prompt}</p>
+            <p className="mt-1.5 text-sm opacity-75">{domain.boundary}</p>
           </div>
-          <SubmitButton
-            label={submitLabel}
-            savingLabel={copy.saving}
-            disabled={narrative.trim().length === 0}
+
+          <label htmlFor="rawReflection" className="block mt-6 mb-1 font-semibold text-sm">
+            {copy.directions.reflectionLabel}
+          </label>
+          <p className="mb-2 text-sm opacity-70">{copy.directions.reflectionHelp}</p>
+          {/* Fixed height and white: resizable fields make the page jump
+              while you write, and cream reads as disabled next to the white
+              cards around it. */}
+          <textarea
+            id="rawReflection"
+            name="rawReflection"
+            rows={7}
+            value={reflection}
+            onChange={(e) => setReflection(e.target.value)}
+            className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
           />
-        </div>
-      </StepBody>
+
+          <label htmlFor="narrative" className="block mt-6 mb-1 font-semibold text-sm">
+            {copy.directions.narrativeLabel}
+          </label>
+          <p className="mb-2 text-sm opacity-70">{copy.directions.narrativeHelp}</p>
+          <textarea
+            id="narrative"
+            name="narrative"
+            rows={3}
+            placeholder={copy.directions.narrativePlaceholder}
+            value={narrative}
+            onChange={(e) => setNarrative(e.target.value)}
+            className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
+          />
+
+          <div className="flex items-center justify-between gap-3 flex-wrap mt-7">
+            <div>
+              {backHref && (
+                <button type="button" onClick={goBack} className={ghostButton}>
+                  {copy.back}
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={narrative.trim().length === 0 || isPending}
+              className={primaryButton}
+            >
+              {isPending && (
+                <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden />
+              )}
+              {isPending ? copy.saving : submitLabel}
+            </button>
+          </div>
+        </>
+      )}
 
       <dialog
         ref={dialogRef}
