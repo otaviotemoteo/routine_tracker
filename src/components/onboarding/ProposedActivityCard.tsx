@@ -1,7 +1,13 @@
-import { X } from "lucide-react";
+import { BookOpen, Church, Dumbbell, Target, X, type LucideIcon } from "lucide-react";
 import { iconButton } from "@/components/ui/styles";
 import { COPY, type Copy, type Lang } from "@/lib/i18n";
 import type { ActivityRow } from "@/db/habits";
+
+const FACE_ICON: Record<string, LucideIcon> = {
+  treino: Dumbbell,
+  leitura: BookOpen,
+  espiritualidade: Church,
+};
 
 interface ProposedActivityCardProps {
   activity: ActivityRow;
@@ -30,10 +36,18 @@ export function ProposedActivityCard({
 }: ProposedActivityCardProps) {
   const config = rec(activity.config);
   const badge = badgeFor(activity.templateKind, copy);
+  const Icon = FACE_ICON[activity.templateKind ?? "plain"] ?? Target;
 
   return (
     <li className="relative border-2 border-forest rounded-card bg-white shadow-hard p-4 sm:p-5 flex flex-col gap-3.5">
-      <div className="flex gap-3 pr-[84px]">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className="shrink-0 w-11 h-11 rounded-lg bg-mint border-2 border-forest flex items-center justify-center"
+        >
+          <Icon className="w-5 h-5 text-forest" />
+        </span>
+
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-[17px]">{activity.name}</span>
@@ -42,7 +56,8 @@ export function ProposedActivityCard({
             </span>
           </div>
         </div>
-        <div className="absolute top-4 right-4 flex gap-2">
+
+        <div className="shrink-0 flex gap-2.5 ml-auto">
           <a
             href={editHref}
             title={copy.reviewEdit}
