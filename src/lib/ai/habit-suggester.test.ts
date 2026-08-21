@@ -79,36 +79,82 @@ const OVER_SPECIFIC = new RegExp(
   "i"
 );
 
+// Four distinct areas, four distinct voices/situations — the "§7 rule"
+// (POST-REBUILD-feedback-and-plan.md) this generator's granularity claim was
+// named against: it can only be validated across several different
+// situations, not just one area or one person's own phrasing. Sent in ONE
+// batched call, matching how suggest-habits.ts actually calls this generator
+// in production (every priority area together, never one at a time) — so
+// this is both more representative and cheaper than four separate live
+// calls.
+const FOUR_AREA_INPUT: SuggesterInput = {
+  lang: "en",
+  areas: [
+    {
+      domainSlug: "health",
+      domainName: "Health",
+      domainDescription: "Your body and how you look after it. Sleep, movement, food, medical care.",
+      domainBoundary: "The care itself, not how you look.",
+      narrative: "Move my body most days without it feeling like a chore.",
+      rawReflection:
+        "I used to run in college and felt strong. Now I sit all day for work and " +
+        "barely move. I don't need a race to train for, I just want movement to be " +
+        "a normal part of my day again, not a special event I have to plan around.",
+      findings: [],
+    },
+    {
+      domainSlug: "education",
+      domainName: "Education",
+      domainDescription: "Learning something on purpose, inside or outside a classroom.",
+      domainBoundary: "Deliberate learning, not passive scrolling.",
+      narrative: "Read real books again instead of just headlines.",
+      rawReflection:
+        "I have a shelf of books I bought meaning to read and never touched. My " +
+        "attention span for anything longer than a tweet has gotten worse over " +
+        "the last few years and it bothers me.",
+      findings: [],
+    },
+    {
+      domainSlug: "family",
+      domainName: "Family",
+      domainDescription: "The people you're related to, and the relationships you keep with them.",
+      domainBoundary: "Family specifically, not friendships in general.",
+      narrative: "Actually talk to my parents instead of a yearly holiday call.",
+      rawReflection:
+        "We live in different cities now and weeks go by without a real " +
+        "conversation. Everyone says they're busy. I don't want us to become " +
+        "people who only talk at funerals.",
+      findings: [],
+    },
+    {
+      domainSlug: "spirituality",
+      domainName: "Spirituality",
+      domainDescription: "Whatever practice connects you to something larger than the everyday.",
+      domainBoundary: "The practice itself, not organised religion as an institution.",
+      narrative: "A short daily practice that isn't just checking a box.",
+      rawReflection:
+        "I grew up going to church and stopped somewhere in my twenties without " +
+        "really deciding to. I miss having a quiet moment in the day that isn't " +
+        "about being productive.",
+      findings: [],
+    },
+  ],
+};
+
 describe.skipIf(!LIVE)("habit_suggester — real generation", () => {
   // A real model call. The harness's own docs put this generator at 5-20s
   // normally; gemini-3.6-flash measured ~48s for this schema in practice
-  // (see providers.ts's comment) — well past that, so this timeout is set
-  // to what was actually observed, not the harness's documented estimate.
-  test("proposes umbrella habits, not the domain name or a specific gesture", async () => {
+  // (see providers.ts's comment) — well past that, and four areas in one
+  // call is more work than the single-area case this timeout was originally
+  // set from, so it's generous here too.
+  test("proposes umbrella habits for every area, none the domain name or a specific gesture", async () => {
     const { generateObject } = await import("ai");
     const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
     const model = createGoogleGenerativeAI({
       apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY!,
     })("gemini-3.6-flash"); // keep in sync with src/lib/ai/providers.ts
 
-    const input: SuggesterInput = {
-      lang: "en",
-      areas: [
-        {
-          domainSlug: "health",
-          domainName: "Health",
-          domainDescription: "Your body and how you look after it. Sleep, movement, food, medical care.",
-          domainBoundary: "The care itself, not how you look.",
-          narrative: "Move my body most days without it feeling like a chore.",
-          rawReflection:
-            "I used to run in college and felt strong. Now I sit all day for work and " +
-            "barely move. I don't need a race to train for, I just want movement to be " +
-            "a normal part of my day again, not a special event I have to plan around.",
-          findings: [],
-        },
-      ],
-    };
-    const { system, prompt } = habitSuggester.buildPrompt(input);
+    const { system, prompt } = habitSuggester.buildPrompt(FOUR_AREA_INPUT);
 
     const { object } = await generateObject({
       model,
@@ -117,21 +163,23 @@ describe.skipIf(!LIVE)("habit_suggester — real generation", () => {
       prompt,
     });
 
-    const area = object.perArea.find((a) => a.domainSlug === "health");
-    expect(area).toBeDefined();
-    expect(area!.habits.length).toBeGreaterThanOrEqual(1);
-    expect(area!.habits.length).toBeLessThanOrEqual(2);
+    for (const { domainSlug, domainName } of FOUR_AREA_INPUT.areas) {
+      const area = object.perArea.find((a) => a.domainSlug === domainSlug);
+      expect(area).toBeDefined();
+      expect(area!.habits.length).toBeGreaterThanOrEqual(1);
+      expect(area!.habits.length).toBeLessThanOrEqual(2);
 
-    for (const habit of area!.habits) {
-      const name = habit.name.trim();
-      // Not the raw domain name back.
-      expect(name.toLowerCase()).not.toBe("health");
-      // Not an over-specific single gesture.
-      expect(OVER_SPECIFIC.test(name)).toBe(false);
-      // An umbrella reads as a short phrase, not a sentence.
-      expect(name.split(/\s+/).length).toBeLessThanOrEqual(6);
-      // Every proposal stays the generic renderer — never a rich kind.
-      expect(habit.templateKind).toBe("plain");
+      for (const habit of area!.habits) {
+        const name = habit.name.trim();
+        // Not the raw domain name back.
+        expect(name.toLowerCase()).not.toBe(domainName.toLowerCase());
+        // Not an over-specific single gesture.
+        expect(OVER_SPECIFIC.test(name)).toBe(false);
+        // An umbrella reads as a short phrase, not a sentence.
+        expect(name.split(/\s+/).length).toBeLessThanOrEqual(6);
+        // Every proposal stays the generic renderer — never a rich kind.
+        expect(habit.templateKind).toBe("plain");
+      }
     }
-  }, 90000);
+  }, 120000);
 });
