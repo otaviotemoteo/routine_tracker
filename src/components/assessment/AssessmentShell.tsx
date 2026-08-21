@@ -46,7 +46,7 @@ export function AssessmentShell(props: AssessmentShellProps) {
             {/* The one persistent "what section is this" signal on a focus
                 screen — "Área 6 de 12" says where in the grid you are, not
                 what the grid itself is. */}
-            <p className="eyebrow">{ASSESSMENT_COPY[lang].navLabel}</p>
+            <h1 className="eyebrow">{ASSESSMENT_COPY[lang].navLabel}</h1>
             <LanguageSelect current={lang} />
           </div>
         )}
