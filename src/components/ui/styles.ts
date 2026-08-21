@@ -16,6 +16,13 @@ export const fieldBase =
 
 export const inputClass = `${fieldBase} w-full`;
 
+// Hides the native up/down spinner on a number input. Needed once an input
+// gets narrow enough (a compact "sets × reps" pair, say) that the
+// browser-drawn arrows overlap the digit instead of sitting beside it —
+// Firefox via `appearance: textfield`, WebKit via the two pseudo-elements.
+export const noSpinnerClass =
+  "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+
 export const primaryButton =
   "min-h-[48px] inline-flex items-center justify-center gap-2 px-7 rounded-full border-2 border-forest bg-clover text-white font-semibold shadow-hard transition-[transform,box-shadow] duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-hard-sm disabled:opacity-60 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-hard";
 
