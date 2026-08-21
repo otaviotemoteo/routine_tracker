@@ -3,7 +3,7 @@ import { habitName, type Copy, type Lang } from "@/lib/i18n";
 import type { MonthActivityStats } from "@/types/habit";
 
 interface ConsistencyPanelProps {
-  habits: MonthActivityStats[];
+  activities: MonthActivityStats[];
   // Done-days per slug last month, for the delta column.
   previous: Record<string, number>;
   // False when last month is entirely before the first record — "+9" against a
@@ -13,16 +13,16 @@ interface ConsistencyPanelProps {
   copy: Copy["overview"];
 }
 
-// Habits ranked by how consistent they were, with the change since last month
-// — the month's "which of these is slipping" answer.
+// Activities ranked by how consistent they were, with the change since last
+// month — the month's "which of these is slipping" answer.
 export function ConsistencyPanel({
-  habits,
+  activities,
   previous,
   comparable,
   lang,
   copy,
 }: ConsistencyPanelProps) {
-  const ranked = [...habits].sort((a, b) => b.doneCount - a.doneCount);
+  const ranked = [...activities].sort((a, b) => b.doneCount - a.doneCount);
 
   return (
     <section
@@ -41,16 +41,16 @@ export function ConsistencyPanel({
       </div>
 
       <ul className="flex flex-col gap-2.5 list-none">
-        {ranked.map((habit) => {
-          const Icon = habitIcon(habit.templateKind, habit.domainSlug);
+        {ranked.map((activity) => {
+          const Icon = habitIcon(activity.templateKind, activity.domainSlug);
           const ratio =
-            habit.countedDays === 0 ? 0 : habit.doneCount / habit.countedDays;
-          const delta = habit.doneCount - (previous[habit.slug] ?? 0);
+            activity.countedDays === 0 ? 0 : activity.doneCount / activity.countedDays;
+          const delta = activity.doneCount - (previous[activity.slug] ?? 0);
           return (
-            <li key={habit.activityId} className="flex items-center gap-2.5">
+            <li key={activity.activityId} className="flex items-center gap-2.5">
               <Icon aria-hidden className="w-3.5 h-3.5 shrink-0 opacity-60" />
               <span className="w-[5.5rem] shrink-0 text-[0.7rem] font-semibold truncate">
-                {habitName(lang, habit.slug, habit.name)}
+                {habitName(lang, activity.slug, activity.name)}
               </span>
               <span className="flex-1 h-3 rounded-full bg-sand overflow-hidden">
                 <span
@@ -65,7 +65,7 @@ export function ConsistencyPanel({
                 />
               </span>
               <span className="w-12 shrink-0 text-right font-mono text-[0.7rem] font-bold">
-                {habit.doneCount}/{habit.countedDays}
+                {activity.doneCount}/{activity.countedDays}
               </span>
               {comparable && (
                 <span
