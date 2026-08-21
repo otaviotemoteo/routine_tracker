@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { ActivitiesSection } from "@/components/ActivitiesSection";
 import { HabitSummaryRow } from "@/components/habits/HabitSummaryRow";
 import { DirectionsIndex } from "@/components/assessment/DirectionsIndex";
-import { ProposedHabitGroups } from "@/components/habits/ProposedHabitGroups";
 import { PreviewBoard } from "@/components/preview/PreviewBoard";
 import { ASSESSMENT_COPY } from "@/lib/i18n-assessment";
 import { getLang } from "@/lib/get-lang";
@@ -280,18 +279,6 @@ export default async function PreviewPage() {
           written={directionsWritten}
           findings={directionsFindings}
           copy={ASSESSMENT_COPY[lang]}
-        />
-      </Block>
-
-      <Block title="Tela 2 — Hábitos (revisão)">
-        <ProposedHabitGroups
-          habits={proposedHabits}
-          lang={lang}
-          copy={copy.habits}
-          removeAction={() => {}}
-          editHrefFor={() => "#"}
-          next="#"
-          showSource
         />
       </Block>
 
