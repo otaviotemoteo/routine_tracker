@@ -48,6 +48,15 @@ export async function resolveOnboardingStep(
   if (priority.length === 0) return { screen: "habits" };
 
   const written = await listDirectionNarratives(userId, sealed.cycleId);
+  // P4: results must sit between sealing and directions, not be skipped
+  // entirely — the resolver used to fall straight from `sealed` to checking
+  // `missing` below, so the very first redirect after the 12th area landed
+  // on directions with results never shown at all. Zero directions written
+  // yet is the derived "hasn't seen results" signal (no new column, matching
+  // this function's own principle) — self-clearing the moment one is saved,
+  // so a resumed walk goes straight back into directions rather than being
+  // bounced through results on every visit.
+  if (Object.keys(written).length === 0) return { screen: "results" };
   const missing = firstUndirected(priority, written);
   if (missing) return { screen: "directions", slug: missing };
 
