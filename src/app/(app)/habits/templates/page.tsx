@@ -35,7 +35,7 @@ export default async function TemplatesPage({
     isGenericTemplateKind(h.templateKind)
   ).length;
 
-  const backHref = from === "overview" ? "/overview" : "/habits";
+  const backHref = from === "overview" ? "/overview" : from === "today" ? "/" : "/habits";
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-8 pb-24">
