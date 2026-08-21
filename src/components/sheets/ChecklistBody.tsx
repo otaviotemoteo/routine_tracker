@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { asRecord, type SheetBodyProps } from "./types";
 
 // The check-in step for the Checklist card style: tick off whichever of the
-// habit's own named items (habits.config.items, set once from the chooser)
-// got done today. There is no target and no unit here — a checklist habit's
-// only question is "which ones", same as the legacy `rotina` body asks of its
-// routine blocks.
-export function ChecklistBody({ initial, copy, habit, onChange }: SheetBodyProps) {
-  const configRecord = asRecord(habit.config);
+// activity's own named items (activities.config.items, set once from the
+// chooser) got done today. There is no target and no unit here — a checklist
+// activity's only question is "which ones", same as the legacy `rotina` body
+// asks of its routine blocks.
+export function ChecklistBody({ initial, copy, activity, onChange }: SheetBodyProps) {
+  const configRecord = asRecord(activity.config);
   const items = Array.isArray(configRecord?.items)
     ? configRecord!.items.filter((i): i is string => typeof i === "string")
     : [];
