@@ -361,6 +361,44 @@ column and `habits`' six moved columns are left in place, dead and
 unenforced, for a deliberate rollback window — `migrate-activities-cleanup.ts`
 drops them only once the new grain has run in production without incident.
 
+### The model chooses an activity's kind now, not a human
+
+The section above's "a human does, explicitly, in the step below" no longer
+holds for onboarding. `activity_proposer` used to require a caller-picked
+kind as input (`ActivityKindPicker`'s five icon-buttons were the only way a
+habit entered generation) and only ever filled in that kind's content. It now
+chooses the kind itself, from exactly four — `treino`/`leitura`/
+`espiritualidade`/`plain` — the four the review screen has a designed face
+for. `rotina` and `duolingo` are no longer proposable through this generator;
+a human can still promote a habit to either by hand, through `/config`,
+exactly as any rich kind always could be — reintroducing them as proposable,
+for a future non-onboarding "suggest" action, is a small, well-scoped
+addition (their old schemas are in git history) rather than a redesign.
+
+**`plain` gained a real proposed shape.** Until now this generator only
+covered the five rich kinds with something to list; a habit that's better
+tracked as a simple did/didn't, a count, or a duration had nothing to
+propose. It now proposes `metricType`/`unit`/`target`/`minimalAction`
+directly — the same starting point a person would otherwise type by hand into
+`ActivityForm.tsx` — which is why `generateActivitiesAction` branches on
+`proposal.kind === "plain"` to write those columns instead of `config`, and
+names the activity after its own habit rather than a generic label (there is
+no one-word category for an arbitrary metric the way there is for the three
+rich kinds).
+
+**One call per habit now, not one batched call for the whole set —
+this is also the BUG-1 fix.** The batched shape's own reasoning (protect
+`DAILY_RUN_QUOTA`, one wait instead of N) was real, but a batched call
+answering for only 1 of N habits, silently, was worse: `propose-activities.ts`
+runs the generator once per habit, in parallel, and returns successes and
+failures separately rather than one status for the whole set. The daily-quota
+check staying read-then-write means N concurrent calls can overshoot it
+slightly — accepted deliberately, bounded by how many habits are in one
+onboarding batch, on a personal-project soft cap, not a hard billing ceiling.
+
+`promptVersion` bumped 3 → 4: both the input shape (one habit, not a batch)
+and the output shape (kind as an output, `plain` as a fourth branch) changed.
+
 ## Route groups & persistent shell (v2)
 
 The authenticated app lives in an `app/(app)/` route group whose layout renders the `NavBar` **once** — it persists across navigations instead of remounting per page (the real cause of the old "reload" flash; all navigation was already `next/link`). `/login` and `/onboarding` sit outside the group and get no NavBar (except the two `/habits/*` subpaths the gate exempts — see below, which are inside `(app)` and get the layout's own conditional NavBar). `/semana` and `/mes` are permanent redirects into the `/overview` Week|Month toggle (`next.config.ts`).
