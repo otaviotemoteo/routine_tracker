@@ -51,7 +51,12 @@ export default async function ConfigPage({ searchParams }: ConfigPageProps) {
   const { activity: activityParam, from } = await searchParams;
   const activityId = activityParam ? Number(activityParam) : null;
 
-  const origin = from === "overview" ? "/overview" : "/config";
+  const origin =
+    from === "overview"
+      ? "/overview"
+      : from === "onboarding"
+        ? "/onboarding/activities"
+        : "/config";
   const back = origin;
   const next = origin;
   const submit = copy.save;
