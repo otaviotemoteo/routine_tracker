@@ -9,6 +9,7 @@ import { DirectionStep } from "@/components/assessment/DirectionStep";
 import { DirectionsIndex } from "@/components/assessment/DirectionsIndex";
 import { saveDirection } from "../values-actions";
 import { getLatestSealed, listDirectionNarratives } from "@/db/assessment";
+import { diagnose } from "@/lib/diagnose";
 import { isDomainSlug } from "@/lib/domains";
 import { getLang } from "@/lib/get-lang";
 import { COPY, format } from "@/lib/i18n";
@@ -156,7 +157,12 @@ export default async function DirectionsPage({ searchParams }: DirectionsPagePro
       </StepTitle>
       <p className="mt-2 mb-6 opacity-75">{copy.directions.indexLead}</p>
 
-      <DirectionsIndex priority={priority} written={written} copy={copy} />
+      <DirectionsIndex
+        priority={priority}
+        written={written}
+        findings={diagnose(sealed.ratings)}
+        copy={copy}
+      />
 
       {/* Forward, to the areas review. Sending someone back to the results
           screen they just read was the app telling them they were finished
