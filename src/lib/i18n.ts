@@ -413,9 +413,9 @@ export interface Copy {
     previewNote: string;
     footerNote: string;
     done: string;
-    // Tap-to-stage, then confirm — the button that appears on whichever
-    // card was just tapped, above its preview. Nothing saves until it's
-    // pressed. See TemplateOption.tsx.
+    // Tap-to-stage, then confirm — the button that appears at the bottom of
+    // whichever card was just tapped. Nothing saves until it's pressed. See
+    // TemplateOption.tsx.
     saveTemplate: string;
     actionChosen: string;
     actionSuggested: string;
