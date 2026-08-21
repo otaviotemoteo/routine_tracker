@@ -565,8 +565,6 @@ export interface Copy {
     generatePartialFail: string; // {n} — some habits' generation failed
     doneTitle: string; // {n}
     doneLead: string;
-    skip: string;
-    continueLabel: string;
     noneLeft: string; // every habit already has activities or none exist
     editHint: string; // "fine-tune in /config" style note under a done card
     // Screen 4 — the review step, between generating and accepting.
@@ -576,7 +574,12 @@ export interface Copy {
     reviewLead: string;
     reviewEdit: string; // link to /config to inspect/tweak before accepting
     reject: string; // discard one still-proposed activity
-    acceptAll: string;
+    // The one, always-present, mandatory way off this screen: accepts
+    // whatever's still proposed (a no-op if nothing is) and goes to Today.
+    // Activities aren't skippable — they're what Today's cards actually
+    // show — so there is deliberately no separate "skip"/"continue" pair
+    // any more, just this.
+    finishOnboarding: string;
     accepting: string;
     // The four face badges/labels a proposed activity's card can show —
     // ProposedActivityCard.tsx.
@@ -1017,7 +1020,7 @@ export const COPY: Record<Lang, Copy> = {
       minimalAction: "The smallest version",
       minimalActionPlaceholder: "One page",
       minimalActionHint: "What still counts on a bad day. This is what the card offers you when the day has gone wrong.",
-      save: "Save habit",
+      save: "Save activity",
       saving: "Saving…",
       cancel: "Cancel",
       nameRequired: "Give the habit a name.",
@@ -1219,8 +1222,6 @@ export const COPY: Record<Lang, Copy> = {
         "{n} of these couldn't be generated. The rest are ready to review below — try the others again from settings.",
       doneTitle: "{n} habits set up",
       doneLead: "Fine-tune anything in settings whenever you like.",
-      skip: "Skip for now",
-      continueLabel: "Continue to Today",
       noneLeft: "Nothing left to set up here.",
       editHint: "Edit in settings",
       reviewScreenTitle: "Suggested activities",
@@ -1231,8 +1232,8 @@ export const COPY: Record<Lang, Copy> = {
         "Take a look, tweak anything that isn't quite right, then accept the set.",
       reviewEdit: "Review",
       reject: "Discard",
-      acceptAll: "Accept and continue",
-      accepting: "Accepting…",
+      finishOnboarding: "Finish onboarding",
+      accepting: "Finishing…",
       faceWorkout: "WORKOUT",
       faceReading: "READING",
       faceCountable: "COUNTABLE",
@@ -1684,7 +1685,7 @@ export const COPY: Record<Lang, Copy> = {
       minimalAction: "A menor versão",
       minimalActionPlaceholder: "Uma página",
       minimalActionHint: "O que ainda conta num dia ruim. É isso que o cartão te oferece quando o dia deu errado.",
-      save: "Salvar hábito",
+      save: "Salvar atividade",
       saving: "Salvando…",
       cancel: "Cancelar",
       nameRequired: "Dê um nome ao hábito.",
@@ -1886,8 +1887,6 @@ export const COPY: Record<Lang, Copy> = {
         "{n} desses não puderam ser gerados. Os outros já estão prontos pra revisar abaixo — tente os demais de novo nas configurações.",
       doneTitle: "{n} hábitos configurados",
       doneLead: "Ajuste qualquer coisa nas configurações quando quiser.",
-      skip: "Pular por agora",
-      continueLabel: "Continuar para o Hoje",
       noneLeft: "Nada mais para configurar aqui.",
       editHint: "Editar nas configurações",
       reviewScreenTitle: "Atividades sugeridas",
@@ -1898,8 +1897,8 @@ export const COPY: Record<Lang, Copy> = {
         "Dê uma olhada, ajuste o que não estiver certo, e aceite o conjunto.",
       reviewEdit: "Revisar",
       reject: "Descartar",
-      acceptAll: "Aceitar e continuar",
-      accepting: "Aceitando…",
+      finishOnboarding: "Finalizar onboarding",
+      accepting: "Finalizando…",
       faceWorkout: "TREINO",
       faceReading: "LEITURA",
       faceCountable: "CONTÁVEL",
