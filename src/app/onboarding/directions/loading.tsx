@@ -19,12 +19,24 @@ export default async function Loading() {
       <div className="h-4 w-full rounded bg-sand animate-pulse mt-3" />
       <div className="h-4 w-2/3 rounded bg-sand animate-pulse mt-1.5 mb-6" />
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3.5">
+        {/* Matches DirectionsIndex's real card shape now (Screen 1's
+            reskin) — icon circle, two text lines, a badge row — not the
+            flat 64px bar this used to mirror, which would jump the moment
+            the taller real cards land. */}
         {Array.from({ length: 5 }, (_, i) => (
           <div
             key={i}
-            className="h-16 rounded-card border-2 border-sand bg-white animate-pulse"
-          />
+            className="rounded-card border-2 border-sand bg-white px-5 py-4 flex gap-3.5"
+          >
+            <div className="shrink-0 w-[46px] h-[46px] rounded-full bg-sand animate-pulse" />
+            <div className="min-w-0 flex-1 flex flex-col gap-2">
+              <div className="h-5 w-1/3 rounded bg-sand animate-pulse" />
+              <div className="h-4 rounded bg-sand animate-pulse" />
+              <div className="h-4 w-2/3 rounded bg-sand animate-pulse" />
+              <div className="h-5 w-24 rounded-full bg-sand animate-pulse mt-1" />
+            </div>
+          </div>
         ))}
       </div>
     </main>
