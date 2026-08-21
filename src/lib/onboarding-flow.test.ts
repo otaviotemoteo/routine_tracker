@@ -56,7 +56,13 @@ async function wipe(id: number): Promise<void> {
   await db.execute(sql`
     DELETE FROM assessment_ratings
      WHERE assessment_id IN (SELECT id FROM assessments WHERE user_id = ${id})`);
+  // daily_checks/activities before habits — every tracked habit gets a
+  // default activity now (docs/ARCHITECTURE.md's "default-activity
+  // invariant"), and activities_habit_id_fkey rejects deleting a habit one
+  // still references.
   for (const table of [
+    "daily_checks",
+    "activities",
     "ai_pending_requests",
     "direction_narratives",
     "habits",
@@ -123,6 +129,20 @@ describe.skipIf(!LIVE)("resolveOnboardingStep", () => {
   );
 
   test(
+    // P4's regression: a fresh seal with real priority domains and NOTHING
+    // written yet must land on results, not jump straight to directions.
+    // Before this fix the resolver had no branch for "sealed, zero
+    // directions" at all, so the very first redirect after sealing skipped
+    // results entirely.
+    "sealed, zero directions written -> results, not directions",
+    async () => {
+      await wipeAssessmentsOnly(rawId);
+      await sealFor(userId, 9, 3);
+      expect(await Flow.resolveOnboardingStep(userId)).toEqual({ screen: "results" });
+    }
+  );
+
+  test(
     // The dead-end regression: every domain's importance came in too low to
     // clear the priority cut. Nothing downstream (directions, areas) has
     // anything to do with an empty list, so this must not resolve to the
@@ -137,18 +157,27 @@ describe.skipIf(!LIVE)("resolveOnboardingStep", () => {
   );
 });
 
-// Between the two later tests, only the assessment/cycle state needs
-// resetting — re-sealing while a previous sealed row exists is exactly the
-// "second sealed assessment in the same cycle" shape the critical bug used
-// to produce, and getLatestSealed's newest-wins ordering means the fresh one
-// is what the resolver reads either way, so this keeps the two tests
-// independent without needing a second account.
+// Between the later tests, only the assessment/cycle/habit state needs
+// resetting (not the user itself) — re-sealing while a previous sealed row
+// exists is exactly the "second sealed assessment in the same cycle" shape
+// the critical bug used to produce, and getLatestSealed's newest-wins
+// ordering means the fresh one is what the resolver reads either way, so
+// this keeps each test independent without needing a second account.
+// activities before habits, same FK reason as wipe() above — any test that
+// created a habit left it a default activity.
 async function wipeAssessmentsOnly(id: number): Promise<void> {
   const { db } = Index;
   await db.execute(sql`
     DELETE FROM assessment_ratings
      WHERE assessment_id IN (SELECT id FROM assessments WHERE user_id = ${id})`);
-  for (const table of ["direction_narratives", "habits", "assessments", "cycles"]) {
+  for (const table of [
+    "daily_checks",
+    "activities",
+    "direction_narratives",
+    "habits",
+    "assessments",
+    "cycles",
+  ]) {
     await db.execute(sql`DELETE FROM ${sql.raw(table)} WHERE user_id = ${id}`);
   }
 }
