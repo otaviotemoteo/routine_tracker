@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { AssessmentShell } from "@/components/assessment/AssessmentShell";
 import { StepTitle } from "@/components/onboarding/OnboardingChrome";
-import { ActivityKindPicker } from "@/components/onboarding/ActivityKindPicker";
+import { ActivityBriefingForm } from "@/components/onboarding/ActivityBriefingForm";
+import { ProposedActivityCard } from "@/components/onboarding/ProposedActivityCard";
 import {
   acceptActivitiesAction,
   generateActivitiesAction,
@@ -14,13 +15,13 @@ import { format } from "@/lib/i18n";
 import { getLang } from "@/lib/get-lang";
 import { COPY } from "@/lib/i18n";
 import { isFirstRun } from "@/lib/onboarding-flow";
-import { primaryButton, ghostButton, iconButton } from "@/components/ui/styles";
+import { primaryButton, ghostButton } from "@/components/ui/styles";
 import { requireUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 interface ActivitiesPageProps {
-  searchParams: Promise<{ failed?: string }>;
+  searchParams: Promise<{ failed?: string; partialFail?: string }>;
 }
 
 // The last leg of onboarding, and the only one that isn't a gate. By the time
@@ -48,7 +49,6 @@ export default async function ActivitiesPage({
     listTrackedActivities(userId),
     listProposedActivities(userId),
   ]);
-  const habitNameById = new Map(allHabits.map((h) => [h.id, h.name]));
 
   const richHabitIds = new Set(
     tracked.filter((a) => !isChoosableTemplateKind(a.templateKind)).map((a) => a.habitId)
@@ -62,16 +62,32 @@ export default async function ActivitiesPage({
   );
   const done = tracked.filter((a) => !isChoosableTemplateKind(a.templateKind));
 
+  // Two designed screens share this one route: Screen 3 (still collecting
+  // briefings) and Screen 4 (reviewing what came back). Both can be true at
+  // once — a person can leave some habits mid-review and others not yet
+  // briefed — so the title follows whichever has real content to show,
+  // review taking priority since it's the one with something to act on.
+  const title = proposed.length > 0 ? copy.reviewScreenTitle : copy.title;
+  const lead = proposed.length > 0 ? copy.reviewScreenLead : copy.lead;
+
   return (
     <AssessmentShell lang={lang} navCopy={COPY[lang].nav} chrome="nav" firstRun={firstRun}>
       <p className="eyebrow">{copy.eyebrow}</p>
-      <StepTitle backLabel={copy.eyebrow}>{copy.title}</StepTitle>
-      <p className="mt-2 mb-6 opacity-75">{copy.lead}</p>
+      <StepTitle backLabel={copy.eyebrow}>{title}</StepTitle>
+      <p className="mt-2 mb-6 opacity-75">{lead}</p>
 
       {params.failed === "1" && (
         <p className="mb-6 flex items-start gap-2.5 border-2 border-forest bg-straw/15 rounded-card px-4 py-3">
           <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden />
           <span className="min-w-0">{copy.generateFailed}</span>
+        </p>
+      )}
+      {params.partialFail && Number(params.partialFail) > 0 && (
+        <p className="mb-6 flex items-start gap-2.5 border-2 border-forest bg-straw/15 rounded-card px-4 py-3">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden />
+          <span className="min-w-0">
+            {format(copy.generatePartialFail, { n: Number(params.partialFail) })}
+          </span>
         </p>
       )}
 
@@ -81,37 +97,16 @@ export default async function ActivitiesPage({
             {format(copy.reviewTitle, { n: proposed.length })}
           </p>
           <p className="text-sm opacity-75">{copy.reviewLead}</p>
-          <ul className="flex flex-col gap-2 list-none">
+          <ul className="flex flex-col gap-3.5 list-none">
             {proposed.map((activity) => (
-              <li
+              <ProposedActivityCard
                 key={activity.id}
-                className="flex items-center justify-between gap-3 border-2 border-forest bg-straw/15 rounded-card px-4 py-3"
-              >
-                <span className="min-w-0">
-                  <span className="block font-semibold">
-                    {habitNameById.get(activity.habitId) ?? activity.name}
-                  </span>
-                  <span className="block text-xs opacity-70">{activity.name}</span>
-                </span>
-                <span className="shrink-0 flex items-center gap-2">
-                  <Link
-                    href={`/config?activity=${activity.id}`}
-                    className="text-xs font-bold underline"
-                  >
-                    {copy.reviewEdit}
-                  </Link>
-                  <form action={rejectActivityAction}>
-                    <input type="hidden" name="id" value={activity.id} />
-                    <button
-                      type="submit"
-                      aria-label={`${copy.reject} ${activity.name}`}
-                      className={iconButton}
-                    >
-                      <X className="w-4 h-4 text-[#a8452f]" aria-hidden />
-                    </button>
-                  </form>
-                </span>
-              </li>
+                activity={activity}
+                lang={lang}
+                copy={copy}
+                editHref={`/config?activity=${activity.id}`}
+                rejectAction={rejectActivityAction}
+              />
             ))}
           </ul>
           <form action={acceptActivitiesAction} className="mt-1">
@@ -148,8 +143,9 @@ export default async function ActivitiesPage({
       )}
 
       {candidates.length > 0 ? (
-        <ActivityKindPicker
+        <ActivityBriefingForm
           habits={candidates}
+          lang={lang}
           copy={copy}
           action={generateActivitiesAction}
         />
