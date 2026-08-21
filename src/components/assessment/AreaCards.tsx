@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { domainIcon } from "@/lib/domain-icons";
 import { cardSurface } from "@/components/ui/styles";
+import type { Finding } from "@/lib/diagnose";
 import type { DomainSlug } from "@/lib/domains";
 import type { NarrativeRow } from "@/db/assessment";
 import type { Copy } from "@/lib/i18n";
@@ -9,6 +10,10 @@ import type { Copy } from "@/lib/i18n";
 interface AreaCardsProps {
   areas: DomainSlug[];
   written: Record<string, NarrativeRow>;
+  // Same findings the results/directions screens diagnose from the sealed
+  // ratings — not recomputed differently here, so all three can't disagree
+  // about why an area is on the list. See DirectionsIndex's own comment.
+  findings: Finding[];
   copy: Copy["assessment"];
 }
 
@@ -19,12 +24,13 @@ interface AreaCardsProps {
 // directions are still to write and its rows are the way into writing them.
 // This one is the last read before the habits are proposed, so the direction
 // itself is the content rather than a truncated preview of a pending task.
-export function AreaCards({ areas, written, copy }: AreaCardsProps) {
+export function AreaCards({ areas, written, findings, copy }: AreaCardsProps) {
   return (
     <ul className="flex flex-col gap-3 list-none">
       {areas.map((slug) => {
         const Icon = domainIcon(slug);
         const narrative = written[slug]?.narrative?.trim();
+        const own = findings.filter((f) => f.domainSlug === slug);
 
         return (
           <li key={slug} className={`${cardSurface} p-4`}>
@@ -51,6 +57,22 @@ export function AreaCards({ areas, written, copy }: AreaCardsProps) {
                 >
                   {narrative ?? copy.areas.noDirection}
                 </p>
+
+                {own.length > 0 && (
+                  <ul className="flex flex-wrap gap-1.5 mt-2.5 list-none">
+                    {own.map((finding) => (
+                      <li
+                        key={finding.pattern}
+                        className="text-xs font-semibold border-[1.5px] border-forest rounded-full bg-white px-2.5 py-1"
+                      >
+                        {copy.patterns[finding.pattern].importance}
+                        {copy.patterns[finding.pattern].action
+                          ? ` · ${copy.patterns[finding.pattern].action}`
+                          : ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
 
