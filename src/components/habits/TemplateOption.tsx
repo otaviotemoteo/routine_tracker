@@ -62,14 +62,6 @@ export function TemplateOption({
 
   return (
     <div className={optionShellClass(selected, suggested)}>
-      {staged && (
-        <StagedSaveButton
-          activityId={habit.id}
-          kind={kind}
-          label={copy.saveTemplate}
-          onSaved={onSaved}
-        />
-      )}
       <button
         type="button"
         onClick={onStage}
@@ -79,6 +71,14 @@ export function TemplateOption({
         <PreviewBlock preview={preview} />
         {!staged && <OptionAction chosen={chosen} suggested={suggested} copy={copy} />}
       </button>
+      {staged && (
+        <StagedSaveButton
+          activityId={habit.id}
+          kind={kind}
+          label={copy.saveTemplate}
+          onSaved={onSaved}
+        />
+      )}
     </div>
   );
 }
