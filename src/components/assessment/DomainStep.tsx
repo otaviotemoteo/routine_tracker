@@ -12,8 +12,10 @@ import { format, plural, type Copy } from "@/lib/i18n";
 type Answers = Partial<Record<ScaleKey, number>>;
 
 interface DomainStepProps {
+  // Called with the form's data; AssessmentGrid's own wrapper decides what
+  // happens next (advance locally, or navigate away once the grid seals) —
+  // this component doesn't know or care which.
   action: (formData: FormData) => Promise<void>;
-  next: string;
   backHref?: string;
   slug: DomainSlug;
   isLast: boolean;
@@ -32,17 +34,15 @@ interface DomainStepProps {
 // The whole check-in is still abandonable at any moment: the draft keeps
 // whatever is in it.
 //
-// Submission is driven by useTransition, not the plain <form action> +
-// useFormStatus pattern the rest of onboarding uses: `action` calls
-// redirect() into the NEXT domain, and useFormStatus's `pending` turned out
-// to go false the moment the action itself returns — before the next page's
-// own data has actually loaded, which is exactly the gap that showed up as a
-// blank flash between the skeleton and the real content. Wrapping the call
-// in startTransition keeps `isPending` true across the whole thing,
-// redirect included, because that's what the transition is FOR.
+// Submission goes through useTransition, not the plain <form action> +
+// useFormStatus pattern the rest of onboarding uses: this component doesn't
+// navigate at all any more (AssessmentGrid holds the current domain as
+// state), but the skeleton still needs to cover however long the real save
+// takes, and useFormStatus's `pending` proved unreliable for spanning a
+// state update that lands in a PARENT component (see AssessmentGrid's
+// action, handleSaved) — useTransition's `isPending` does that correctly.
 export function DomainStep({
   action,
-  next,
   backHref,
   slug,
   isLast,
@@ -64,7 +64,6 @@ export function DomainStep({
 
   return (
     <form onSubmit={handleSubmit}>
-      <input type="hidden" name="next" value={next} />
       <input type="hidden" name="domain" value={slug} />
 
       {isPending ? (
