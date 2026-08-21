@@ -65,9 +65,22 @@ export function ProposedHabitGroups({
     <div className="flex flex-col gap-7">
       {groups.map((group) => (
         <section key={group.key}>
-          <h2 className="eyebrow flex items-center gap-2 mb-2.5">
-            {group.icon}
-            {group.label}
+          <h2 className="flex items-center gap-2.5 mb-2.5">
+            {group.icon && (
+              <span
+                aria-hidden
+                className="shrink-0 w-[30px] h-[30px] rounded-full bg-mint border-2 border-forest flex items-center justify-center"
+              >
+                {group.icon}
+              </span>
+            )}
+            <span
+              className="font-display font-bold text-base tracking-wide"
+              style={{ fontVariantCaps: "small-caps" }}
+            >
+              {group.label}
+            </span>
+            <span className="flex-1 h-0.5 bg-forest/10" aria-hidden />
           </h2>
           <ul className="flex flex-col gap-3 list-none">
             {group.items.map((habit) => (
