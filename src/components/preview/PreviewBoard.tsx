@@ -113,11 +113,11 @@ const PROPOSED_ACTIVITIES: ActivityRow[] = [
 
 export function PreviewBoard({
   lang,
-  habits,
+  activities,
   proposedHabits,
 }: {
   lang: Lang;
-  habits: ActivityWithHabit[];
+  activities: ActivityWithHabit[];
   proposedHabits: HabitRow[];
 }) {
   const copy = COPY[lang];
@@ -167,10 +167,10 @@ export function PreviewBoard({
 
       <Block title="Hábitos — linha completa (/habits)">
         <ul className="flex flex-col gap-2.5 list-none">
-          {habits.map((h, i) => (
+          {activities.map((a, i) => (
             <HabitRowCard
-              key={h.id}
-              habit={h}
+              key={a.id}
+              activity={a}
               copy={copy.habits}
               editHref="#"
               removeAction={() => {}}
