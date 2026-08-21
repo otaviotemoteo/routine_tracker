@@ -1,5 +1,5 @@
+import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { dismissTemplatesNudgeAction } from "@/app/(app)/templates-nudge-actions";
 import { habitName, format, type Copy, type Lang } from "@/lib/i18n";
 
 interface TemplatesNudgeProps {
@@ -10,12 +10,17 @@ interface TemplatesNudgeProps {
 
 const PREVIEW_COUNT = 3;
 
-// Today's first-run invitation into the card-style chooser — shown exactly
-// once (a cookie marks it seen the moment either button below is pressed;
-// see templates-nudge-actions.ts) rather than every day a habit still uses
-// the default look. The mini-cards are illustrative only — real content,
-// deliberately blurred, so screen readers skip straight to the heading and
-// the two real actions rather than reading fabricated numbers as data.
+// Today's first-run invitation into the card-style chooser — shown for as
+// long as any tracked activity is still the bare, untouched default, not
+// just once. There used to be a "seen it, dismiss for good" cookie here
+// (both the CTA and a "Not now" both set it), but a one-time dismissal is
+// exactly what let an unaddressed default card end up visible with no
+// nudge next to it: dismissing must not outlive the state it was about.
+// Derived, not remembered — same principle as everywhere else this app
+// avoids a stored flag when the database already knows the answer. The mini-
+// cards are illustrative only — real content, deliberately blurred, so
+// screen readers skip straight to the heading and the one real action
+// rather than reading fabricated numbers as data.
 //
 // Blur is otherwise foreign to this design system ("hard shadows, never
 // blurred" — UX_PRINCIPLES.md), so it's used here on purpose and only here:
@@ -37,26 +42,12 @@ export function TemplatesNudge({ habitNames, lang, copy }: TemplatesNudgeProps) 
         </div>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <form action={dismissTemplatesNudgeAction}>
-          <input type="hidden" name="to" value="/habits/templates?from=today" />
-          <button
-            type="submit"
-            className="min-h-[44px] px-5 rounded-full border-2 border-forest bg-clover text-white font-semibold text-sm shadow-hard-sm"
-          >
-            {copy.templatesNudgeCta}
-          </button>
-        </form>
-        <form action={dismissTemplatesNudgeAction}>
-          <input type="hidden" name="to" value="/" />
-          <button
-            type="submit"
-            className="min-h-[44px] px-2 font-semibold text-sm underline opacity-60"
-          >
-            {copy.templatesNudgeDismiss}
-          </button>
-        </form>
-      </div>
+      <Link
+        href="/habits/templates?from=today"
+        className="min-h-[44px] inline-flex items-center justify-center px-5 rounded-full border-2 border-forest bg-clover text-white font-semibold text-sm shadow-hard-sm w-fit"
+      >
+        {copy.templatesNudgeCta}
+      </Link>
 
       {preview.length > 0 && (
         <div aria-hidden className="flex flex-col gap-2 pt-1">
