@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { ghostButton, inputClass, primaryButton } from "@/components/ui/styles";
+import { DirectionStepSkeleton } from "./DirectionStepSkeleton";
 import type { DomainSlug } from "@/lib/domains";
 import { format, type Copy } from "@/lib/i18n";
 
@@ -38,6 +39,15 @@ function SubmitButton({
       {pending ? savingLabel : label}
     </button>
   );
+}
+
+// Same reasoning as DomainStep's own StepBody: the redirect to the next
+// direction is a server-action navigation, not a <Link>, so it doesn't
+// reliably trip the route's own loading.tsx. Swap the whole body — prompt,
+// both textareas, the footer — the instant the submit goes pending.
+function StepBody({ children }: { children: React.ReactNode }) {
+  const { pending } = useFormStatus();
+  return pending ? <DirectionStepSkeleton /> : <>{children}</>;
 }
 
 // One priority domain: the worksheet's writing prompt, then the one sentence.
@@ -76,61 +86,64 @@ export function DirectionStep({
       <input type="hidden" name="next" value={next} />
       <input type="hidden" name="domain" value={slug} />
 
-      {/* The progress bar above already carries "Direction n of 5". */}
-      <h1 className="display-title text-3xl sm:text-4xl">{domain.name}</h1>
-      <p className="mt-2 opacity-75">{copy.directions.lead}</p>
+      <StepBody>
+        {/* The progress bar above already carries "Direction n of 5". */}
+        <h1 className="display-title text-3xl sm:text-4xl">{domain.name}</h1>
+        <p className="mt-2 opacity-75">{copy.directions.lead}</p>
 
-      {/* The prompt and the boundary stay on screen while writing: this is the
-          one screen where having to remember the question would cost you the
-          answer. */}
-      <div className="mt-5 border-2 border-forest rounded-card bg-mint px-4 py-3.5">
-        <p className="font-semibold">{domain.prompt}</p>
-        <p className="mt-1.5 text-sm opacity-75">{domain.boundary}</p>
-      </div>
-
-      <label htmlFor="rawReflection" className="block mt-6 mb-1 font-semibold text-sm">
-        {copy.directions.reflectionLabel}
-      </label>
-      <p className="mb-2 text-sm opacity-70">{copy.directions.reflectionHelp}</p>
-      {/* Fixed height and white: resizable fields make the page jump while you
-          write, and cream reads as disabled next to the white cards around it. */}
-      <textarea
-        id="rawReflection"
-        name="rawReflection"
-        rows={7}
-        value={reflection}
-        onChange={(e) => setReflection(e.target.value)}
-        className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
-      />
-
-      <label htmlFor="narrative" className="block mt-6 mb-1 font-semibold text-sm">
-        {copy.directions.narrativeLabel}
-      </label>
-      <p className="mb-2 text-sm opacity-70">{copy.directions.narrativeHelp}</p>
-      <textarea
-        id="narrative"
-        name="narrative"
-        rows={3}
-        placeholder={copy.directions.narrativePlaceholder}
-        value={narrative}
-        onChange={(e) => setNarrative(e.target.value)}
-        className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
-      />
-
-      <div className="flex items-center justify-between gap-3 flex-wrap mt-7">
-        <div>
-          {backHref && (
-            <button type="button" onClick={goBack} className={ghostButton}>
-              {copy.back}
-            </button>
-          )}
+        {/* The prompt and the boundary stay on screen while writing: this is
+            the one screen where having to remember the question would cost
+            you the answer. */}
+        <div className="mt-5 border-2 border-forest rounded-card bg-mint px-4 py-3.5">
+          <p className="font-semibold">{domain.prompt}</p>
+          <p className="mt-1.5 text-sm opacity-75">{domain.boundary}</p>
         </div>
-        <SubmitButton
-          label={submitLabel}
-          savingLabel={copy.saving}
-          disabled={narrative.trim().length === 0}
+
+        <label htmlFor="rawReflection" className="block mt-6 mb-1 font-semibold text-sm">
+          {copy.directions.reflectionLabel}
+        </label>
+        <p className="mb-2 text-sm opacity-70">{copy.directions.reflectionHelp}</p>
+        {/* Fixed height and white: resizable fields make the page jump while
+            you write, and cream reads as disabled next to the white cards
+            around it. */}
+        <textarea
+          id="rawReflection"
+          name="rawReflection"
+          rows={7}
+          value={reflection}
+          onChange={(e) => setReflection(e.target.value)}
+          className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
         />
-      </div>
+
+        <label htmlFor="narrative" className="block mt-6 mb-1 font-semibold text-sm">
+          {copy.directions.narrativeLabel}
+        </label>
+        <p className="mb-2 text-sm opacity-70">{copy.directions.narrativeHelp}</p>
+        <textarea
+          id="narrative"
+          name="narrative"
+          rows={3}
+          placeholder={copy.directions.narrativePlaceholder}
+          value={narrative}
+          onChange={(e) => setNarrative(e.target.value)}
+          className={`${inputClass} bg-white py-2.5 leading-relaxed resize-none`}
+        />
+
+        <div className="flex items-center justify-between gap-3 flex-wrap mt-7">
+          <div>
+            {backHref && (
+              <button type="button" onClick={goBack} className={ghostButton}>
+                {copy.back}
+              </button>
+            )}
+          </div>
+          <SubmitButton
+            label={submitLabel}
+            savingLabel={copy.saving}
+            disabled={narrative.trim().length === 0}
+          />
+        </div>
+      </StepBody>
 
       <dialog
         ref={dialogRef}
