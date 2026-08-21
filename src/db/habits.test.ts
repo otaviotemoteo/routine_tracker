@@ -24,6 +24,8 @@ let Habits: typeof import("./habits");
 let Index: typeof import("./index");
 let Schema: typeof import("./schema");
 let Scope: typeof import("./scope");
+let Queries: typeof import("./queries");
+let Utils: typeof import("@/lib/utils");
 
 const stamp = Date.now().toString(36);
 const NAME = `habits-activities-test-${stamp}`;
@@ -33,11 +35,13 @@ describe.skipIf(!LIVE)("activities", () => {
   let userId: import("./scope").UserId;
 
   beforeAll(async () => {
-    [Habits, Index, Schema, Scope] = await Promise.all([
+    [Habits, Index, Schema, Scope, Queries, Utils] = await Promise.all([
       import("./habits"),
       import("./index"),
       import("./schema"),
       import("./scope"),
+      import("./queries"),
+      import("@/lib/utils"),
     ]);
     const created = await import("./users").then((m) => m.createUser(NAME));
     if (created === null) throw new Error("could not create user");
@@ -148,7 +152,14 @@ describe.skipIf(!LIVE)("activities", () => {
       .select({ activeTo: Schema.activities.activeTo })
       .from(Schema.activities)
       .where(and(eq(Schema.activities.id, default1), eq(Schema.activities.userId, userId)));
-    expect(retired?.activeTo).toBe(DATE);
+    // The day BEFORE DATE, not DATE itself: activitiesFor()'s own activeTo
+    // bound is inclusive (gte(activeTo, onDate)), so retiring with activeTo
+    // = DATE would still count the retired row as live on DATE — the exact
+    // overlap that produced a real duplicate Today card in production (see
+    // the getDayChecks assertion below, which is what actually caught it —
+    // this raw-column check alone passed silently on the bug for a full
+    // session because nothing exercised the query real callers use).
+    expect(retired?.activeTo).toBe(Utils.addDays(DATE, -1));
 
     const [survived] = await Index.db
       .select({ activeTo: Schema.activities.activeTo })
@@ -160,5 +171,15 @@ describe.skipIf(!LIVE)("activities", () => {
     const acceptedB = await Habits.getActivity(userId, proposed2);
     expect(acceptedA?.activeFrom).toBe(DATE);
     expect(acceptedB?.activeFrom).toBe(DATE);
+
+    // The real regression check: query the day the same way Today actually
+    // does (getDayChecks) and confirm habit1 shows up exactly ONCE on the
+    // very day its default retires and its real activity takes over — not
+    // twice, which is what a same-day retire/activate overlap looks like to
+    // a person staring at their Today screen.
+    const dayChecks = await Queries.getDayChecks(userId, DATE);
+    const habit1Checks = dayChecks.filter((c) => c.habitId === habit1);
+    expect(habit1Checks).toHaveLength(1);
+    expect(habit1Checks[0]?.activityId).toBe(proposed1);
   });
 });
