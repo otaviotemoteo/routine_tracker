@@ -38,6 +38,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const viewport: Viewport = {
   themeColor: "#F7F3E8",
+  // Without this, iOS Safari never extends the viewport into the safe-area
+  // regions at all, and env(safe-area-inset-bottom) (globals.css's body
+  // rule) just evaluates to 0 — the meta tag is what turns the CSS value on.
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({
