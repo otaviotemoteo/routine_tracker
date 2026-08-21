@@ -14,7 +14,7 @@ import {
 import type { ActivityWithHabit } from "@/db/habits";
 
 interface TemplateChooserListProps {
-  habits: ActivityWithHabit[];
+  activities: ActivityWithHabit[];
   lang: Lang;
   copy: Copy["templates"];
   todayCopy: Copy["today"];
@@ -35,21 +35,22 @@ function activityUrl(id: number | null, from: string | undefined): string {
   return `/habits/templates${query ? `?${query}` : ""}`;
 }
 
-// The chooser's one interactive surface: a list of habits, each an
+// The chooser's one interactive surface: a list of activities, each an
 // accordion — closed shows a one-line status, open reveals the five
 // template options with real previews. Modelled on ListCard's "collapse
 // what's finished, tap to expand" shape (src/components/onboarding/ListCard),
 // but the open body is a set of choices rather than a form, so it's a
 // sibling rather than a reuse.
 //
-// Only one habit is open at a time: opening a second closes the first, same
-// as the onboarding preview board's accordion — five previews per habit is
-// already a lot on a 360px screen, and two at once would be a wall. The URL
-// tracks whichever one that is (history.replaceState, no real navigation —
-// same idiom AssessmentGrid uses) so a link straight into one activity's
-// chooser, or a reload while one is open, both land in the right place.
+// Only one activity is open at a time: opening a second closes the first,
+// same as the onboarding preview board's accordion — five previews per
+// activity is already a lot on a 360px screen, and two at once would be a
+// wall. The URL tracks whichever one that is (history.replaceState, no real
+// navigation — same idiom AssessmentGrid uses) so a link straight into one
+// activity's chooser, or a reload while one is open, both land in the right
+// place.
 export function TemplateChooserList({
-  habits,
+  activities,
   lang,
   copy,
   todayCopy,
@@ -57,10 +58,10 @@ export function TemplateChooserList({
   from,
 }: TemplateChooserListProps) {
   const [openId, setOpenId] = useState<number | null>(
-    habits.some((h) => h.id === initialActivityId) ? initialActivityId : null
+    activities.some((a) => a.id === initialActivityId) ? initialActivityId : null
   );
   // The card someone tapped but hasn't saved yet — cleared whenever a
-  // different habit opens (or this one closes), since only one habit is
+  // different activity opens (or this one closes), since only one activity is
   // open at a time and its staged pick shouldn't survive past that.
   const [stagedKind, setStagedKind] = useState<GenericTemplateKind | null>(null);
 
@@ -73,14 +74,14 @@ export function TemplateChooserList({
 
   return (
     <ul className="flex flex-col gap-2.5 list-none">
-      {habits.map((habit) => {
-        const open = openId === habit.id;
-        const chosenKind = isGenericTemplateKind(habit.templateKind)
-          ? habit.templateKind
+      {activities.map((activity) => {
+        const open = openId === activity.id;
+        const chosenKind = isGenericTemplateKind(activity.templateKind)
+          ? activity.templateKind
           : null;
-        const suggestedKind = suggestedGenericTemplateKind(habit.metricType);
-        const Icon = habitIcon(habit.templateKind, habit.domainSlug);
-        const name = habitName(lang, habit.slug, habit.name);
+        const suggestedKind = suggestedGenericTemplateKind(activity.metricType);
+        const Icon = habitIcon(activity.templateKind, activity.domainSlug);
+        const name = habitName(lang, activity.slug, activity.name);
 
         const status = chosenKind
           ? format(copy.statusChosen, { name: copy.names[chosenKind] })
@@ -98,13 +99,13 @@ export function TemplateChooserList({
 
         return (
           <li
-            key={habit.id}
+            key={activity.id}
             className={`rounded-card border-2 border-forest shadow-hard overflow-hidden ${rowBg}`}
           >
             <button
               type="button"
               aria-expanded={open}
-              onClick={() => toggleOpen(habit.id)}
+              onClick={() => toggleOpen(activity.id)}
               className="w-full min-h-[64px] text-left px-4 py-3 flex items-start gap-3"
             >
               <Icon
@@ -146,7 +147,7 @@ export function TemplateChooserList({
                     className={kind === "checklist" ? "sm:col-span-2" : undefined}
                   >
                     <TemplateOption
-                      habit={habit}
+                      activity={activity}
                       kind={kind}
                       chosen={chosenKind === kind}
                       suggested={!chosenKind && suggestedKind === kind}
